@@ -14,7 +14,7 @@ Der Monitor soll kompatibel bleiben und die Kompatibilität des BIOS ist von CP/
 Geplante Erweiterungen sind:
 - Optimierung, unnötige Routinen entfernen
 - Unterstützung weiterer Diskettenformate und eine einfacher Implementierung neuer Formate
-- Die Hardware-Unterstützung auf die aktuelle Hardware der Clones reduzieren um die Software zu vereinfachen (zum Beispiel ältere Floppy-Controller). Wer erweiterte Kompatibilität benötigt, kann auf Originalsoftware zurückgreifen).
+- Die Hardwareunterstützung auf die aktuelle Hardware des MC CP/M-Clones reduzieren, um die Software zu vereinfachen. Wer erweiterte Kompatibilität benötigt, kann auf die Originalsoftware zurückgreifen).
 - Unterstützung der IDE/CF-Karte gleichzeitig zusammen mit Diskettenlaufwerken
 - Vereinheitlichung der Tools um Beispiel für die Nutzung von Disketten und IDE/CF-Laufwerke
 
