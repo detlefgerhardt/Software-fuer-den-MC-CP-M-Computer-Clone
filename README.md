@@ -13,9 +13,9 @@ Der Monitor soll kompatibel bleiben und die Kompatibilität des BIOS ist von CP/
 
 Geplante Erweiterungen sind:
 - Optimierung, unnötige Routinen entfernen
-- Unterstützung weiterer Diskettenformat und eine flexiblere Implementierung neuer Formate
+- Unterstützung weiterer Diskettenformate und eine einfacher Implementierung neuer Formate
 - Unterstützung der IDE/CF-Karte gleichzeitig zusammen mit Diskettenlaufwerken
-- Vereinheitlichung der Tools vor allem für Disketten als auch für Compact-Flash Nutzung
+- Vereinheitlichung der Tools um Beispiel für die Nutzung von Disketten und IDE/CF-Laufwerke
 
 Dieser Repository gliedert sich in:
 - NMON - der Monitor für den CP/M-Computer
@@ -25,5 +25,5 @@ Dieser Repository gliedert sich in:
 - CPM-Standardsoftware - Standard CP/M-Programme, die für Entwicklung und die Systemeinrichtung benötigt werden.
 - Windows-Tools - Windows-Programme die für Entwicklung des CP/M-Computer verwendet werden.
 
-Achtung. Die Versionierung und die Namen der Dateien wurden geändert um eine klaren Schnitt zwischen der OriginalSoftare und dieser Software machen.
+Achtung. Die Versionierung und die Namen der Dateien wurden geändert, um eine klaren Schnitt zwischen der OriginalSoftare und dieser Software machen.
 
