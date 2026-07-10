@@ -1,40 +1,50 @@
 	.Z80
-;************************************************
-;* Load Program für Boot Loader				
-;* Der Boot Loader muss sich an Adresse 1000H   
-;* befinden							
-;* 80 Spur Laufwerke   1K pro Sektor Boot       
-;* 				
-;* U. Haumann 07.05.2026
-;************************************************
+;**********************************************************************
+;* NPUTBOOT.Z80
+;
+;* based on LOAD80.Z80 by U. Haumann 07.05.2026
+;* Write Bootloader from memory location 1000H to Disk
+;*
+;**********************************************************************
+; Der Boot Loader muss sich an Adresse 1000H befinden							
+; 80 Spur Laufwerke   1K pro Sektor Boot       
+;
+; PLEASE NOTE THE CHANGED CP/M & BIOS START ADDRESS !!!
+;
+; Version history
+;
+; 10.07.2026 *dg* Renamed to NBPUT-CF and reformatted
 
 	ORG	0100H		
 
-OFFSET	EQU	0A000H-800H	; damit BIOS Start bei EA00h
-CPMB	EQU	03400H+OFFSET	; start cp/m
-BIOS	EQU	04A00H+OFFSET	; start bios
-BOOTP	EQU	01000H		; Hier muss sich das Boot Programm befinden
+OFFSET	EQU 0A000H-800H		; damit BIOS Start bei EA00h
+CPMB	EQU 03400H+OFFSET	; start CP/M
+BIOS	EQU 04A00H+OFFSET	; start BIOS
 
-WBOOT0:
+; Monitor functions
+MINI	EQU 0F027H		; Old MINI routine in Monitor
+RSTRT	EQU 0F01EH		; restart rouine in Monitor
 
-		LD	SP,0FFH		;start of stack
+MEMADDR	EQU 01000H		; address for boot loader in memory
 
-		LD	HL,BOOTP	;START ADRESSE Boot Loader
-		LD	B,1		;ANZAHL DER SEKTOREN  A 1024 BYTES
-		LD	D,0		;START BEI TRACK 0 Sektor 1, 1=bootsektor
-		LD	E,1
+WBOOT:	LD	SP,0FFH		; set stack
 
-RDSEC:		PUSH	HL
-		PUSH	DE
-		PUSH	BC
-		LD	C,11010000B	; laufwerk 0 double dense mini
-		LD	B,2		; 1=read 2=Write
-		CALL	0F027H		; Monitor Einsprung Mini Laufwerk
-		POP	BC
-		POP	DE
-		POP	HL
-		JP	C,0F01EH	;monitor aufrufen bei fehler (Restart)
+	LD	HL,MEMADDR	; START ADRESSE Boot Loader
+	LD	B,1		; ANZAHL DER SEKTOREN  A 1024 BYTES
+	LD	D,0		; START BEI TRACK 0 Sektor 1, 1=bootsektor
+	LD	E,1
+
+	PUSH	HL
+	PUSH	DE
+	PUSH	BC
+	LD	C,11010000B	; laufwerk 0 double dense mini
+	LD	B,2		; 1=read, 2=write
+	CALL	MINI		; Monitor Einsprung Mini Laufwerk
+	POP	BC
+	POP	DE
+	POP	HL
+	JP	C,RSTRT		; error -> Monitor aufrufen bei fehler (Restart)
 				
-		JP	BIOS		;Fertig start coldbios
+	JP	BIOS		; no error -> CP/M cold boot
 
-		END
+	END

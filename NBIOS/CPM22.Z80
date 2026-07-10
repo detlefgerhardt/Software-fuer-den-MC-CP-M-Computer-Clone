@@ -8,6 +8,12 @@
 ;*                by Clark A. Calkins
 ;*
 ;**************************************************************
+
+FALSE	EQU 0
+TRUE	EQU NOT FALSE
+
+DG01	EQU FALSE
+
 ;
 ; Set memory limit here. This is the amount of contigeous
 ; ram starting from 0000. CP/M will reside at the end of this space.
@@ -39,7 +45,7 @@ DEL:	EQU	7FH		;rubout
 ;
 ;   Set origin for CP/M
 ;
-	ORG	0D400H
+	ORG	0D400H-800H
 ;
 CBASE:	JP	COMMAND		;execute command processor (ccp).
 	JP	CLEARBUF	;entry to empty input buffer before starting ccp.
@@ -52,10 +58,14 @@ INBUFF:	DB	127		;length of input buffer.
 	DB	0		;current length of contents.
 	DEFM	"Copyright"
 	DEFM	" 1979 (c) by Digital Research      "
+	IF NOT DG01
 	DB	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 	DB	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 	DB	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 	DB	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	ELSE
+	DB	0
+	ENDIF
 INPOINT:DW	INBUFF+2	;input line pointer
 NAMEPNT:DW	0		;input line pointer used for error message. Points to
 ;			;start of name in error.

@@ -1,0 +1,76 @@
+	.Z80
+
+;*****************************************************************************
+; NPUTSYS.Z80
+;
+; Writes CP/M + BIOS from memory tp Mini drive
+;
+; based on putsys U.Haumann 07.05.2
+;
+;*****************************************************************************
+;
+; PLEASE NOTE THE CHANGED CPM & BIOS START ADDRESS AND SIZE !!!
+;
+; Version history
+;
+; 10.07.2026 *dg* Renamed to NBOOT and reformatted
+;                 Changed CP/M and BIOS start address and sector count
+
+OFFSET	EQU	0A000H-800H	; damit BIOS Start bei E200h
+CPMB	EQU	03400H+OFFSET	; start cp/m
+BIOS	EQU	04A00H+OFFSET	; start bios
+
+; sector count (1024 byte sectors)
+; on a mini disk 4 tracks are reserved: 5 * 4 - 1 = 19 sectors
+SECCNT	EQU (0F000h-CPMB)/1024
+
+; Monitor functions
+RSTRT	EQU 0F01EH		; restart
+MINI	EQU 0F027H		; Old MINI routine in Monitor
+
+;-----------------------------------------------------------------------------
+
+	ORG 0100h		
+
+PUT:	LD SP,200H	;start of stack
+
+	LD HL,CPMB	; CP/M start address
+	LD B,SECCNT
+	
+	; start with track 0 and sektor 2 because of 1 boot sector
+	LD D,0
+	LD E,2
+
+PUT1:	; sector loop	
+	PUSH HL
+	PUSH DE
+	PUSH BC
+	LD C,11010000B	; drive 0 double dense mini
+	LD B,2		; 1=read  2=write
+	CALL MINI	; Monitor Einsprung Mini Laufwerk
+	POP BC
+	POP DE
+	POP HL
+	JP C,RSTRT	;monitor aufrufen bei fehler (Restart)
+	
+	PUSH DE		;NEXT ADRESSE
+	LD DE,1024	;double dense bloecke
+	ADD HL,DE
+	POP DE
+	INC E		; inc sector
+	LD A,E
+	CP 5+1		; 1..5 erst bei 6 neue Spur (max. 4 tracks)
+	JP C,PUT2
+	
+	LD E,1		; restart with sector 1
+	INC D
+
+PUT2:	DEC B
+	JP NZ,PUT1	; -> next sector
+	JP BIOS		; -> CP/M cold boot
+
+;-----------------------------------------------------------------------------
+		
+	END
+
+;-----------------------------------------------------------------------------

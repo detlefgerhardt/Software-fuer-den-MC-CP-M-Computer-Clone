@@ -27,17 +27,21 @@ CPM	EQU	0D400H-800H	; CCP Start
 
 IDESTAT	EQU	01FH		; Hardwareadresse IDE Statusregister
 
+; sector count (1024 byte sectors)
+; on a IDE/CF disk 1 track is reserved: 64 sectors
+SECCNT	EQU (0F000h-CPM)/128
+
 ;-----------------------------------------------------------------------------
 
 	ORG	08000H
 
-; read track 0, sectors 1 to 50
+; read track 0, sectors 1 to 49
 
-BOOT:	LD A,1			;starting sector -- sector 0 has cpm_loader
+BOOT:	LD A,1			; starting sector -- sector 0 has cpm_loader
 	LD (SECTOR),A
-	LD HL,CPM	;memory address to place image
+	LD HL,CPM		; memory address to place image
 	LD (DMAAD),HL
-	LD A,0			;CP/M track
+	LD A,0			; CP/M track
 	LD (TRACK),A
 		
 BOOT1:	; read track 0 loop
@@ -45,48 +49,52 @@ BOOT1:	; read track 0 loop
 	LD A,(SECTOR)
 	CP 50
 	JP Z,BOOT2
-	
+
+	; inc sector
 	INC A
 	LD (SECTOR),A
+
+	; (DMAAD) += 128
 	LD HL,(DMAAD)
 	LD DE,128
 	ADD HL,DE
 	LD (DMAAD),HL
+	
 	JP BOOT1
 
 BOOT2:	JP BIOS
 
 ;-----------------------------------------------------------------------------
-; Read one CP/M sector from partition 0 (reads directly from CF. No drive number needed)
-; Track number in 'track'
-; Sector number in 'sector'
-; DMA address (location in memory to place the CP/M sector) in 'dmaad' (0-65535)
-;
+; Read one CP/M sector from partition 0 by calling the monitor.
+; No drive number needed)
+; Track number in (TRACK)
+; Sector number in (SECTOR)
+; DMA address in (DMAAD), location in memory to place the CP/M sector
 
-RDSEC:	LD	HL,HSTBUF	; buffer to place raw disk sector (256 bytes)
-	LD	A,(SECTOR)
-	SLA	A		; shifts to match BIOS CP/M disk read routine
-	SLA	A		; no parition number (partition = 0)
-	LD	C,A		; LBA bits 0 to 7
-	LD	A,(TRACK)
-	LD	B,A		; LBA bits 8 to 15
-	LD	E,00H		; LBA bits 16 to 23
-	CALL	IDEREAD		; ide read routine in Monitor
-				; Transfer top 128-bytes out of buffer to memory
-	LD	HL,(DMAAD)	; memory location to place data read from disk
-	LD	DE,HSTBUF	; host buffer
-	LD	B,128		; size of CP/M sector
+RDSEC:	LD HL,HSTBUF	; buffer to place raw disk sector (256 bytes)
+	LD A,(SECTOR)
+	SLA A		; shifts to match BIOS CP/M disk read routine
+	SLA A		; no parition number (partition = 0)
+	LD C,A		; LBA bits 0 to 7
+	LD A,(TRACK)
+	LD B,A		; LBA bits 8 to 15
+	LD E,00H	; LBA bits 16 to 23
+	CALL IDEREAD	; ide read routine in Monitor
+			; Transfer top 128-bytes out of buffer to memory
+	LD HL,(DMAAD)	; memory location to place data read from disk
+	LD DE,HSTBUF	; host buffer
 
-RDSEC1:	; read sector loop
-		
-	LD A,(DE)		; get byte from host buffer
-	LD	(HL),A		; put into dmaad
-	INC	HL
-	INC	DE
-	DJNZ	RDSEC1		; put 128 bytes into memory
+	LD B,128	; size of CP/M sector
 
-	IN	A,(IDESTAT)	; get status
-	AND	01H		; error bit
+RDSEC1:	; read sector bytes loop
+	LD A,(DE)	; get byte from host buffer
+	LD (HL),A	; put into dmaad
+	INC HL
+	INC DE
+	DJNZ RDSEC1	; put 128 bytes into memory
+
+	IN A,(IDESTAT)	; get status
+	AND 01H		; error bit
 	RET
 
 ;-----------------------------------------------------------------------------

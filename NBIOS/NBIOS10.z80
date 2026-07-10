@@ -1,10 +1,10 @@
-	;MACLIB DISKDEF1	; LOAD DEFINTION FOR DISKS
-
 ;*****************************************************************************
-; Version 1.0   Version 80 Spur-Laufwerk                                     *
-; gebootet wird vom 80 Spur-Laufwerk                                         *
+; NBIOS.Z80								     *
 ; basiert auf der Version 3.1 1984 Rolf-Dieter Klein 841220                  *
+; Version fuer 2 Mini und 2 Maxi Laufwerke				     *
 ; ****************************************************************************
+;
+; PLEASE NOTE THE CHANGED BIOS START ADDRESS !!!
 ;
 ; 24.06.2026 *dg* Kommentare hinzugefuegt
 ;                 Binaer identisch zur Origial-Version
@@ -16,6 +16,10 @@
 ;		  geaendert. CP/M startet dann bei CC00 (58K)
 ; 09.07.2026 *dg* Erweitert um 4 IDE/CF-Laufwerke - funktioniert nicht
 ;                 System bootet aber Schreiben auf die IDE-Laufwerke schlägt fehl.
+
+;------------------------------------------------------------------------------
+
+	;MACLIB DISKDEF1	; LOAD DEFINTION FOR DISKS
 
 CPMVERS	EQU 22		; CP/M version
 FALSE	EQU 0
@@ -73,17 +77,18 @@ CPML	EQU BIOS-CPMB	; Laenge des CP/Ms
 NSECTS	EQU CPML/128	; Anzahl der von CP/M belegten Sektoren
 
 
-	ORG BIOS	; regular start of BIOS
-	;ORG BIOS-4000H	; for debugging
-
-
 CDISK	EQU 0004H	; address for last used drive
 BUFF	EQU 0080H	; buffer address
 RETRY	EQU 5		; Fehlerversuche bei BOOT und Maxi Read/Write
 
 ;-----------------------------------------------------------------------------
 
+	ORG BIOS	; regular start of BIOS
+	;ORG BIOS-4000H	; for debugging
+
 ; VEKTORTABELLE der BIOS-Einspruenge
+
+STARTBIOS:
 
 	JP BOOT	; Kalt-Start
 	
@@ -448,7 +453,7 @@ SIGNON:
 	DB CPMVERS/10+'0','.',CPMVERS MOD 10+'0'
 	DB ' for MC-Computer '
 	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-	DB 'K BIOS 260709-04 BOOT='
+	DB 'K NBIOS 260710-01 BOOT='
 	DB BTDRV+'0'
 	DB CR,LF,0
 	
@@ -2029,6 +2034,8 @@ ENDDAT	EQU	$
 DATSIZ	EQU	$-BEGDAT
 
 ENDBIOS:
+
+SIZE	EQU ENDBIOS-STARTBIOS
 
 	END
 	  

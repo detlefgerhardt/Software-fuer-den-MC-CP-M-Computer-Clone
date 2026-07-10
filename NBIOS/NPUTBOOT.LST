@@ -1,0 +1,58 @@
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   1
+NPUTBOOTZ80
+
+    1                   	.Z80
+    2                   ;**********************************************************************
+    3                   ;* NPUTBOOT.Z80
+    4                   ;
+    5                   ;* based on LOAD80.Z80 by U. Haumann 07.05.2026
+    6                   ;* Write Bootloader from memory location 1000H to Disk
+    7                   ;*
+    8                   ;**********************************************************************
+    9                   ; Der Boot Loader muss sich an Adresse 1000H befinden							
+   10                   ; 80 Spur Laufwerke   1K pro Sektor Boot       
+   11                   ;
+   12                   ; PLEASE NOTE THE CHANGED CP/M & BIOS START ADDRESS !!!
+   13                   ;
+   14                   ; Version history
+   15                   ;
+   16                   ; 10.07.2026 *dg* Renamed to NBPUT-CF and reformatted
+   17                   
+   18         0100      	ORG	0100H		
+   19                   
+   20         9800      OFFSET	EQU 0A000H-800H		; damit BIOS Start bei EA00h
+   21         CC00      CPMB	EQU 03400H+OFFSET	; start CP/M
+   22         E200      BIOS	EQU 04A00H+OFFSET	; start BIOS
+   23                   
+   24                   ; Monitor functions
+   25         F027      MINI	EQU 0F027H		; Old MINI routine in Monitor
+   26         F01E      RSTRT	EQU 0F01EH		; restart rouine in Monitor
+   27                   
+   28         1000      MEMADDR	EQU 01000H		; address for boot loader in memory
+   29                   
+   30 0100  31 00FF     WBOOT:	LD	SP,0FFH		; set stack
+   31                   
+   32 0103  21 1000     	LD	HL,MEMADDR	; START ADRESSE Boot Loader
+   33 0106  06 01       	LD	B,1		; ANZAHL DER SEKTOREN  A 1024 BYTES
+   34 0108  16 00       	LD	D,0		; START BEI TRACK 0 Sektor 1, 1=bootsektor
+   35 010A  1E 01       	LD	E,1
+   36                   
+   37 010C  E5          	PUSH	HL
+   38 010D  D5          	PUSH	DE
+   39 010E  C5          	PUSH	BC
+   40 010F  0E D0       	LD	C,11010000B	; laufwerk 0 double dense mini
+   41 0111  06 02       	LD	B,2		; 1=read, 2=write
+   42 0113  CD F027     	CALL	MINI		; Monitor Einsprung Mini Laufwerk
+   43 0116  C1          	POP	BC
+   44 0117  D1          	POP	DE
+   45 0118  E1          	POP	HL
+   46 0119  DA F01E     	JP	C,RSTRT		; error -> Monitor aufrufen bei fehler (Restart)
+   47                   				
+   48 011C  C3 E200     	JP	BIOS		; no error -> CP/M cold boot
+   49                   
+   50                   	END
+ 0 Error(s) Detected.
+ 31 Absolute Bytes. 7 Symbols Detected.
+D	SP,0FFH		; set stack
+   31                   
+   32 0103  21 1000     	LD	HL,MEMADDR	; START ADRESSE Boot Loader
