@@ -20,7 +20,7 @@ Geplante Erweiterungen sind:
 
 Dieses Repository gliedert sich in (noch in Arbeit):
 - NMON - der Monitor für den CP/M-Computer
-- NBIOS - das angepasste BIOS, die Schnittstelle zwischen den Monitor, der Hardware und CP/M
+- NBIOS - das angepasste BIOS, die Schnittstelle zwischen dem Monitor, der Hardware und CP/M
 - NBIOS-CF - angepasstes BIOS und Tools für das IDE/CF-Interface (noch nicht funktionsfähig)
 - CPM-Tools - Projektspezifische Tools unter CP/M
 - CPM-Standardsoftware - Standard CP/M-Programme, die für Entwicklung und die Systemeinrichtung benötigt werden.
