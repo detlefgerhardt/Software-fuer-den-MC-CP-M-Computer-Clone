@@ -1,0 +1,100 @@
+;*****************************************************************************
+; NBOOT-CF.Z80
+;
+; Boot loader for MC CP/M-Computer IDE/CF drive
+;
+; based on BLOAD-CF von Uli Haumann from 06/2026
+;
+;*****************************************************************************
+; Load CP/M image from IDE/Compact-Flash into memory starting at cpm_start
+; Uses calls to Monitor routine for read directly from IDE interface
+;
+; Reads track 0, sectors 1 to 50
+; This program is loaded into LBA sector 0 of disk with the tool NBPUT-CF.
+; At boot time it is loaded by the Monitor to address 08000h and executed.
+;
+; PLEASE NOTE THE CHANGED CPM & BIOS START ADDRESS!!!
+;
+; Version history
+;
+; 10.07.2026 *dg* Renamed to NBOOT-CF and reformatted
+
+
+HSTBUF	EQU	08100H		; will put 256-byte raw sector here
+IDEREAD	EQU	0F02AH		; Monitor function IDEREAD
+BIOS	EQU	0EA00H-800H	; CP/M cold start entry
+CPM	EQU	0D400H-800H	; CCP Start
+
+IDESTAT	EQU	01FH		; Hardwareadresse IDE Statusregister
+
+;-----------------------------------------------------------------------------
+
+	ORG	08000H
+
+; read track 0, sectors 1 to 50
+
+BOOT:	LD A,1			;starting sector -- sector 0 has cpm_loader
+	LD (SECTOR),A
+	LD HL,CPM	;memory address to place image
+	LD (DMAAD),HL
+	LD A,0			;CP/M track
+	LD (TRACK),A
+		
+BOOT1:	; read track 0 loop
+	CALL RDSEC
+	LD A,(SECTOR)
+	CP 50
+	JP Z,BOOT2
+	
+	INC A
+	LD (SECTOR),A
+	LD HL,(DMAAD)
+	LD DE,128
+	ADD HL,DE
+	LD (DMAAD),HL
+	JP BOOT1
+
+BOOT2:	JP BIOS
+
+;-----------------------------------------------------------------------------
+; Read one CP/M sector from partition 0 (reads directly from CF. No drive number needed)
+; Track number in 'track'
+; Sector number in 'sector'
+; DMA address (location in memory to place the CP/M sector) in 'dmaad' (0-65535)
+;
+
+RDSEC:	LD	HL,HSTBUF	; buffer to place raw disk sector (256 bytes)
+	LD	A,(SECTOR)
+	SLA	A		; shifts to match BIOS CP/M disk read routine
+	SLA	A		; no parition number (partition = 0)
+	LD	C,A		; LBA bits 0 to 7
+	LD	A,(TRACK)
+	LD	B,A		; LBA bits 8 to 15
+	LD	E,00H		; LBA bits 16 to 23
+	CALL	IDEREAD		; ide read routine in Monitor
+				; Transfer top 128-bytes out of buffer to memory
+	LD	HL,(DMAAD)	; memory location to place data read from disk
+	LD	DE,HSTBUF	; host buffer
+	LD	B,128		; size of CP/M sector
+
+RDSEC1:	; read sector loop
+		
+	LD A,(DE)		; get byte from host buffer
+	LD	(HL),A		; put into dmaad
+	INC	HL
+	INC	DE
+	DJNZ	RDSEC1		; put 128 bytes into memory
+
+	IN	A,(IDESTAT)	; get status
+	AND	01H		; error bit
+	RET
+
+;-----------------------------------------------------------------------------
+
+SECTOR:	DB	00H
+TRACK:	DB	00H
+DMAAD:	DW	0000H
+
+	END
+
+;-----------------------------------------------------------------------------

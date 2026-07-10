@@ -1,0 +1,275 @@
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   1
+PUTPC   Z80
+
+    1                   ;*****************************************************************
+    2                   ; PCPUT - Dieses Programm sendet eine Datei von einem CP/M Rechner
+    3                   ; zu einem PC |ber die serielle Schnittstelle. Dabei wird das 
+    4                   ; XMODEM-Protokoll verwendet.
+    5                   ;
+    6                   ; Urheber des Programms ist Ward Christensen.
+    7                   ; 2026 Angepasst f|r MC-Computer SYS-80s U.Haumann
+    8                   ; 
+    9                   ;*****************************************************************
+   10                   ;
+   11                   ; Hardwareadressen und -parameter ( 8152 Kanal A)
+   12                   ;
+   13                   
+   14         0021      SIOACR	EQU	021H		; SIO Kanal A Steuerregister
+   15         0020      SIOADR	EQU	020H		; SIO Kanal A Datenregister
+   16         0001      XMTMSK	EQU	1		; Sendpuffer leer
+   17         0002      RCVMSK	EQU	2		; Byte vorhanden
+   18                   ;
+   19         0005      ERRLMT	EQU	5		; max. Anzahl von Fehlern
+   20                   ;
+   21                   ;  ASCII-Zeichen fuer Datentransfer und Anzeige
+   22                   ;
+   23         0001      SOH	EQU	01H		; Blockanfang
+   24         0003      CTRLC	EQU	03H		; Abbruch
+   25         0004      EOT	EQU	04H		; Transferende
+   26         0006      ACK	EQU	06H		; positive Bestaetigung
+   27         000A      LF	EQU	0AH		; Zeilenvorschub
+   28         000D      CR	EQU	0DH		; Wagenruecklauf
+   29         0015      NAK	EQU	15H		; negative Bestaetigung
+   30                   ;
+   31         0005      BDOS	EQU	0005H		; BDOS-Eintritt
+   32         005C      FCB	EQU	005CH		; Standard-Dateisteuerblock
+   33         005D      PARAM	EQU	FCB+1		; Kommando-Parameter
+   34         0080      BUFFER	EQU	0080H		; CP/M-Standardpuffer
+   35         0100      TPA	EQU	0100H		; Anwendungsprogramme
+   36                   ;
+   37                   ; BDOS-Funktionen
+   38                   ;
+   39         0009      PRINT	EQU	9		; Zeichenkette ausgeben
+   40         000B      CONST	EQU	11		; Konsolenstatus
+   41         000F      OPEN	EQU	15		; Datei oeffnen
+   42         0010      CLOSE	EQU	16		; Datei schliessen
+   43         0011      SRCHF	EQU	17		; Dateieintrag suchen
+   44         0013      ERASE	EQU	19		; Datei loeschen
+   45         0014      READ	EQU	20		; Sektor lesen
+   46         0015      WRITE	EQU	21		; Sektor schreiben
+   47         0016      MAKE	EQU	22		; Datei anlegen
+   48                   ;
+   49                   	ASEG			;
+   50         0100      	ORG	TPA		;
+   51                   ;
+   52                   ; Parameter pruefen
+   53                   ;
+   54 0100  3A 005D     	LD	A,(PARAM)	; 1. Zeichen des Parameters
+   55 0103  FE 20       	CP	' '		; Zeichen vorhanden?
+   56 0105  20 09       	JR	NZ,DOXFER	; ja, weiter
+   57 0107  11 02AD     	LD	DE,HLPMSG	; Benutzungshinweis
+   58 010A  0E 09       	LD	C,PRINT		;  ausgeben
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
+PUTPC   Z80
+
+   59 010C  CD 0005     	CALL	BDOS		;
+   60 010F  C9          	RET			; zurueck zum CP/M
+   61                   ;
+   62                   ; Dateinamen gefunden, lokalen Stapel 
+   63                   ; einrichten und auf Uebertragung warten
+   64                   ;
+   65 0110  21 0000     DOXFER:	LD	HL,0		; HL=0
+   66 0113  39          	ADD	HL,SP		; CP/M-Stapelzeiger
+   67 0114  22 02F2     	LD	(STACK),HL	;  retten
+   68 0117  31 02F2     	LD	SP,STACK	; lokalen Stapel benutzen
+   69 011A  AF          	XOR	A		;
+   70 011B  32 02F4     	LD	(SECTNO),A	; Blocknummer initialisieren
+   71 011E  CD 0193     	CALL	OPNFIL		; Datei oeffnen
+   72 0121  11 029A     	LD	DE,RCVMSG	; Startmeldung ausgeben
+   73 0124  0E 09       SENDA:	LD	C,PRINT		;  ausgeben
+   74 0126  CD 0005     	CALL	BDOS		;
+   75                   ;
+   76                   ; noch anstehende Bytes entfernen
+   77                   ;
+   78 0129  06 01       PURGE:	LD	B,1		; max. 1s warten
+   79 012B  CD 01D0     	CALL	RECV		; Byte empfangen
+   80 012E  38 14       	JR	C,WAITNAK	; kein Byte vorhanden
+   81 0130  FE 03       	CP	CTRLC		; Abbruch angefordert?
+   82 0132  20 F5       	JR	NZ,PURGE	; nein, Byte ignorieren
+   83                   ;
+   84                   ; Uebertragung abgebrochen
+   85                   ;
+   86 0134  CD 01C5     ABORT:	CALL	ERXIT		;
+   87 0137  0D 0A 0A 41 	DEFB	13,10,10,'Abbruch',13,10,'$'
+   88                   ;
+   89                   ; auf Empfaenger warten und Uebertragung beginnen
+   90                   ;	
+   91 0144  06 01       WAITNAK:LD	B,1		; max. 1s warten
+   92 0146  CD 01D0     	CALL	RECV		; Byte empfangen
+   93 0149  38 F9       	JR	C,WAITNAK	; 
+   94 014B  FE 03       	CP	CTRLC		; Abbruch angefordert?
+   95 014D  28 E5       	JR	Z,ABORT		; ja
+   96 014F  FE 15       	CP	NAK		; NAK empfangen?
+   97 0151  20 F1       	JR	NZ,WAITNAK	; ja, Datei senden
+   98                   ;
+   99                   ; Block lesen und senden
+  100                   ;
+  101 0153  CD 01FC     SENDB:	CALL	RDSEC		; Sektor lesen
+  102 0156  3A 02F4     	LD	A,(SECTNO)	; Blocknummer
+  103 0159  3C          	INC	A		;  erhoehen
+  104 015A  32 02F4     	LD	(SECTNO),A	;
+  105                   ;
+  106                   ; Block senden oder wiederholen
+  107                   ;
+  108 015D  3E 01       REPTB:	LD	A,SOH		; Blockanfang
+  109 015F  CD 01EF     	CALL	SEND		;  senden
+  110 0162  3A 02F4     	LD	A,(SECTNO)	; Blocknummer
+  111 0165  CD 01EF     	CALL	SEND		;  senden
+  112 0168  3A 02F4     	LD	A,(SECTNO)	;
+  113 016B  2F          	CPL			; Komplement
+  114 016C  CD 01EF     	CALL	SEND		;  senden
+  115 016F  0E 00       	LD	C,0		; Pruefsumme initialisieren
+  116 0171  21 0080     	LD	HL,BUFFER	;
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   3
+PUTPC   Z80
+
+  117 0174  7E          SENDC:	LD	A,(HL)		; Byte holen
+  118 0175  CD 01EF     	CALL	SEND		;  und senden
+  119 0178  23          	INC	HL		; Pufferzeiger erhoehen
+  120 0179  7C          	LD	A,H		;
+  121 017A  FE 01       	CP	1		; Pufferende erreicht?
+  122 017C  20 F6       	JR	NZ,SENDC	; nein, naechstes Byte
+  123                   ;
+  124                   ; Pruefsumme senden
+  125                   ;
+  126 017E  79          	LD	A,C		; Pruefsumme laden
+  127 017F  CD 01EF     	CALL	SEND		;  und senden
+  128                   ;
+  129                   ; positve Bestaetigung abwarten
+  130                   ;
+  131 0182  06 04       	LD	B,4		; max. 4s warten
+  132 0184  CD 01D0     	CALL	RECV		; Byte empfangen
+  133 0187  38 D4       	JR	C,REPTB		; Zeitueberschreitung
+  134                   				; Block wiederholen
+  135 0189  FE 06       	CP	ACK		; positive Betstaetigung?
+  136 018B  28 C6       	JR	Z,SENDB		; ja, naechsten Block senden
+  137 018D  FE 03       	CP	CTRLC		; Abbruch?
+  138 018F  28 A3       	JR	Z,ABORT		; ja
+  139 0191  18 CA       	JR	REPTB		; keine positive Bestaetigung,
+  140                   				; Block wiederholen
+  141                   ;
+  142                   ; Datei oeffnen
+  143                   ;
+  144 0193  11 005C     OPNFIL:	LD	DE,FCB		; Datei
+  145 0196  0E 0F       	LD	C,OPEN		;  oeffnen
+  146 0198  CD 0005     	CALL	BDOS		;
+  147 019B  3C          	INC	A		; Fehler?
+  148 019C  C0          	RET	NZ		; nein
+  149 019D  CD 01C5     	CALL	ERXIT		; Fehlermeldung ausgeben
+  150 01A0  0D 0A 44 61 	DEFB	13,10,'Datei kann nicht goeffnet werden',13,10,'$'
+  151                   ;
+  152                   ; Ausgabe einer Meldung und Rueckkehr zum CP/M
+  153                   ;
+  154 01C5  D1          ERXIT:	POP	DE		; Adresse holen
+  155 01C6  0E 09       	LD	C,PRINT		;  und Meldung ausgeben
+  156 01C8  CD 0005     	CALL	BDOS		;
+  157 01CB  2A 02F2     EXIT:	LD	HL,(STACK)	; CP/M-Stapelzeiger holen
+  158 01CE  F9          	LD	SP,HL		;  und zurueckspeichern
+  159 01CF  C9          	RET			; zurueck zum CP/M
+  160                   ;
+  161                   ; Byte empfangen
+  162                   ;
+  163 01D0  D5          RECV:	PUSH	DE		; DE retten
+  164 01D1  11 4F80     MSEC:	LD	DE,159 SHL 7	; 1s einstellen, hardwareabhaengig!
+  165 01D4  DB 21       MWTI:	IN	A,(SIOACR)	;
+  166 01D6  E6 02       	AND	RCVMSK		; Byte vorhanden?
+  167 01D8  20 0C       	JR	NZ,MCHAR	; ja
+  168 01DA  1D          	DEC	E		; Zeit herunterzaehlen
+  169 01DB  20 F7       	JR	NZ,MWTI		;
+  170 01DD  15          	DEC	D		;
+  171 01DE  20 F4       	JR	NZ,MWTI		;
+  172 01E0  05          	DEC	B		; Sekunden abgelaufen?
+  173 01E1  20 EE       	JR	NZ,MSEC		; nein, warten
+  174                   ;
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   4
+PUTPC   Z80
+
+  175                   ; Zeitueberschreitung
+  176                   ;
+  177 01E3  D1          	POP	DE		; DE wiederherstellen
+  178 01E4  37          	SCF			; Uebertrag signalisiert Zeitueberschreitung
+  179 01E5  C9          	RET			;
+  180                   ;
+  181                   ; Byte holen
+  182                   ;
+  183 01E6  DB 20       MCHAR:	IN	A,(SIOADR)	; Byte holen
+  184 01E8  D1          	POP	DE		; DE wiederherstellen
+  185 01E9  F5          	PUSH	AF		; Byte retten
+  186 01EA  81          	ADD	A,C		; zur Pruefsumme addieren
+  187 01EB  4F          	LD	C,A		;  und abspeichern
+  188 01EC  F1          	POP	AF		; Byte zurueckholen
+  189 01ED  B7          	OR	A		; Uebertrag loeschen (keine Zeitueberschreitung)
+  190 01EE  C9          	RET			;
+  191                   ;
+  192                   ; Byte senden
+  193                   ;
+  194 01EF  F5          SEND:	PUSH	AF		; Byte retten
+  195 01F0  81          	ADD	A,C		; Pruefsumme berechnen
+  196 01F1  4F          	LD	C,A		;  und merken
+  197 01F2  DB 21       SENDW:	IN	A,(SIOACR)	; Status holen
+  198 01F4  E6 01       	AND	XMTMSK		; Sendepuffer leer?
+  199 01F6  28 FA       	JR	Z,SENDW		; nein, warten
+  200 01F8  F1          	POP	AF		; Byte zurueckholen
+  201 01F9  D3 20       	OUT	(SIOADR),A	;  und senden
+  202 01FB  C9          	RET			;
+  203                   ;
+  204                   ; Block lesen
+  205                   ;
+  206 01FC  11 005C     RDSEC:	LD	DE,FCB		;
+  207 01FF  0E 14       	LD	C,READ		;
+  208 0201  CD 0005     	CALL	BDOS		;
+  209 0204  B7          	OR	A		; Fehler?
+  210 0205  C8          	RET	Z		; nein, zurueck
+  211 0206  3D          	DEC	A		; Dateiende?
+  212 0207  20 7A       	JR	NZ,RDERR	; nein, Lesefehler
+  213                   ;
+  214                   ; Dateiende
+  215                   ;
+  216 0209  AF          	XOR	A		;
+  217 020A  32 02F5     	LD	(ERRCNT),A	; Fehleranzahl loeschen
+  218 020D  3E 04       SEOT:	LD	A,EOT		; Ubertragungsende
+  219 020F  CD 01EF     	CALL	SEND		;  senden 
+  220 0212  06 03       	LD	B,3		; max. 3s warten
+  221 0214  CD 01D0     	CALL	RECV		; Byte empfangen
+  222 0217  38 25       	JR	C,EOTERR	; EOT Zeitueberschreitung
+  223 0219  FE 06       	CP	ACK		;
+  224 021B  20 21       	JR	NZ,EOTERR	;
+  225 021D  CD 01C5     	CALL	ERXIT		; Fertig!
+  226 0220  0D 0A 0A 55 	DEFB	13,10,10,'Uebertragung erfolgreich',13,10,'$'
+  227                   ;
+  228                   ; ACK NOT RECIEVED
+  229                   ;
+  230 023E  3A 02F5     EOTERR:	LD	A,(ERRCNT)	;
+  231 0241  3C          	INC	A		;
+  232 0242  32 02F5     	LD	(ERRCNT),A	;
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   5
+PUTPC   Z80
+
+  233 0245  FE 05       	CP	ERRLMT		;
+  234 0247  38 C4       	JR	C,SEOT		;
+  235 0249  CD 01C5     	CALL	ERXIT		;
+  236 024C  0D 0A 0A    	DEFB	13,10,10	;
+  237 024F  4E 6F 20 41 	DEFB	'No ACK received on EOT, but transfer is complete.',13,10,'$'
+  238                   ;
+  239                   ; Lesefehler
+  240                   ;
+  241 0283  CD 01C5     RDERR:	CALL	ERXIT		;
+  242 0286  0D 0A 46 69 	DEFB	13,10,'File Read Error',13,10,'$'
+  243                   ;
+  244                   ; Meldungen
+  245                   ;
+  246 029A  45 6D 70 66 RCVMSG:	DEFB	'Empfang starten...$'
+  247 02AD  4B 6F 6D 6D HLPMSG:	DEFB	'Kommando: PUTPC Dateiname',CR,LF,LF,'$'
+  248                   ;
+  249                   ; Data area
+  250                   ;
+  251 02CA    0028      	DEFS	40		; Stapelspeicher
+  252 02F2    0002      STACK:	DEFS	2		; CP/M-Stapelzeiger
+  253 02F4    0001      SECTNO:	DEFS	1		; aktuelle Blocknummer 
+  254 02F5    0001      ERRCNT:	DEFS	1		; Fehleranzahl
+  255                   ;
+  256                   	END			;
+ 0 Error(s) Detected.
+ 502 Absolute Bytes. 52 Symbols Detected.
+
+  236 024C  0D 0A 0A    	DEFB	13,10,10

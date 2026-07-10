@@ -1,0 +1,73 @@
+;*****************************************************************************
+; NBOOT-CF.Z80
+;
+; Boot loader for MC CP/M-Computer IDE/CF drive
+
+; based on BLOAD-CF von Ulrich Haumann from 05/2026
+;
+;*****************************************************************************
+; Writes Boot loader from address 8000h to IDE/Compact-Flash
+; Uses calls to Monitor
+;
+; DOES NOT USE BIOS or CP/M START ADDRESS !!!
+;
+; Writes track 0, sectors 0 
+; Subroutine to write one IDE/ATA Disk sector (256 bytes)
+; Address of data to write to disk passed in HL
+; LBA bits 0 to 7 passed in C, bits 8 to 15 passed in B
+; LBA bits 16 to 23 passed in E
+;
+; Version history
+;
+; 10.07.2026 *dg* Renamed to NBPUT-CF and reformatted
+
+;-----------------------------------------------------------------------------
+
+BOOTADR	EQU 01000H	; the bootloader was loaded to this address before
+
+; calls to Monitor
+CONOUT	EQU 0F009h	; Output a chracter
+IDEWR	EQU 0F02DH	; IDE/CF write routine in Monitor
+MWARM	EQU 0F033H	; goto Monitor
+
+	ORG 0100H	; start program here
+
+START:	LD HL,BOOTADR
+	LD C,00H
+	LD B,00H
+	LD E,00H
+	CALL IDEWR
+	LD HL,MSG
+	CALL WRSTR
+	
+	JP MWARM	;ZURUECk zum Monitor
+
+;-----------------------------------------------------------------------------
+; Used monitor CONOUT to print 0-terminated string
+; address in HL
+; 00h = string end
+
+WRSTR:	LD A,(HL)	; get char from string
+	AND A		; check if 0
+	RET Z		; -> end of string
+	
+	LD C,A
+	CALL CONOUT
+	INC HL		; next char in string
+	JP WRSTR	; start over
+
+;-----------------------------------------------------------------------------
+
+CR	EQU 0DH
+LF	EQU 0AH
+
+
+MSG:	DEFB CR,LF
+	DEFM "------------------------------------",CR,LF
+	DEFM " Ready - Bootloader written to disk",CR,LF
+	DEFM "------------------------------------",CR,LF,LF
+
+	END
+
+;-----------------------------------------------------------------------------
+

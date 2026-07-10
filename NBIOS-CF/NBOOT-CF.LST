@@ -1,0 +1,108 @@
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   1
+NBOOT-CFZ80
+
+    1                   ;*****************************************************************************
+    2                   ; NBOOT-CF.Z80
+    3                   ;
+    4                   ; Boot loader for MC CP/M-Computer IDE/CF drive
+    5                   ;
+    6                   ; based on BLOAD-CF von Uli Haumann from 06/2026
+    7                   ;
+    8                   ;*****************************************************************************
+    9                   ; Load CP/M image from IDE/Compact-Flash into memory starting at cpm_start
+   10                   ; Uses calls to Monitor routine for read directly from IDE interface
+   11                   ;
+   12                   ; Reads track 0, sectors 1 to 50
+   13                   ; This program is loaded into LBA sector 0 of disk with the tool NBPUT-CF.
+   14                   ; At boot time it is loaded by the Monitor to address 08000h and executed.
+   15                   ;
+   16                   ; PLEASE NOTE THE CHANGED CPM & BIOS START ADDRESS!!!
+   17                   ;
+   18                   ; Version history
+   19                   ;
+   20                   ; 10.07.2026 *dg* Renamed to NBOOT-CF and reformatted
+   21                   
+   22                   
+   23         8100      HSTBUF	EQU	08100H		; will put 256-byte raw sector here
+   24         F02A      IDEREAD	EQU	0F02AH		; Monitor function IDEREAD
+   25         E200      BIOS	EQU	0EA00H-800H	; CP/M cold start entry
+   26         CC00      CPM	EQU	0D400H-800H	; CCP Start
+   27                   
+   28         001F      IDESTAT	EQU	01FH		; Hardwareadresse IDE Statusregister
+   29                   
+   30                   ;-----------------------------------------------------------------------------
+   31                   
+   32         8000      	ORG	08000H
+   33                   
+   34                   ; read track 0, sectors 1 to 50
+   35                   
+   36 8000  3E 01       BOOT:	LD A,1			;starting sector -- sector 0 has cpm_loader
+   37 8002  32 8056     	LD (SECTOR),A
+   38 8005  21 CC00     	LD HL,CPM	;memory address to place image
+   39 8008  22 8058     	LD (DMAAD),HL
+   40 800B  3E 00       	LD A,0			;CP/M track
+   41 800D  32 8057     	LD (TRACK),A
+   42                   		
+   43 8010              BOOT1:	; read track 0 loop
+   44 8010  CD 802F     	CALL RDSEC
+   45 8013  3A 8056     	LD A,(SECTOR)
+   46 8016  FE 32       	CP 50
+   47 8018  CA 802C     	JP Z,BOOT2
+   48                   	
+   49 801B  3C          	INC A
+   50 801C  32 8056     	LD (SECTOR),A
+   51 801F  2A 8058     	LD HL,(DMAAD)
+   52 8022  11 0080     	LD DE,128
+   53 8025  19          	ADD HL,DE
+   54 8026  22 8058     	LD (DMAAD),HL
+   55 8029  C3 8010     	JP BOOT1
+   56                   
+   57 802C  C3 E200     BOOT2:	JP BIOS
+   58                   
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
+NBOOT-CFZ80
+
+   59                   ;-----------------------------------------------------------------------------
+   60                   ; Read one CP/M sector from partition 0 (reads directly from CF. No drive number needed)
+   61                   ; Track number in 'track'
+   62                   ; Sector number in 'sector'
+   63                   ; DMA address (location in memory to place the CP/M sector) in 'dmaad' (0-65535)
+   64                   ;
+   65                   
+   66 802F  21 8100     RDSEC:	LD	HL,HSTBUF	; buffer to place raw disk sector (256 bytes)
+   67 8032  3A 8056     	LD	A,(SECTOR)
+   68 8035  CB 27       	SLA	A		; shifts to match BIOS CP/M disk read routine
+   69 8037  CB 27       	SLA	A		; no parition number (partition = 0)
+   70 8039  4F          	LD	C,A		; LBA bits 0 to 7
+   71 803A  3A 8057     	LD	A,(TRACK)
+   72 803D  47          	LD	B,A		; LBA bits 8 to 15
+   73 803E  1E 00       	LD	E,00H		; LBA bits 16 to 23
+   74 8040  CD F02A     	CALL	IDEREAD		; ide read routine in Monitor
+   75                   				; Transfer top 128-bytes out of buffer to memory
+   76 8043  2A 8058     	LD	HL,(DMAAD)	; memory location to place data read from disk
+   77 8046  11 8100     	LD	DE,HSTBUF	; host buffer
+   78 8049  06 80       	LD	B,128		; size of CP/M sector
+   79                   
+   80 804B              RDSEC1:	; read sector loop
+   81                   		
+   82 804B  1A          	LD A,(DE)		; get byte from host buffer
+   83 804C  77          	LD	(HL),A		; put into dmaad
+   84 804D  23          	INC	HL
+   85 804E  13          	INC	DE
+   86 804F  10 FA       	DJNZ	RDSEC1		; put 128 bytes into memory
+   87                   
+   88 8051  DB 1F       	IN	A,(IDESTAT)	; get status
+   89 8053  E6 01       	AND	01H		; error bit
+   90 8055  C9          	RET
+   91                   
+   92                   ;-----------------------------------------------------------------------------
+   93                   
+   94 8056  00          SECTOR:	DB	00H
+   95 8057  00          TRACK:	DB	00H
+   96 8058  0000        DMAAD:	DW	0000H
+   97                   
+   98                   	END
+ 0 Error(s) Detected.
+ 90 Absolute Bytes. 13 Symbols Detected.
+ 77 8046  11 8100     	LD	DE,HSTBUF	; host buffer
+   78 8049  06 80       

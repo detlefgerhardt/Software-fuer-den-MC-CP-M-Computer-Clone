@@ -1,0 +1,57 @@
+	.Z80
+;*************************************************
+;* Cold - Boot Programm fuer Minilaufwerke       *
+;* Rolf-Dieter Klein 841204    1.0               *
+;* 80 Spur Laufwerke   1K pro Sektor Boot        *
+;*************************************************
+
+; das programm wird auf sektor 1 track 0 abgelegt
+
+		
+
+OFFSET		EQU	0A000H-800H	;damit BIOS Start bei E200h
+CPMB		EQU	03400H+OFFSET	;start cp/m
+BIOS		EQU	04A00H+OFFSET	;start bios
+
+		ORG	080H			;Ladeadresse
+WBOOT0:
+;
+		LD	SP,100H		;start of stack
+;
+		LD	HL,CPMB		;START ADRESSE
+		LD	B,7			;ANZAHL DER SEKTOREN  A 1024 BYTES
+						; fuellt genau bis 0EFFF
+						;1c00h bytes (groesser als std 34h/8)
+		LD	D,0			;START BEI TRACK 0 Sektor 2, da 1 bootsektor
+		LD	E,2			;1..5 SEKTOR
+RDSEC:
+		PUSH	HL
+		PUSH	DE
+		PUSH	BC
+		LD	C,11010000B	;laufwerk 0 double dense mini
+		LD	B,1			;read  bei sysgen 2 setzen
+		CALL	0F027H		;Monitor Einsprung Mini Laufwerk
+		POP	BC
+		POP	DE
+		POP	HL
+		JP	C,0F01EH		;monitor aufrufen bei fehler (Restart)
+		PUSH	DE			;NEXT ADRESSE
+		LD	DE,1024		;double dense bloecke
+		ADD	HL,DE
+		POP	DE
+		INC	E			;SEKTORANZAHL + 1
+		LD	A,E
+		CP	5+1			;1..5  erst bei 6 neue Spur (4 max)
+		JP	C,RD1
+		LD	E,1			;START OVER
+		INC	D
+RD1:		DEC	B
+		JP	NZ,RDSEC		;solange bis fertig
+		JP	BIOS			;start coldbios
+
+		END
+
+
+
+
+

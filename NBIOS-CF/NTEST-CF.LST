@@ -1,0 +1,302 @@
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   1
+NTEST-CFZ80
+
+    1                   ;*****************************************************************************
+    2                   ; NBOOT-CF.Z80
+    3                   ;
+    4                   ; Tests four CP/M disks on IDE Interface
+    5                   ;
+    6                   ; based on FORM-CF by Uli Haumann 05/2026
+    7                   ;
+    8                   ;*****************************************************************************
+    9                   ; Writes E5h (+ drive, track and sector) to 64 sectors on tracks 1 to 255 of
+   10                   ; each disk (track 0 is reserved for system)
+   11                   ; Uses BIOS calls. Load a BIOS that supports CF-card to the BIOS address
+   12                   ; before starting the format program.
+   13                   ;
+   14                   ; PLEASE NOTE THE CHANGED BIOS START ADDRESS !!!
+   15                   ;
+   16                   ; Version history
+   17                   ;
+   18                   ; 10.07.2026 *dg* Created to test Monitor and BIOS IDE/CF routines
+   19                   
+   20         E200      BIOS	EQU 0EA00H-800H
+   21                   
+   22                   ; BIOS functions
+   23         E21B      SELDSK	EQU BIOS+01BH		; pass disk no. in c
+   24         E224      SETDMA	EQU BIOS+024H		; pass address in bc
+   25         E21E      SETTRK	EQU BIOS+01EH		; pass track in reg C
+   26         E221      SETSEC	EQU BIOS+021H		; pass sector in reg c
+   27         E227      READ	EQU BIOS+027H		; read one CP/M sector from disk
+   28         E22A      WRITE	EQU BIOS+02AH		; write one CP/M sector to disk
+   29                   
+   30                   ; Monitor functions
+   31         F009      CONOUT	EQU 0F009H		; print a character im Monitor
+   32         F033      MWARM	EQU 0F033H
+   33                   
+   34         0004      STDISK	EQU 4			; first CF disk 
+   35                   
+   36                   ;-----------------------------------------------------------------------------
+   37                   
+   38         0100      	ORG 0100H
+   39                   
+   40 0100  31 04A4     START:	LD SP,STACK
+   41                   
+   42 0103  CD 010C     	CALL FORM
+   43 0106  CD 01B3     	CALL VERIFY
+   44                   
+   45 0109  C3 F033     	JP MWARM
+   46                   
+   47                   ;-----------------------------------------------------------------------------
+   48                   
+   49 010C  21 0275     FORM:	LD HL,FOMSG
+   50 010F  CD 026A     	CALL WRSTR		; output start message
+   51                   	
+   52 0112  3E 04       	LD A,STDISK		; first cf disk
+   53 0114  32 0321     	LD (DISK),A
+   54                   
+   55 0117              FORM1:	; disk loop
+   56 0117  3A 0321     	LD A,(DISK)
+   57 011A  4F          	LD C,A			; set current disk
+   58 011B  CD E21B     	CALL SELDSK
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
+NTEST-CFZ80
+
+   59 011E  3E 01       	LD A,1			; starting track (offset = 1)
+   60 0120  32 0323     	LD (TRACK),A
+   61                   
+   62 0123              FORM2:	; track loop
+   63 0123  3E 00       	LD A,0			; starting sector 0
+   64 0125  32 0322     	LD (SECTOR),A
+   65 0128  3A 0323     	LD A,(TRACK)
+   66 012B  4F          	LD C,A			; set track
+   67 012C  CD E21E     	CALL SETTRK
+   68                   
+   69 012F              FORM3:	; sector loop
+   70                   
+   71                   	; write test header
+   72 012F  21 0325     	LD HL,DIR_SECTOR
+   73 0132  3A 0321     	LD A,(DISK)
+   74 0135  77          	LD (HL),A
+   75 0136  23          	INC HL
+   76 0137  3A 0323     	LD A,(TRACK)
+   77 013A  77          	LD (HL),A
+   78 013B  23          	INC HL
+   79 013C  3A 0322     	LD A,(SECTOR)
+   80 013F  77          	LD (HL),A
+   81                   
+   82 0140  3A 0322     	LD A,(SECTOR)
+   83 0143  4F          	LD C,A			; set sector
+   84 0144  CD E221     	CALL SETSEC
+   85 0147  01 0325     	LD BC,DIR_SECTOR
+   86 014A  CD E224     	CALL SETDMA
+   87 014D  CD E22A     	CALL WRITE
+   88                   	
+   89 0150  3A 0322     	LD A,(SECTOR)
+   90 0153  FE 3F       	CP 63
+   91 0155  CA 015F     	JP Z,FORM4
+   92                   		
+   93 0158  3C          	INC A
+   94 0159  32 0322     	LD (SECTOR),A
+   95 015C  C3 012F     	JP FORM3		; -> next sector
+   96                   
+   97 015F              FORM4:	; next track
+   98 015F  3A 0323     	LD A,(TRACK)
+   99 0162  FE FF       	CP 255
+  100 0164  CA 0193     	JP Z,FORM6		; -> next disk
+  101                   		
+  102 0167  3C          	INC A
+  103 0168  32 0323     	LD (TRACK),A
+  104 016B  3E 2E       	LD A,'.'		; print dot
+  105 016D  4F          	LD C,A
+  106 016E  CD F009     	CALL CONOUT
+  107 0171  3A 0324     	LD A,(CHAR_COUNT)
+  108 0174  3C          	INC A
+  109 0175  FE 50       	CP 80
+  110 0177  CA 0180     	JP Z,FORM5
+  111                   	
+  112 017A  32 0324     	LD (CHAR_COUNT),A
+  113 017D  C3 0123     	JP FORM2		; -> next track
+  114                   
+  115 0180  AF          FORM5:	XOR A
+  116 0181  32 0324     	LD (CHAR_COUNT),A
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   3
+NTEST-CFZ80
+
+  117 0184  3E 0D       	LD A,0DH		; CR ausgeben
+  118 0186  4F          	LD C,A
+  119 0187  CD F009     	CALL CONOUT
+  120 018A  3E 0A       	LD A,0AH		; LF ausgeben
+  121 018C  4F          	LD C,A
+  122 018D  CD F009     	CALL CONOUT
+  123 0190  C3 0123     	JP FORM2		; -> next track
+  124                   
+  125 0193              FORM6:	; next disk
+  126 0193  AF          	XOR A
+  127 0194  32 0324     	LD (CHAR_COUNT),A
+  128 0197  3A 0321     	LD A,(DISK)		;naechste virtuelle Diskette
+  129 019A  3C          	INC A
+  130 019B  FE 08       	CP 8			;fertig ?
+  131 019D  CA 01AC     	JP Z,FORM7		; -> done
+  132                   
+  133 01A0  32 0321     	LD (DISK),A
+  134                   	;PUSH HL
+  135 01A3  21 0313     	LD HL,DISK_STRING	;next Disk ausgeben
+  136 01A6  CD 026A     	CALL WRSTR
+  137                   	;POP HL
+  138 01A9  C3 0117     	JP FORM1		; -> next disk
+  139                   
+  140 01AC              FORM7:	; done
+  141 01AC  21 02C7     	LD HL,FOENDMSG	; success message
+  142 01AF  CD 026A     	CALL WRSTR
+  143                   	
+  144 01B2  C9          	RET
+  145                   
+  146                   ;-----------------------------------------------------------------------------
+  147                   
+  148 01B3  21 029E     VERIFY:	LD HL,VYMSG
+  149 01B6  CD 026A     	CALL WRSTR		; output start message
+  150                   	
+  151 01B9  3E 04       	LD A,STDISK		; first cf disk
+  152 01BB  32 0321     	LD (DISK),A
+  153                   
+  154 01BE              VERF1:	; disk loop
+  155 01BE  3A 0321     	LD A,(DISK)
+  156 01C1  4F          	LD C,A			; set current disk
+  157 01C2  CD E21B     	CALL SELDSK
+  158 01C5  3E 01       	LD A,1			; starting track (offset = 1)
+  159 01C7  32 0323     	LD (TRACK),A
+  160                   
+  161 01CA              VERF2:	; track loop
+  162 01CA  3E 00       	LD A,0			; starting sector 0
+  163 01CC  32 0322     	LD (SECTOR),A
+  164 01CF  3A 0323     	LD A,(TRACK)
+  165 01D2  4F          	LD C,A			; set track
+  166 01D3  CD E21E     	CALL SETTRK
+  167                   
+  168 01D6              VERF3:	; sector loop
+  169 01D6  3A 0322     	LD A,(SECTOR)
+  170 01D9  4F          	LD C,A			; set sector
+  171 01DA  CD E221     	CALL SETSEC
+  172 01DD  01 0325     	LD BC,DIR_SECTOR
+  173 01E0  CD E224     	CALL SETDMA
+  174 01E3  CD E227     	CALL READ
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   4
+NTEST-CFZ80
+
+  175                   
+  176                   	; check test header
+  177 01E6  21 0325     	LD HL,DIR_SECTOR
+  178 01E9  3A 0321     	LD A,(DISK)
+  179 01EC  BE          	CP (HL)
+  180 01ED  C2 0263     	JP NZ,VERF8		; -> wrong disk
+  181 01F0  23          	INC HL
+  182 01F1  3A 0323     	LD A,(TRACK)
+  183 01F4  BE          	CP (HL)
+  184 01F5  C2 0263     	JP NZ,VERF8		; -> wrong track
+  185 01F8  23          	INC HL
+  186 01F9  3A 0322     	LD A,(SECTOR)
+  187 01FC  BE          	CP (HL)
+  188 01FD  C2 0263     	JP NZ,VERF8		; -> wrong sector
+  189                   
+  190                   	; sector ok
+  191 0200  3A 0322     	LD A,(SECTOR)
+  192 0203  FE 3F       	CP 63
+  193 0205  CA 020F     	JP Z,VERF4
+  194                   		
+  195 0208  3C          	INC A
+  196 0209  32 0322     	LD (SECTOR),A
+  197 020C  C3 01D6     	JP VERF3		; -> next sector
+  198                   
+  199 020F              VERF4:	; next track
+  200 020F  3A 0323     	LD A,(TRACK)
+  201 0212  FE FF       	CP 255
+  202 0214  CA 0243     	JP Z,VERF6		; -> next disk
+  203                   		
+  204 0217  3C          	INC A
+  205 0218  32 0323     	LD (TRACK),A
+  206 021B  3E 2E       	LD A,'.'		; print dot
+  207 021D  4F          	LD C,A
+  208 021E  CD F009     	CALL CONOUT
+  209 0221  3A 0324     	LD A,(CHAR_COUNT)
+  210 0224  3C          	INC A
+  211 0225  FE 50       	CP 80
+  212 0227  CA 0230     	JP Z,VERF5
+  213                   	
+  214 022A  32 0324     	LD (CHAR_COUNT),A
+  215 022D  C3 01CA     	JP VERF2		; -> next track
+  216                   
+  217 0230  AF          VERF5:	XOR A
+  218 0231  32 0324     	LD (CHAR_COUNT),A
+  219 0234  3E 0D       	LD A,0DH		; CR ausgeben
+  220 0236  4F          	LD C,A
+  221 0237  CD F009     	CALL CONOUT
+  222 023A  3E 0A       	LD A,0AH		; LF ausgeben
+  223 023C  4F          	LD C,A
+  224 023D  CD F009     	CALL CONOUT
+  225 0240  C3 01CA     	JP VERF2		; -> next track
+  226                   
+  227 0243              VERF6:	; next disk
+  228 0243  AF          	XOR A
+  229 0244  32 0324     	LD (CHAR_COUNT),A
+  230 0247  3A 0321     	LD A,(DISK)		;naechste virtuelle Diskette
+  231 024A  3C          	INC A
+  232 024B  FE 08       	CP 8			;fertig ?
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   5
+NTEST-CFZ80
+
+  233 024D  CA 025C     	JP Z,VERF7		; -> done
+  234                   
+  235 0250  32 0321     	LD (DISK),A
+  236                   	;PUSH HL
+  237 0253  21 0313     	LD HL,DISK_STRING	;next Disk ausgeben
+  238 0256  CD 026A     	CALL WRSTR
+  239                   	;POP HL
+  240 0259  C3 01BE     	JP VERF1		; -> next disk
+  241                   
+  242 025C              VERF7:	; done
+  243 025C  21 02E1     	LD HL,VYENDMSG	; success message
+  244 025F  CD 026A     	CALL WRSTR
+  245 0262  C9          	RET
+  246                   
+  247 0263              VERF8:	; verify error
+  248 0263  21 02FB     	LD HL,VYERRMSG	; error message
+  249 0266  CD 026A     	CALL WRSTR
+  250 0269  C9          	RET
+  251                   
+  252                   ;-----------------------------------------------------------------------------
+  253                   ; Used monitor CONOUT to print 0-terminated string
+  254                   ; address in HL
+  255                   ; 00h = string end
+  256                   
+  257 026A  7E          WRSTR:	LD A,(HL)	; get char from string
+  258 026B  A7          	AND A		; check if 0
+  259 026C  C8          	RET Z		; -> end of string
+  260                   	
+  261 026D  4F          	LD C,A
+  262 026E  CD F009     	CALL CONOUT
+  263 0271  23          	INC HL		; next char in string
+  264 0272  C3 026A     	JP WRSTR	; start over
+  265                   
+  266                   ;-----------------------------------------------------------------------------
+  267                   
+  268 0275  0D 0A 0A 46 FOMSG:		DEFM	0dh,0ah,0ah,"Formatiere 4 virtuelle Disk",0dh,0ah,"Disk 1",0dh,0ah,0
+  269 029E  0D 0A 0A 56 VYMSG:		DEFM	0dh,0ah,0ah,"Verifizere 4 virtuelle Disk",0dh,0ah,"Disk 1",0dh,0ah,0
+  270 02C7  0D 0A 46 6F FOENDMSG:	DEFM	0dh,0ah,'Formatierung beendet',0dh,0dh,0ah,0
+  271 02E1  0D 0A 56 65 VYENDMSG:	DEFM	0dh,0ah,'Verifizieren beendet',0dh,0dh,0ah,0
+  272 02FB  0D 0A 46 65 VYERRMSG:	DEFM	0dh,0ah,'Fehler beim Verify',0dh,0dh,0ah,0
+  273 0313  0D 0A 6E 65 DISK_STRING:	DEFM	0dh,0ah,'next Disk',0dh,0ah,0
+  274                   
+  275 0321    0001      DISK:		DEFS	1
+  276 0322    0001      SECTOR:		DEFS	1
+  277 0323    0001      TRACK:		DEFS	1
+  278 0324    0001      CHAR_COUNT:	DEFS	1
+  279 0325  E5 E5 E5 E5 DIR_SECTOR:	DS	128,0E5h	;byte for empty directory
+  280 03A5    00FF      		DS	0FFh		;stack space
+  281                   
+  282 04A4              STACK:
+  283                   		END
+ 0 Error(s) Detected.
+ 932 Absolute Bytes. 41 Symbols Detected.
+          
+  268 0275  0D 0A 0A 46 FOMSG:		DEFM	0dh,0ah

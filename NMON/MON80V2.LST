@@ -1,0 +1,3118 @@
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page   1
+MON80V2 Z80
+
+    2                   	
+    3                   	.Z80
+    4                   ;---------------------------------------------------------------
+    5                   ; Monitor fuer MC-Computer Platine SYS-80 und SYS-80s
+    6                   ; Assembliert mit Z80ASM von SLR Systems wegen der langen
+    7                   ; Label die mit einigen anderen Assemblern nicht moeglich sind.
+    8                   ;
+    9                   ; Erstellt 05/2026 von U. Haumann
+   10                   ; Enthaelt weitgehend Routinen aus RDK Monitor 1.1 850129
+   11                   ; V7.2 851216, sowie Teile aus dem Monitor von Donn Stewart 
+   12                   ; fuer den "CPU-Ville" Z80 Computer.
+   13                   ; Treiber fuer Serielle Schnittstelle auf CPU-Platine mit UART 8251
+   14                   ; implementiert.
+   15                   ; Flo1 und Flo2 waehlber auf Hardware Basis Adresse 0C0h.
+   16                   ; Der Mointor erwartet 64KB Ram Memory. Er darf selbst nicht
+   17                   ; groesser als 4KB werden, es sein denn man schiebt die MON_ADR
+   18                   ; und CCP weiter nach unten. Der CPM Bereich verkleinert sich dann.
+   19                   ; Der Monitor kopiert sich nach Reset an das Speicherende
+   20                   ; auf den Wert in MON_ADR und gibt den unteren RAM Bereich frei.
+   21                   ; Dies wird auf der SYS CPU Platine mit einem Lesebefehl auf
+   22                   ; Adresse 7000h erreicht. Das Eprom ist dann ausgeblendet.
+   23                   ; Somit steht der Speicher durchgaengig ab 0000h bis zu MON_ADR
+   24                   ; zur Verfuehgung.
+   25                   ; Das CPM BIOS fuer den MC-Computer ueberschreibt den Monitorbereich
+   26                   ; ab FC00h. Alle relevanten Teile fuer den Betrieb des Rechners 
+   27                   ; muessen vor FC00h plaziert werden.
+   28                   ; Ergaenzung: Das betrifft alle Teile des interaktiven Monitors, der
+   29                   ; dann nicht mehr funktionsfaehig ist. Funktionsfaehig bleiben nur
+   30                   ; die Ein-/Ausgabe-Routinen und die Floppy-Routinen, die vom BIOS
+   31                   ; benoetigt werden.
+   32                   
+   33                   ; 07/2026 Ueberarbeitet von Detlef Gerhardt
+   34                   ; komplette Ueberarbeitung der Labels und sukzessive Kommentierung des Quellcodes
+   35                   ; um nach und nach moeglichst viele Routinen zu verstehen.
+   36                   ; Diese Version ist bis auf die Versionsnummer noch binaerkompatibel zu Version 8.0v1
+   37                   ; --- Work in progress ---
+   38                   
+   39                   ;------------------------------------------------------------------------------
+   40                   ; Mapping of REG4-Latch
+   41                   
+   42                   ; write
+   43                   ; Bit0 = Drive Select 1
+   44                   ; Bit1 = Drive Select 1
+   45                   ; Bit2 = Drive Select 3
+   46                   ; Bit3 = Drive Select 4
+   47                   ; Bit4 = FDC9239 Dens (0=DD, 1=SS)
+   48                   ; Bit5 = FDC9239 Mini (0=Maxi, 1=Mini)
+   49                   ; Bit6 = Motor On (Jumper) (0=Motor on, 1=Motor off)
+   50                   ; Bit7 = Side Select (Jumper) (0=Side 0, 1=Side 1)
+   51                   
+   52                   ; read
+   53                   ; Bit5 = Headload Status (0=head loaded, 1=head unloaded)
+   54                   ; Bit6 = FD197x INTREQ (0=not active, 1=active)
+   55                   ; Bit7 = FD197x DRQ (0=not active, 1=actice)
+   56                   
+   57                   ;------------------------------------------------------------------------------
+   58                   ; Constants
+   59                   
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page   2
+MON80V2 Z80
+
+   60         0000      FALSE	EQU 0
+   61         FFFF      TRUE	EQU NOT FALSE
+   62         000D      CR 	EQU 0DH		; carriage return
+   63         000A      LF 	EQU 0AH		; line feed
+   64         0007      BELL	EQU 07H		; bell
+   65         00FF      RUB 	EQU 0FFH	; rub out
+   66                   ;FIL 	EQU 0
+   67                   ;MAX	EQU 7
+   68         001B      ESC	EQU 1BH
+   69                   
+   70         0038      RST7	EQU 38H		; der Vektor RST7 wird fuer Breakpoints gebraucht
+   71                   
+   72                   ;------------------------------------------------------------------------------
+   73                   ; Variant switches
+   74                   
+   75         0015      VERSION	EQU 21
+   76                   
+   77                   ; aktiviert alle bisherigen Aenderungen gegenueber der Originalversion 7.x
+   78         0000      DG01	EQU FALSE
+   79                   
+   80                   ; 3 Mini drives (A..C), 1 Maxi drives (D), 1 RAM-Disk (E)
+   81         0000      MINI3	EQU FALSE
+   82                   
+   83                   ; version for CPU80/S with UART 8251
+   84         FFFF      SYS80S	EQU TRUE
+   85                   
+   86                   ;------------------------------------------------------------------------------
+   87                   ; I/O addresses
+   88                   
+   89                   ; SYS80S = TRUE:  serial port of SYS-80S card ist used for console
+   90                   ; SYS80S = FALSE: serial port SIO A at OUT-80 card is used for console
+   91                   
+   92                   ; OUT-80 card SIO B is used for reader, punch and lister
+   93                   
+   94                   ; Addresses of serial port UART 8251 at SYS-80s CPU card
+   95         0020      SU_DAT	EQU 020H	; UART 8251 Daten
+   96         0021      SU_STS	EQU 021H	; UART 8251 Control
+   97         0002      SU_RXB	EQU 002h	; RX Ready Bit UART 8251
+   98         0001      SU_TXB	EQU 001h	; TX Ready Bit UART 8251
+   99                   
+  100                   ; Addresses of serial port MC Computer OUT-80 card with SIO
+  101         00F0      SA_DAT	EQU 0F0H	; SIO A Daten
+  102         00F1      SA_STS	EQU 0F1H	; SIO A Control
+  103         00F2      SB_DAT	EQU 0F2H	; SIO B Daten
+  104         00F3      SB_STS	EQU 0F3H	; SIO B Control
+  105         0001      SI_RXB	EQU 01h		; SIO RX Ready Bit
+  106         0004      SI_TXB	EQU 04h		; SIO TX Ready Bit
+  107                   
+  108         FFFF      	IF SYS80S
+  109                   
+  110                   ; Console is redirected to UART on SYS-80s
+  111         0020      CO_DAT	EQU SU_DAT
+  112         0021      CO_STS	EQU SU_STS
+  113         0002      CO_RXB	EQU SU_RXB
+  114         0001      CO_TXB	EQU SU_TXB
+  115                   
+  116                   	ELSE
+  124                   	ENDIF
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page   3
+MON80V2 Z80
+
+  125                   
+  126                   ; Reader port (SIO B)
+  127         00F2      RE_DAT	EQU SB_DAT
+  128         00F3      RE_STS	EQU SB_STS
+  129         0001      RE_RXB	EQU SI_RXB
+  130         0004      RE_TXB	EQU SI_TXB
+  131                   
+  132                   ; Punch port (SIO B)
+  133         00F2      PU_DAT	EQU SB_DAT
+  134         00F3      PU_STS	EQU SB_STS
+  135         0001      PU_RXB	EQU SI_RXB
+  136         0004      PU_TXB	EQU SI_TXB
+  137                   
+  138                   ; List port (SIO B)
+  139         00F2      LI_DAT	EQU SB_DAT
+  140         00F3      LI_STS	EQU SB_STS
+  141         0001      LI_RXB	EQU SI_RXB
+  142         0004      LI_TXB	EQU SI_TXB
+  143                   
+  144                   ;------------------------------------------------------------------------------
+  145                   
+  146                   ; Addresses of IDE-80 CF-Adapter card
+  147                   
+  148         0018      IDEDATA	EQU 018h	; IDE Data Register
+  149         001A      SECCND	EQU 01Ah	; Sector Count Register
+  150         001B      LBA7	EQU 01Bh	; LBA Bits 0-7
+  151         001C      LBA15	EQU 01Ch	; LBA Bits 8-15
+  152         001D      LBA23	EQU 01Dh	; LBA Bits 16-23
+  153         001E      IDEHEAD	EQU 01Eh	; IDE Drive Head Register
+  154         001F      IDESTAT	EQU 01Fh	; IDE Command/Status Register
+  155                   
+  156                   ;------------------------------------------------------------------------------
+  157                   
+  158         0000      	ORG 0000h		; start address in ROM
+  159                   
+  160                   	; Copy Monitor from address ROMSTRT in ROM to address F000 in RAM
+  161                   
+  162 0000  31 FFFF     BEGIN:	LD SP,0FFFFh 		; set Stack to end of memory
+  163 0003  3E C9       	LD A,0C9h 		; place RET command at F000h
+  164 0005  32 F000     	LD (0F000h),A 		; 
+  165 0008  CD F000     	CALL 0F000h 		; and call it
+  166                   
+  167 000B  3B          OFFS:	DEC SP  		; get return address from Stack to calculate
+  168 000C  3B          	DEC SP  		; Monitor location in ROM
+  169 000D  D1          	POP DE
+  170 000E  21 0012     	LD HL,ROMSTRT-OFFS	; offset from BEG to ROMSTRT
+  171 0011  19          	ADD HL,DE		; actual Montor address in ROM as source address in HL
+  172 0012  11 F000     	LD DE,0F000h 		; dest address in DE
+  173 0015  01 0FFF     	LD BC,0FFFh 		; length in BC (4KB - 1)
+  174 0018  ED B0       	LDIR  			; copy
+  175 001A  C3 F000     	JP 0F000h 		; jump to Monitor in RAM
+  176                   
+  177                   ;------------------------------------------------------------------------------
+  178                   ; Start of Monitor program, ROM address 0F000h
+  179                   
+  180 001D              ROMSTRT:
+  181                   	; Start address of Monitor in ROM
+  182                   	; label must be located before .PHASE
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page   4
+MON80V2 Z80
+
+  183                   
+  184                   	.PHASE 0F000H	; monitor start address in RAM
+  185                   
+  186 F000  C3 F071     	JP INIT
+  187 F003  C3 F084     	JP CONIN	; Console In
+  188 F006  C3 F097     	JP READIN	; Reader In (<- SIO B)
+  189 F009  C3 F0AD     	JP CONOUT	; Console Out
+  190 F00C  C3 F0C1     	JP PUNOUT	; Punch Out (-> SIO B)
+  191 F00F  C3 F0D8     	JP LSTOUT	; List Out (-> SIO B)
+  192 F012  C3 F0EF     	JP CONSTS	; Get console status, 0FFh in A, if character available
+  193 F015  C3 F102     	JP IOGET	; Get iobyte, current configuration in A
+  194 F018  C3 F106     	JP IOSET	; Set iobyte, new configuration in C
+  195 F01B  C3 F10B     	JP MEMCHK	; High memory in B, low memory in A
+  196                   
+  197 F01E              TRAP:	; trap/breakpoint entry -> RSTRT
+  198                   
+  199 F01E  C3 F06E     	JP RSTRT
+  200                   	
+  201 F021  C3 F213     	JP FLOP	 	; new floppy interface rev 1.0 (used by BIOS 3.1)
+  202                   	
+  203         FFFF      	IF NOT DG01
+  204 F024  C3 F1A9     	JP MAXI		; FLOPPY EXEC VEKTOR SOFT (old)
+  205 F027  C3 F1E4     	JP MINI		; FLOPPY EXEC VEKTOR MINI (used by BIOS 3.1)
+  206                   	ELSE
+  209                   	ENDIF
+  210                   	
+  211 F02A  C3 F588     	JP IDERD	; Read IDE sector
+  212 F02D  C3 F5C7     	JP IDEWR	; Write IDE Sector
+  213 F030  C3 F6CA     	JP COLD		; Monitor Cold Start (no Hardware init)
+  214 F033  C3 F6FB     	JP WARM		; Monitor Warm Start
+  215 F036  C3 F074     	JP WRSTR	; gibt einen 0-terminierten String aus
+  216                   
+  217 F039  F13A        TABPTR:	DEFW TABSTART 	; Start of user jump table
+  218 F03B  FE30        ENDPTR:	DEFW LASTMON 	; End address of Monitor
+  219 F03D  F606        FREPTR:	DEFW FREEMEM 	; End of Monitor driver section. The area behind it can be overwritten by CP/M.
+  220                   
+  221                   	; Jump table for compatibility to FLOMON (NDR-Klein-Computer)
+  222                   	
+  223 F03F    000D      	DEFS 13 	; f033,34,35,36,37,38,39,3a,3b,3c,3d,3e,3f
+  224                   			; BASIS F040h
+  225 F04C  C3 F06A     	JP ILLEGAL 	; loeschen alle seiten
+  226 F04F  C3 F06A     	JP ILLEGAL     	; loeschen unsichtbar
+  227 F052  C3 F06A     	JP ILLEGAL 	; moveto hl=x de=y
+  228 F055  C3 F06A     	JP ILLEGAL 	; drawto hl=x de=y
+  229 F058  C3 F06A     	JP ILLEGAL 	; c=schreibseite 0,1,2,3
+  230 F05B  C3 F06A     	JP ILLEGAL 	; c=leseseite    0,1,2,3
+  231 F05E  C3 F06A     	JP ILLEGAL      ; c=rmwmode      0=norm 1=rmw
+  232 F061  C3 F06A     	JP ILLEGAL 	; warten bis gdp fertig
+  233 F064  C3 F06A     	JP ILLEGAL      ; c=befehl fuer gdp  ACHTUNG in C-Register nicht A
+  234 F067  C3 F06A     	JP ILLEGAL 	; hl=quelle,de=ziel,c=bank quelle, b=bank ziel
+  235                   			; carry wenn bankram auf f000h nicht da ist
+  236                   
+  237                   ; End of area of tables and fixed addresses, that are used by CP/M BIOS, UFORMAT etc.
+  238                   
+  239                   ;------------------------------------------------------------------------------
+  240                   
+  241 F06A              ILLEGAL:
+  242 F06A  3E FF       	LD A,0FFh
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page   5
+MON80V2 Z80
+
+  243 F06C  37          	SCF
+  244 F06D  C9          	RET  		; return with error
+  245                   
+  246                   ;------------------------------------------------------------------------------
+  247                   
+  248 F06E  C3 FCF1     RSTRT:	JP RSTRTB 	; kann kurzgeschlossen werden
+  249                   			; nach freemem ueberschreibung
+  250 F071  C3 F693     INIT:	JP INIT1 	; kurzschliessen ggf.
+  251                   			; ende fixed gebiet
+  252                   
+  253                   ;==============================================================================
+  254                   ; IO Routines
+  255                   ;==============================================================================
+  256                   ; Output 0-terminated string, address in HL
+  257                   
+  258 F074  DB 21       WRSTR:	IN  A,(CO_STS)	; read status
+  259 F076  E6 01       	AND CO_TXB	; check TxRDY bit
+  260 F078  CA F074     	JP Z,WRSTR	; wait if not set
+  261                   	
+  262 F07B  7E          	LD A,(HL)	; get char from string
+  263 F07C  A7          	AND A		; check if 0
+  264 F07D  C8          	RET Z		; -> send of string
+  265                   	
+  266 F07E  D3 20       	OUT (CO_DAT),A	; write char to output
+  267 F080  23          	INC HL		; next char in string
+  268 F081  C3 F074     	JP WRSTR	; start over
+  269                   
+  270                   ;------------------------------------------------------------------------------
+  271                   ; Console Input main routine (SYS)
+  272                   
+  273 F084  3A F14C     CONIN:	LD A,(IOBYT)
+  274 F087  E6 03       	AND 00000011b		; console mask
+  275 F089  20 09       	JR NZ,CONI2		; -> user device
+  276                   
+  277 F08B  DB 21       CONI1:	IN A,(CO_STS)
+  278 F08D  E6 02       	AND CO_RXB
+  279 F08F  28 FA       	JR Z,CONI1
+  280 F091  DB 20       	IN A,(CO_DAT)
+  281 F093  C9          	RET
+  282                   
+  283 F094  C3 F13A     CONI2:	JP USERCI  		; user device
+  284                   
+  285                   ;------------------------------------------------------------------------------
+  286                   ; Reader Input routine (SIO B)
+  287                   
+  288 F097  3A F14C     READIN:	LD A,(IOBYT)
+  289 F09A  E6 0C       	AND 00001100b
+  290 F09C  CA F084     	JP Z,CONIN  		; assign: AR=T
+  291                   
+  292 F09F  FE 04       	CP 00000100B 
+  293 F0A1  C2 F13D     	JP NZ,USERRI
+  294                   	
+  295 F0A4              READI1:	; assign: AR=P
+  296 F0A4  DB F3       	IN A,(RE_STS)
+  297 F0A6  E6 01       	AND RE_RXB
+  298 F0A8  28 FA       	JR Z,READI1
+  299                   	
+  300 F0AA  DB F2       	IN A,(RE_DAT)
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page   6
+MON80V2 Z80
+
+  301 F0AC  C9          	RET
+  302                   
+  303                   ;------------------------------------------------------------------------------
+  304                   ; Console Output main routine
+  305                   
+  306 F0AD  3A F14C     CONOUT:	LD A,(IOBYT)
+  307 F0B0  E6 03       	AND 00000011b
+  308 F0B2  20 0A       	JR NZ,CONO2		; -> user device
+  309                   
+  310 F0B4              CONO1:	; 
+  311 F0B4  DB 21       	IN A,(CO_STS)
+  312 F0B6  E6 01       	AND CO_TXB
+  313 F0B8  28 FA       	JR Z,CONO1
+  314                   	
+  315 F0BA  79          	LD A,C
+  316 F0BB  D3 20       	OUT (CO_DAT),A
+  317 F0BD  C9          	RET
+  318                   
+  319 F0BE  C3 F140     CONO2:	JP USERCO		; user device
+  320                   
+  321                   ;------------------------------------------------------------------------------
+  322                   ; Punch Output main routine
+  323                   ; HIER ABFRAGE IOBYT MOEGLICH
+  324                   ; char in C
+  325                   ;
+  326 F0C1  3A F14C     PUNOUT:	LD A,(IOBYT)
+  327 F0C4  E6 30       	AND 00110000b
+  328 F0C6  CA F0AD     	JP Z,CONOUT  		; assign: AP=T
+  329                   	
+  330 F0C9  FE 10       	CP 00010000b
+  331 F0CB  C2 F143     	JP NZ,USERPO
+  332                   
+  333 F0CE              PUNO1:	; assign: AP=P
+  334 F0CE  DB F3       	IN A,(PU_STS)
+  335 F0D0  E6 04       	AND PU_TXB
+  336 F0D2  28 FA       	JR Z,PUNO1
+  337                   	
+  338 F0D4  79          	LD A,C
+  339 F0D5  D3 F2       	OUT (PU_DAT),A
+  340 F0D7  C9          	RET
+  341                   
+  342                   ;------------------------------------------------------------------------------
+  343                   ; List Output main routine
+  344                   
+  345 F0D8  3A F14C     LSTOUT:	LD A,(IOBYT)
+  346 F0DB  E6 C0       	AND 11000000b
+  347 F0DD  CA F0B4     	JP Z,CONO1 		; assign: AL=T
+  348                   	
+  349 F0E0  FE 80       	CP 10000000B 		
+  350 F0E2  C2 F146     	JP NZ,USERLO
+  351                   					
+  352 F0E5              LO1:	; assign AL=L
+  353 F0E5  DB F3       	IN A,(LI_STS)
+  354 F0E7  E6 04       	AND LI_TXB
+  355 F0E9  28 FA       	JR Z,LO1
+  356                   	
+  357 F0EB  79          	LD A,C
+  358 F0EC  D3 F2       	OUT (LI_DAT),A
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page   7
+MON80V2 Z80
+
+  359 F0EE  C9          	RET
+  360                   
+  361                   ;------------------------------------------------------------------------------
+  362                   ; Console Status main routine
+  363                   
+  364 F0EF  3A F14C     CONSTS:	LD A,(IOBYT)
+  365 F0F2  E6 03       	AND 03h
+  366 F0F4  20 09       	JR NZ,CONS2
+  367                   
+  368 F0F6  DB 21       CONS1:	IN A,(CO_STS)
+  369 F0F8  E6 02       	AND CO_RXB
+  370 F0FA  C8          	RET Z
+  371                   	
+  372 F0FB  3E FF       	LD A,0FFH
+  373 F0FD  B7          	OR A
+  374 F0FE  C9          	RET
+  375                   
+  376 F0FF  C3 F149     CONS2:	JP USERCSTS	; user device
+  377                   
+  378                   ;------------------------------------------------------------------------------
+  379                   ; The IOBYTE is used to switch from physical to logical device. It has the
+  380                   ; same meaning as in the CP/M BIOS.
+  381                   
+  382 F102  3A F14C     IOGET:	LD A,(IOBYT)
+  383 F105  C9          	RET
+  384                   
+  385                   ;------------------------------------------------------------------------------
+  386                   ; IOSET, can be set in BIOS
+  387                   
+  388 F106  79          IOSET:	LD A,C
+  389 F107  32 F14C     	LD (IOBYT),A
+  390 F10A  C9          	RET
+  391                   	
+  392                   ;------------------------------------------------------------------------------
+  393                   ; prueft den Speicherbereich und gibt die hoechste verfuegbare Zelle an
+  394                   ; MEMCHK IN B HIGH IN A LOW MEMORY
+  395                   
+  396 F10B  E5          MEMCHK:	PUSH HL
+  397 F10C  CD F118     	CALL MEMSIZ
+  398 F10F  7D          	LD A,L
+  399 F110  D6 3C       	SUB 3CH
+  400 F112  30 01       	JR NC,MEMCK1
+  401                   
+  402 F114  25          	DEC H
+  403                   	
+  404 F115  44          MEMCK1:	LD B,H
+  405 F116  E1          	POP HL
+  406 F117  C9          	RET
+  407                   
+  408                   ;------------------------------------------------------------------------------
+  409                   ; Detect end of memory from 0000h to EFFFh
+  410                   
+  411 F118  C5          MEMSIZ:	PUSH BC
+  412                   
+  413                   	; entry point
+  414 F119              MEMSIZB:
+  415 F119  21 FFFF     	LD HL,-1
+  416                   
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page   8
+MON80V2 Z80
+
+  417 F11C  24          MEMS1:	INC H
+  418 F11D  7E          	LD A,(HL)
+  419 F11E  2F          	CPL
+  420 F11F  77          	LD (HL),A
+  421 F120  BE          	CP (HL)
+  422 F121  2F          	CPL
+  423 F122  77          	LD (HL),A
+  424 F123  20 F7       	JR NZ,MEMS1
+  425                   
+  426 F125  24          MEMS2:	INC H
+  427 F126  7C          	LD A,H
+  428 F127  FE F0       	CP 0F0H		; ALL RAM
+  429 F129  28 08       	JR Z,MEMS3 	; READY 0F000H
+  430                   	
+  431 F12B  7E          	LD A,(HL) 	; max 0F000h, da dort Monitor startet
+  432 F12C  2F          	CPL
+  433 F12D  77          	LD (HL),A
+  434 F12E  BE          	CP (HL)
+  435 F12F  2F          	CPL
+  436 F130  77          	LD (HL),A
+  437 F131  28 F2       	JR Z,MEMS2
+  438                   
+  439 F133  25          MEMS3:	DEC H
+  440 F134  01 FFDD     	LD BC,EXIT-ENDX
+  441 F137  09          	ADD HL,BC
+  442 F138  C1          	POP BC
+  443 F139  C9          	RET
+  444                   
+  445                   ; -----------------------------------------------------------------------------
+  446                   
+  447 F13A              TABSTART:
+  448                   	;TABELLE SPRUNG-VEKTOREN
+  449                   
+  450                   ; Hier koennen eigene Routinen stehen fuer Input/Output
+  451                   
+  452 F13A  C3 F08B     USERCI:	JP CONI1
+  453 F13D  C3 F08B     USERRI:	JP CONI1
+  454 F140  C3 F0B4     USERCO:	JP CONO1
+  455 F143  C3 F0B4     USERPO:	JP CONO1
+  456 F146  C3 F0B4     USERLO:	JP CONO1
+  457 F149              USERCSTS:
+  458 F149  C3 F0F6     	JP CONS1
+  459                   
+  460                   	; IOBYTE
+  461                   	; 000000XX CONSOLE
+  462                   	; 0000XX00 READER
+  463                   	; 00XX0000 PUNCH
+  464                   	; XX000000 LISTER
+  465 F14C  00          IOBYT:	DEFB 0
+  466                   
+  467 F14D    0003      OEXEC:	DEFS 3
+  468 F150    0003      IEXEC:	DEFS 3
+  469 F153    0003      KEXEC:	DEFS 3
+  470                   
+  471                   ;==============================================================================
+  472                   ; Format detection (not used)
+  473                   ;
+  474                   ; in C ist danach der gueltige ; Laufwerkscode,
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page   9
+MON80V2 Z80
+
+  475                   ; Vorgabe ist in C die Laufwerksnummer und ggf. Seite.
+  476                   ; testet mini,sd =11
+  477                   ;        mini,dd =10
+  478                   ;        maxi,sd =01
+  479                   ;        maxi,dd =00
+  480                   
+  481 F156  F3          GETFRM:	DI  		; disable interrupts
+  482 F157  3E D0       	LD A,0D0H
+  483 F159  D3 C0       	OUT (FLO),A 	; stop controller
+  484 F15B  DB C0       	IN A,(FLO) 	; clear controller interrupts
+  485                   	
+  486                    	; use only drive code and side
+  487 F15D  79          	LD A,C
+  488 F15E  E6 8F       	AND 8FH
+  489 F160  4F          	LD C,A
+  490                   	
+  491 F161  CD F2C3     	CALL WAWA	; short delay (4 ms)
+  492                   	
+  493                   	; try Mini SD
+  494 F164  79          	LD A,C
+  495 F165  F6 30       	OR 00110000B
+  496 F167  4F          	LD C,A
+  497 F168  CD F186     	CALL TSTFRM
+  498 F16B  D0          	RET NC		; -> ok
+  499                   	
+  500                   	; try Maxi SD
+  501 F16C  79          	LD A,C
+  502 F16D  E6 AF       	AND 10101111B
+  503 F16F  4F          	LD C,A
+  504 F170  CD F186     	CALL TSTFRM
+  505 F173  D0          	RET NC		; -> ok
+  506                   	
+  507                   	; try Mini SD
+  508 F174  79          	LD A,C
+  509 F175  E6 8F       	AND 10001111B
+  510 F177  F6 10       	OR  00010000B
+  511 F179  4F          	LD C,A
+  512 F17A  CD F186     	CALL TSTFRM
+  513 F17D  D0          	RET NC		; -> ok
+  514                   
+  515                   	; try Maxi DD
+  516 F17E  79          	LD A,C
+  517 F17F  E6 8F       	AND 10001111B
+  518 F181  4F          	LD C,A
+  519 F182  CD F186     	CALL TSTFRM
+  520 F185  C9          	RET  		; ok or error (carry=1)
+  521                   
+  522                   ;------------------------------------------------------------------------------
+  523                   ; TSTFRM
+  524                   
+  525 F186  3A F587     TSTFRM:	LD A,(FLOTYP)
+  526 F189  FE 01       	CP 1
+  527 F18B  C2 F194     	JP NZ,TSTF1	; -> FLO2
+  528                   
+  529                   	; FLO1
+  530 F18E  79          	LD A,C
+  531 F18F  EE 10       	XOR 10H		; if FLO1 invert density bit
+  532 F191  C3 F195     	JP TSTF2
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  10
+MON80V2 Z80
+
+  533                   	
+  534 F194              TSTF1:	; FLO2
+  535 F194  79          	LD A,C
+  536                   
+  537 F195  D3 C4       TSTF2:	OUT (FLO+4),A 	; set REG4-Latch
+  538 F197  3E 0F       	LD A,0FH 	; RSTORE command with Verify
+  539 F199  D3 C0       	OUT (FLO),A 	; to controller
+  540                   	
+  541 F19B              TSTF3:	; wait for INT
+  542 F19B  DB C4       	IN A,(FLO+4)
+  543 F19D  E6 40       	AND 40H 	; Bit 6 pruefen
+  544 F19F  28 FA       	JR Z,TSTF3 	; -> wait
+  545                   	
+  546 F1A1  DB C0       	IN A,(FLO) 	; read status, clear interrupt
+  547 F1A3  E6 98       	AND  10011000B 	; mask critical bits
+  548 F1A5  37          	SCF
+  549 F1A6  C0          	RET NZ  	; return with carry se (error)
+  550                   	
+  551 F1A7  AF          	XOR A
+  552 F1A8  C9          	RET  		; return with carry clear (no error)
+  553                   
+  554                   ;==============================================================================
+  555                   
+  556         FFFF      	IF NOT DG01
+  557                   	
+  558                   ;------------------------------------------------------------------------------
+  559                   
+  560                   ; Floppy Interface Paket Rev 1.0   841031
+  561                   ; (C) 1984 Muenchen, Rolf-Dieter Klein
+  562                   
+  563                   ; Routinen fuer MC-Kompatibilitaet
+  564                   ; wie floppy, jedoch Drive-Codierung anders
+  565                   ; nur fuer bestehende BIOS-Routinen gedacht
+  566                    
+  567                   ; bei Maxi wird die Seite 1 mit Seitenpruefung auf 0
+  568                   ; angesprochen, bei Mini mit Seitenpruefung auf 1.
+  569                   ; nur fuer SD
+  570                   
+  571                   ; c=0,1,2,3
+  572                   ; 	0,2 gekoppelt  1,3 gekoppelt					
+  573                   
+  574 F1A9  CD F1AF     MAXI:	CALL SCODA	; coding 1
+  575 F1AC  C3 F213     	JP FLOP		; sso-flag auf 0 setzen, jedoch stepflag
+  576                   			; gueltig wenn bit 7 gesetzt.
+  577                   
+  578                   ;------------------------------------------------------------------------------
+  579                   ; Maxi Disk recoding of drive and side for Special Register 4
+  580                   ; 0 -> 11 (drive 1, side 0, Maxi)
+  581                   ; 1 -> 91 (drive 1, side 1, Maxi)
+  582                   ; 2 -> 12 (drive 2, side 0, Maxi)
+  583                   ; 3 -> 92 (drive 2, side 1, Maxi)
+  584                   
+  585 F1AF  79          SCODA:	LD A,C  	; SD MAXI
+  586 F1B0  E6 03       	AND 3  		; muss Bereich 0..3 sein
+  587 F1B2  FE 00       	CP 0  		; 0 seite 0
+  588 F1B4  20 03       	JR NZ,SCODA1
+  589                   	
+  590 F1B6  0E 11       	LD C,00010001B 	; LW 1
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  11
+MON80V2 Z80
+
+  591 F1B8  C9          	RET
+  592                   
+  593 F1B9  FE 01       SCODA1:	CP 1
+  594 F1BB  20 03       	JR NZ,SCODA2
+  595                   	
+  596 F1BD  0E 12       	LD C,00010010B 	; LW 2 seite 0
+  597 F1BF  C9          	RET
+  598                   
+  599 F1C0  FE 02       SCODA2:	CP 2
+  600 F1C2  20 03       	JR NZ,SCODA3
+  601                   	
+  602 F1C4  0E 91       	LD C,10010001B 	; LW 1 seite 1
+  603 F1C6  C9          	RET
+  604                   
+  605 F1C7  0E 92       SCODA3:	LD C,10010010B 	; LW 2 seite 1
+  606 F1C9  C9          	RET
+  607                   
+  608                   ;------------------------------------------------------------------------------
+  609                   ; Mini Disk recoding of drive and side for Special Register 4
+  610                   ; 0 -> 01 (drive 1, side 0, Mini)
+  611                   ; 1 -> 81 (drive 1, side 1, Mini)
+  612                   ; 2 -> 02 (drive 2, side 0, Mini)
+  613                   ; 3 -> 82 (drive 2, side 1, Mini)
+  614                   
+  615                   ; hier ist eine Erweiterung fuer Laufwerke C und D notwendig
+  616                   
+  617 F1CA  E6 03       SCODB:	AND 3  		; 0,1,2,3 erlaubt
+  618 F1CC  FE 00       	CP 0
+  619 F1CE  20 03       	JR NZ,SCODB1
+  620                   	
+  621 F1D0  0E 01       	LD C,00000001B 	; LW 1 seite 0
+  622 F1D2  C9          	RET
+  623                   
+  624 F1D3  FE 01       SCODB1:	CP 1
+  625 F1D5  20 03       	JR NZ,SCODB2
+  626                   	
+  627 F1D7  0E 81       	LD C,10000001B 	; LW 1 seite 1
+  628 F1D9  C9          	RET
+  629                   
+  630 F1DA  FE 02       SCODB2:	CP 2
+  631 F1DC  20 03       	JR NZ,SCODB3
+  632                   	
+  633 F1DE  0E 02       	LD C,00000010B 	; LW 2 seite 0
+  634 F1E0  C9          	RET
+  635                   
+  636 F1E1  0E 82       SCODB3:	LD C,10000010B 	; LW 2 seite 1 
+  637 F1E3  C9          	RET
+  638                   
+  639                   ;------------------------------------------------------------------------------
+  640                   
+  641                   ; Old MINI routine
+  642                   
+  643                   ; Routinen fuer MC-Kompatibilitaet
+  644                   ; wie floppy, jedoch Drive-Codierung anders
+  645                   ; nur fuer bestehende BIOS-Routinen gedacht
+  646                   ;
+  647                   ; HL = block buffer address
+  648                   ; B = 0=set step-rate and SSO, 1=read, 2=write
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  12
+MON80V2 Z80
+
+  649                   ; C = bit0=drive 0/1 (A/B), bit1=side 0/1, bit6=density
+  650                   ; D = track
+  651                   ; E = physical sector (1..n)
+  652                   
+  653 F1E4  79          MINI:	LD A,C		; drive code
+  654 F1E5  E6 7F       	AND 7FH 	; bit 7 interessiert nicht
+  655 F1E7  4F          	LD C,A		; C value is used and overwritten by SCODB
+  656                   
+  657                   	; value for REG4-Latch -> C
+  658 F1E8  F5          	PUSH AF
+  659 F1E9  CD F1CA     	CALL SCODB 	; drive-code + side A -> C (value for REG4-Latch)
+  660 F1EC  F1          	POP AF
+  661 F1ED  E6 40       	AND 40H 	; density
+  662 F1EF  C2 F1F9     	JP NZ,MINI1
+  663                   	
+  664                   	; single-density
+  665 F1F2  79          	LD A,C
+  666 F1F3  F6 30       	OR 00110000B 	; Bit5=Mini, Bit4=density (0=DD)
+  667 F1F5  4F          	LD C,A
+  668 F1F6  C3 F1FD     	JP MINI2
+  669                   
+  670 F1F9              MINI1:	; double-density
+  671 F1F9  79          	LD A,C
+  672 F1FA  F6 20       	OR 00100000B 	; Bit5=Mini, Bit4=density (0=DD)
+  673 F1FC  4F          	LD C,A
+  674                   
+  675 F1FD  3E 02       MINI2:	LD A,2  	; set SSO flag
+  676 F1FF  C3 F214     	JP FLOP1 	; ok ausfuehren
+  677                   
+  678                   ;------------------------------------------------------------------------------
+  679                   
+  680                   	ENDIF	; NOT DG01
+  681                   
+  682                   ;==============================================================================
+  683                   ; Floppy-Unterprogramme fuer FLO2
+  684                   ; verwendet 1797 als Controller
+  685                   ; Version 1.0   840506
+  686                   ; Rolf-Dieter Klein (C) 1984 Muenchen
+  687                   ;
+  688                   ; Die Routinen ermoeglichen sowohl den Anschluss von Mini-,Mikro- als auch
+  689                   ; von Maxi-Laufwerken. Die Routinen muessen im RAM stehen, da die Buffer
+  690                   ; am Ende stehen. Alle Buffer sind jedoch gesammelt.
+  691                   
+  692                   ; FLO4    als Leseport
+  693                   ;
+  694                   ; 7 6 5 4 3 2 1 0
+  695                   ;
+  696                   ; DRQ   INTRQ   headld x      x x x x
+  697                   ; 0=request
+  698                   ;      0=request
+  699                   ;  1=head down
+  700                   ;
+  701                   
+  702                   ; FLO4    als Schreibport
+  703                   ;
+  704                   ; 7 6 5 4 3 2 1 0
+  705                   ;
+  706                   ; sso moton mini dense d c b a
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  13
+MON80V2 Z80
+
+  707                   ;
+  708                   ; 1=Seite 1
+  709                   ; 0=Motor an
+  710                   ;  1=Minilaufwerk
+  711                   ;   1=Single Dense
+  712                   ;    -------------------------
+  713                   ;      1=Laufwerk an
+  714                   
+  715         00C0      FLO	EQU 0C0H 		; Basisadresse Floppy-Controller
+  716                   ;FLO0	EQU 0C0H   	
+  717                   ;FLO1	EQU 0C1H
+  718                   ;FLO2	EQU 0C2H
+  719                   ;FLO3	EQU 0C3H
+  720                   ;FLO4	EQU 0C4H 		; Port fuer Zusatzstatus etc.
+  721                   				; write REG4-Latch
+  722                   				; read REG4-Status
+  723                   
+  724                   ;------------------------------------------------------------------------------
+  725                   ; Bei einem Interrupt wird an diese Stelle gesprungen
+  726                   ; Der Interrupt erfolgt vom Floppy-Controller
+  727                   
+  728 F202              INTEX:	; Das INT-Program arbeitet nicht als Unterprogramm
+  729 F202  F1          	POP AF  		; alte Ret-Adresse vernichten
+  730 F203  DB C0       	IN A,(FLO) 		; Status lesen und INT loeschen
+  731 F205  FB          	EI  			; Interrupt wieder freigeben
+  732 F206  ED 4D       	RETI  			; zurueck zum vorherigen Aufrufer
+  733                   
+  734                   ;------------------------------------------------------------------------------
+  735                   ; Floppy Routinen Init
+  736                   
+  737 F208  3E 02       INIFLP:	LD A,2  		; 3 = langsamste Steprate, kein SSO
+  738 F20A  32 F3FA     	LD (STEPRATE),A
+  739                   	
+  740 F20D  3E FF       	LD A,0FFH
+  741 F20F  32 F403     	LD (CURDRV),A 		; no current drive
+  742 F212  C9          	RET 
+  743                   
+  744                   ;------------------------------------------------------------------------------
+  745                   
+  746         0038      INTVEK	EQU 38h 		; Interruptziel
+  747                   
+  748                   ;------------------------------------------------------------------------------
+  749                   ; Haupteingang der Floppy-Routinen
+  750                   ; HL = Buffer address
+  751                   ; E = Physical sector (1..n)
+  752                   ; D = Track
+  753                   ; C = Drive-code + Density + Side (REG4-Latch)
+  754                   ;   7    6    5    4    3    2    1    0
+  755                   ;   sso  mot  min  dens d    d    d    d
+  756                   ;   sso  = seitenauswahl (0=side 0, 1=side 1)
+  757                   ;   mot  = motor on code (std=0)
+  758                   ;   min  = 1 bei Minilaufwerken
+  759                   ;   dens = 1 bei Single Dense Aufzeichnung
+  760                   ;   d = binary drive code
+  761                   ;     normalerweise nur 1,2,4,8 moeglich
+  762                   ;     Kombinationen moeglich, wenn binaere
+  763                   ;     Dekodierung beim Laufwerk verwendet wird
+  764                   ; B = 0 Set steprate and SSO-Flag
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  14
+MON80V2 Z80
+
+  765                   ;   = 1 Read sector
+  766                   ;   = 2 Write sector
+  767                   
+  768                   ; Entry SSO = 0
+  769                   
+  770 F213  AF          FLOP:	XOR A  			; SSO-Flag auf 0 setzen
+  771                   
+  772                   ; Entry SSO in A
+  773                   ; called only from old MINI routine
+  774                   
+  775 F214              FLOP1:	; SSO flag in A, only 0 and 2 allowed
+  776 F214  32 F3FB     	LD (SSOFLAG),A
+  777                   
+  778 F217  F5          	PUSH AF
+  779 F218  3A F587     	LD A,(FLOTYP)
+  780 F21B  FE 01       	CP 1  
+  781 F21D  C2 F226     	JP NZ,FLOP2		; -> FLO2
+  782                   	
+  783                   	; FLO1
+  784 F220  79          	LD A,C
+  785 F221  E6 BF       	AND 10111111B 		; kein autowait 
+  786 F223  EE 10       	XOR 10H 		; invertieren Dichtebit fuer FLO1
+  787 F225  4F          	LD C,A
+  788                   
+  789 F226  F1          FLOP2:	POP AF
+  790 F227  ED 73 F3FC  	LD (SP0),SP 		; save user-stack, maybe to deep for BDOS
+  791 F22B  31 F478     	LD SP,TSTACK 		;
+  792                   
+  793 F22E  3E D0       	LD A,11010000B		; Command "Force interrupt"
+  794 F230  D3 C0       	OUT (FLO),A 		; reset floppy controller
+  795                   	
+  796                   	; set interrupt vector to INTEX
+  797 F232  3A 0038     	LD A,(INTVEK)
+  798 F235  32 F3FE     	LD (SAVINT),A
+  799 F238  3E C3       	LD A,0C3H 		; JP-Befehl
+  800 F23A  32 0038     	LD (INTVEK),A
+  801 F23D  E5          	PUSH HL
+  802 F23E  2A 0039     	LD HL,(INTVEK+1)
+  803 F241  22 F3FF     	LD (SAVINT+1),HL
+  804 F244  21 F202     	LD HL,INTEX 		; set to JP INTEX
+  805 F247  22 0039     	LD (INTVEK+1),HL
+  806 F24A  E1          	POP HL
+  807                   	
+  808 F24B  DB C0       	IN A,(FLO)		; Status - Port
+  809 F24D  ED 56       	IM 1  			; set interrupt mode 1 ->  execure at 38h
+  810 F24F  FB          	EI  			; Interrupt freigeben
+  811 F250  CD F2FB     	CALL EXFLO
+  812 F253  F3          	DI  			; disable interrupt
+  813                   	
+  814                   	; restore interrupt vector
+  815 F254  F5          	PUSH AF 		; Status
+  816 F255  3A F3FE     	LD A,(SAVINT)
+  817 F258  32 0038     	LD (INTVEK),A 		; zurueckspeichern
+  818 F25B  E5          	PUSH HL
+  819 F25C  2A F3FF     	LD HL,(SAVINT+1)
+  820 F25F  22 0039     	LD (INTVEK+1),HL
+  821 F262  E1          	POP HL
+  822 F263  F1          	POP AF
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  15
+MON80V2 Z80
+
+  823                   	
+  824 F264  ED 7B F3FC  	LD SP,(SP0) 		; restore user-stack
+  825 F268  C9          	RET
+  826                   
+  827                   ;------------------------------------------------------------------------------
+  828                   ; Diverse Unterprogramme
+  829                   ;------------------------------------------------------------------------------
+  830                   ; Prepare command byte for floppy controller
+  831                   
+  832 F269              SETCMD:				; testet ob der Kopf noch
+  833                   				; geladen ist und setzt die
+  834 F269  06 00       	LD B,0  		; Flag fuer SSO-Bit
+  835 F26B  3A F402     	LD A,(DRVCOD) 		; wenn Bit 7 gesetzt, dann abfragen
+  836 F26E  E6 80       	AND 80H
+  837 F270  28 11       	JR Z,SETC2 		; Seite 0, immer mit SSO=0
+  838                   	
+  839 F272  3A F3FA     	LD A,(STEPRATE) 	; jetzt pruefen ob flags da
+  840 F275  E6 80       	AND 80H 		; <>0, dann SSO setzen, wenn seite 1
+  841 F277  28 04       	JR Z,SETC1 		; =0, dann code 0, oder SSOFLAG
+  842                   	
+  843 F279  06 02       	LD B,2  		; SSO setzen 
+  844 F27B  18 06       	JR SETC2
+  845                   
+  846 F27D              SETC1:	; pruefen ob SSO-Flag
+  847 F27D  3A F3FB     	LD A,(SSOFLAG) 		; ok, 2=Flag
+  848 F280  E6 02       	AND 2  			; SSO-Bit
+  849 F282  47          	LD B,A  		; 0,2 erlaubt 
+  850                   
+  851 F283              SETC2:	; entsprechenden Bits
+  852 F283  DB C4       	IN A,(FLO+4) 		; REG4-Status
+  853 F285  E6 20       	AND 20H 		; Head-Load Bit
+  854 F287  20 04       	JR NZ,SETC3 		; =1 dann Kopf auf Diskette
+  855                   	
+  856 F289  78          	LD A,B
+  857 F28A  F6 04       	OR 04h 			; sonst Bitmaske fuer headdown
+  858 F28C  C9          	RET
+  859                   
+  860 F28D              SETC3:	; noset
+  861 F28D  78          	LD A,B
+  862 F28E  C9          	RET 			; Code belassen
+  863                   
+  864                   ;------------------------------------------------------------------------------
+  865                   ; Read one sector
+  866                   ; sector number in E
+  867                   ; buffer addr in HL
+  868                   
+  869 F28F  79          RDFLP:	LD A,C
+  870 F290  D3 C4       	OUT (FLO+4),A 		; density + side -> REG4-Latch
+  871 F292  7B          	LD A,E
+  872 F293  D3 C2       	OUT (FLO+2),A 		; ins Sektorregister
+  873 F295  0E C3       	LD C,FLO+3 		; Adresse Datenport dann nach C
+  874 F297  CD F269     	CALL SETCMD 		; Register A vorbereiten
+  875 F29A  C6 88       	ADD A,10001000B		; Command "Read Sector", without SSO
+  876 F29C  D3 C0       	OUT (FLO),A 		; Befehl ausfuehren
+  877                   
+  878 F29E              RDFLP1:	; wait for DRQ = 1
+  879 F29E  DB C4       	IN A,(FLO+4) 		; DRQ schon da ?
+  880 F2A0  07          	RLCA  			; bit7 = DRQ, bit6 = int
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  16
+MON80V2 Z80
+
+  881 F2A1  D2 F29E     	JP NC,RDFLP1 		; -> DRQ = 0
+  882                   	
+  883 F2A4  ED A2       	INI  			; IN (C) -> (HL), HL++, B--
+  884 F2A6  C3 F29E     	JP RDFLP1  		; verlassen nur durch INT
+  885                   
+  886                   ;------------------------------------------------------------------------------
+  887                   ; Write one sector
+  888                   
+  889 F2A9  79          WRFLP:	LD A,C
+  890 F2AA  D3 C4       	OUT (FLO+4),A 		; density + side -> REG4-Latch
+  891 F2AC  7B          	LD A,E  		; Sektorregister setzen
+  892 F2AD  D3 C2       	OUT (FLO+2),A
+  893 F2AF  0E C3       	LD C,FLO+3		; Adresse Datenport laden
+  894 F2B1  CD F269     	CALL SETCMD		; E-Code in A laden
+  895 F2B4  C6 A8       	ADD A,0A8H		; Befehl Schreibe-Sektor
+  896 F2B6  D3 C0       	OUT (FLO),A 		; und Befehl ausfuehren
+  897                   
+  898 F2B8              WRFLP1:	; wait for DRQ = 1
+  899 F2B8  DB C4       	IN A,(FLO+4) 		; DRQ schon da ?
+  900 F2BA  07          	RLCA  			; bit7 = DRQ, bit6 = int
+  901 F2BB  D2 F2B8     	JP NC,WRFLP1
+  902                   	
+  903 F2BE  ED A3       	OUTI  			; (HL) -> OUT (C), HL++, B--
+  904 F2C0  C3 F2B8     	JP WRFLP1  		; verlassen nur durch INT
+  905                   
+  906                   ;------------------------------------------------------------------------------
+  907                   ; delay: 4 ms at 4 MHz
+  908                   
+  909 F2C3  C5          WAWA:	PUSH BC 		; pro Schleife ca 6us bei 4MHz
+  910 F2C4  01 01F4     	LD BC,500 		; 500*6us Dauer
+  911 F2C7  CD F2CC     	CALL DELAY
+  912 F2CA  C1          	POP BC
+  913 F2CB  C9          	RET
+  914                   
+  915                   ;------------------------------------------------------------------------------
+  916                   ; delay: 6 microseconds at 4 MHz
+  917                   
+  918 F2CC  0B          DELAY:	DEC BC
+  919 F2CD  78          	LD A,B
+  920 F2CE  B1          	OR C
+  921 F2CF  C2 F2CC     	JP NZ,DELAY
+  922                   	
+  923 F2D2  C9          	RET
+  924                   
+  925                   ;------------------------------------------------------------------------------
+  926                   ; Seek to track
+  927                   ; C=Drive D=Track E=Sector
+  928                   
+  929 F2D3  CD F2C3     SEEK:	CALL WAWA 		; short delay (4 ms)
+  930                   
+  931 F2D6  79          	LD A,C
+  932 F2D7  D3 C4       	OUT (FLO+4),A 		; drive code, density and side -> REG4-Latch
+  933 F2D9  7B          	LD A,E
+  934 F2DA  D3 C2       	OUT (FLO+2),A 		; Sector
+  935 F2DC  7A          	LD A,D
+  936 F2DD  D3 C3       	OUT (FLO+3),A 		; track
+  937 F2DF  06 1C       	LD B,1CH 		; seek command
+  938 F2E1  3A F3FA     	LD A,(STEPRATE)
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  17
+MON80V2 Z80
+
+  939 F2E4  E6 03       	AND 3  			; 0,1,2,3 zulaessig
+  940 F2E6  B0          	OR B  			; 
+  941 F2E7  D3 C0       	OUT (FLO),A 		; execute Seek together with steprate
+  942                   
+  943 F2E9  76          	HALT  			; wait for INT
+  944                   
+  945                   ;------------------------------------------------------------------------------
+  946                   ; Kopf auf Spur 0 stellen
+  947                   			
+  948 F2EA  CD F2C3     RSTORE:	CALL WAWA		; short delay (4 ms)
+  949                   
+  950 F2ED  79          	LD A,C  		; Laufwerkscode (drive)
+  951 F2EE  D3 C4       	OUT (FLO+4),A 		; mit Dichtecode etc. ausgeben -> REG4-Latch
+  952                   
+  953                   	; Command "Restore" 0000hvrr, h=head load, v=verify, rr=steprate
+  954 F2F0  06 08       	LD B,00001000B 		; only head load, no verify
+  955 F2F2  3A F3FA     	LD A,(STEPRATE)
+  956 F2F5  E6 03       	AND 3  			; 0..3
+  957 F2F7  B0          	OR B  			; als Befehl kombiniert
+  958 F2F8  D3 C0       	OUT (FLO),A 		; und ausfuehren
+  959                   
+  960 F2FA  76          	HALT  			; wait for INT
+  961                   
+  962                   ;------------------------------------------------------------------------------
+  963                   ; Floppy Kernal Routines
+  964                   
+  965                   ; HL = buffer address
+  966                   ; D = track (0..?) or parameter for set steprate
+  967                   ; E = sector (1..n)
+  968                   ; B = command (0=set steprate+SSO, 1=read, 2=write)
+  969                   ; C = drive code
+  970                   ;   REG4-Latch format
+  971                   ;   7   6   5   4   3   2   1   0
+  972                   ;   sid mot min den d   d   d   d
+  973                   ;   sid: 0=side, 1=side1
+  974                   ;   mot: motor on code (std=0)
+  975                   ;   min: 0=maxi drive, 1=mini drive
+  976                   ;   den: 0=dd, 1=ss
+  977                   ;   d=binary drive code
+  978                   ;     normalerweise nur 1,2,4,8 moeglich
+  979                   ;     Kombinationen moeglich, wenn binaere
+  980                   ;     Dekodierung beim Laufwerk verwendet wird
+  981                   
+  982 F2FB  78          EXFLO:	LD A,B			; B = command
+  983 F2FC  B7          	OR A
+  984 F2FD  20 08       	JR NZ,EXFL1
+  985                   
+  986                   	;---------------------------------------------------------------------
+  987                   	; B=0: set steprate and SSO
+  988                   	; steprate in D, Bit0/1=steprate, bit7=SSO
+  989                   	
+  990 F2FF  7A          	LD A,D   		; (+80h =SSO verwenden und pruefen).
+  991 F300  E6 83       	AND 83h  		; Bit 7=SSO-Flag bei Zugriffen wichtig
+  992 F302  32 F3FA     	LD (STEPRATE),A		; die die zweite Seite verwenden.
+  993 F305  AF          	XOR A
+  994 F306  C9          	RET
+  995                   
+  996                   	;---------------------------------------------------------------------
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  18
+MON80V2 Z80
+
+  997                   
+  998 F307  AF          EXFL1:	XOR A
+  999 F308  32 F401     	LD (ERRCNT),A 		; Fehlerzahl 0
+ 1000 F30B  79          	LD A,C
+ 1001 F30C  32 F402     	LD (DRVCOD),A 		; drive-code
+ 1002 F30F  E6 0F       	AND 0FH 		; in bit 0..3
+ 1003 F311  4F          	LD C,A
+ 1004 F312  3A F403     	LD A,(CURDRV)
+ 1005 F315  FE FF       	CP 0FFH 		; current drive invalid -> set
+ 1006 F317  28 14       	JR Z,EXFL2
+ 1007                   	
+ 1008                   	; check if drive change
+ 1009 F319  E6 0F       	AND 0FH 		; bit 0..3
+ 1010 F31B  B9          	CP C
+ 1011 F31C  CA F35B     	JP Z,EXFL3 		; -> no change, nur Seek noetig
+ 1012                   
+ 1013 F31F  E5          	PUSH HL
+ 1014 F320  C5          	PUSH BC
+ 1015 F321  21 F404     	LD HL,DRVTAB 		; Basisadresse
+ 1016 F324  4F          	LD C,A
+ 1017 F325  06 00       	LD B,0  		; alten Laufwerktrack merken
+ 1018 F327  09          	ADD HL,BC
+ 1019 F328  DB C1       	IN A,(FLO+1) 		; Tracknr
+ 1020 F32A  77          	LD (HL),A 		; und dort ablegen
+ 1021 F32B  C1          	POP BC
+ 1022 F32C  E1          	POP HL
+ 1023                   
+ 1024 F32D  E5          EXFL2:	PUSH HL
+ 1025 F32E  C5          	PUSH BC
+ 1026 F32F  3A F402     	LD A,(DRVCOD) 		; neues Laufwerk
+ 1027 F332  E6 0F       	AND 0FH 		; nur Laufwerkscode
+ 1028 F334  4F          	LD C,A
+ 1029 F335  06 00       	LD B,0
+ 1030 F337  21 F404     	LD HL,DRVTAB 		; Tabellenstart
+ 1031 F33A  09          	ADD HL,BC 		; HL zeigt auf Laufwerkstrack
+ 1032 F33B  7E          	LD A,(HL)
+ 1033 F33C  D3 C1       	OUT (FLO+1),A 		; und ins Register des FDs
+ 1034 F33E  C1          	POP BC
+ 1035 F33F  E1          	POP HL
+ 1036 F340  3A F402     	LD A,(DRVCOD)
+ 1037 F343  32 F403     	LD (CURDRV),A 		; ist nun neues Laufwerk
+ 1038 F346  C5          	PUSH BC
+ 1039 F347  01 00FA     	LD BC,1000*3/12		; ca 1ms warten
+ 1040 F34A  CD F2CC     	CALL DELAY
+ 1041 F34D  3A F402     	LD A,(DRVCOD) 		; Dann neues Laufwerk ansprechen
+ 1042 F350  D3 C4       	OUT (FLO+4),A		; -> REG4-Latch
+ 1043 F352  01 0B65     	LD BC,2917		; ca 35ms .. 15ms
+ 1044 F355  CD F2CC     	CALL DELAY		; um headload-Zeit zu beruecksichtigen 
+ 1045 F358  C1          	POP BC  		; alte Codes zurueck
+ 1046 F359  18 06       	JR EXFL4 		; Immer auf ready pruefen, da
+ 1047                   				; head down sein kann und dennoch nicht ready
+ 1048                   
+ 1049 F35B              EXFL3:	; seek only
+ 1050 F35B  DB C4       	IN A,(FLO+4)
+ 1051 F35D  E6 20       	AND 20H
+ 1052 F35F  20 0D       	JR NZ,EXFL5		; -> head down, no dummy seek
+ 1053                   
+ 1054 F361              EXFL4:	; repeat seek command (ready test only)
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  19
+MON80V2 Z80
+
+ 1055 F361  3A F402     	LD A,(DRVCOD)
+ 1056 F364  4F          	LD C,A
+ 1057 F365  CD F3F0     	CALL EXSEEK 		; seek select dummy nur fuer ready-test
+ 1058 F368  DB C0       	IN A,(FLO)		; test Status
+ 1059 F36A  E6 80       	AND 80H 		; fuer Ready
+ 1060 F36C  20 F3       	JR NZ,EXFL4		; repeat until ready
+ 1061                   
+ 1062 F36E              EXFL5:	; entry head down ok
+ 1063 F36E  DB C1       	IN A,(FLO+1) 		; nun pruefen ob Tracks gleich sind
+ 1064 F370  FE FF       	CP 0FFH 		; nicht definiert
+ 1065 F372  28 0F       	JR Z,EXFL7 		; dann zuerst RESTORE
+ 1066                   
+ 1067 F374  BA          	CP D  			; oder schon auf dem Track
+ 1068 F375  CA F3A2     	JP Z,EXFL9 		; -> ja dann nur lesen/schreiben
+ 1069                   
+ 1070 F378              EXFL6:	; loop seek
+ 1071 F378  3A F402     	LD A,(DRVCOD)
+ 1072 F37B  4F          	LD C,A
+ 1073 F37C  CD F3F0     	CALL EXSEEK 		; und Track anfahren Reg retten
+ 1074 F37F  E6 90       	AND 10010000B 		; Fehlermaske
+ 1075 F381  28 1F       	JR Z,EXFL9 		; -> ja dann R/W moeglich
+ 1076                   	
+ 1077 F383              EXFL7:	; Laufwerk normieren und RSTORE
+ 1078 F383  3A F402     	LD A,(DRVCOD)
+ 1079 F386  4F          	LD C,A
+ 1080 F387  E5          	PUSH HL
+ 1081 F388  D5          	PUSH DE
+ 1082 F389  C5          	PUSH BC
+ 1083 F38A  CD F2EA     	CALL RSTORE		; track 0
+ 1084 F38D  C1          	POP BC
+ 1085 F38E  D1          	POP DE
+ 1086 F38F  E1          	POP HL
+ 1087 F390  3A F401     	LD A,(ERRCNT) 		; Fehler erhoehen
+ 1088 F393  3C          	INC A
+ 1089 F394  32 F401     	LD (ERRCNT),A
+ 1090 F397  FE 0A       	CP 10  			; bei 10 Fatal-Fehler
+ 1091 F399  38 DD       	JR C,EXFL6 		; sonst nochmals mit SEEK probieren
+ 1092                   
+ 1093 F39B              EXFL8:	; fatal error
+ 1094 F39B  3E FF       	LD A,0FFH
+ 1095 F39D  B7          	OR A
+ 1096 F39E  37          	SCF  			; A=0ffh, carry as error flag
+ 1097 F39F  C9          	RET  			; ABBRUCH FATAL
+ 1098                   
+ 1099 F3A0              NOERR:	; exit without error
+ 1100 F3A0  AF          	XOR A
+ 1101 F3A1  C9          	RET
+ 1102                   
+ 1103 F3A2              EXFL9:	; execute read/write
+ 1104 F3A2  78          	LD A,B
+ 1105 F3A3  FE 02       	CP 2
+ 1106 F3A5  CA F3CE     	JP Z,EXFL10		; -> execute write
+ 1107                   
+ 1108                   	;---------------------------------------------------------------------
+ 1109                   	; execute read
+ 1110                   	
+ 1111 F3A8  3A F402     	LD A,(DRVCOD)
+ 1112 F3AB  4F          	LD C,A
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  20
+MON80V2 Z80
+
+ 1113 F3AC  E5          	PUSH HL
+ 1114 F3AD  D5          	PUSH DE
+ 1115 F3AE  C5          	PUSH BC
+ 1116 F3AF  CD F28F     	CALL RDFLP		; read floppy
+ 1117 F3B2  C1          	POP BC
+ 1118 F3B3  D1          	POP DE
+ 1119 F3B4  E1          	POP HL
+ 1120 F3B5  E6 9C       	AND 10011100B 		; Fehlermaske incl. Lost data
+ 1121 F3B7  28 E7       	JR Z,NOERR 		; -> exit without error
+ 1122                   
+ 1123                   	; error
+ 1124 F3B9  E6 10       	AND 00010000B
+ 1125 F3BB  20 C6       	JR NZ,EXFL7		; record not found -> SEEK, RESTORE
+ 1126                   
+ 1127 F3BD  3A F401     	LD A,(ERRCNT)
+ 1128 F3C0  3C          	INC A
+ 1129 F3C1  32 F401     	LD (ERRCNT),A 		; CRC error
+ 1130 F3C4  FE 05       	CP 5
+ 1131 F3C6  38 DA       	JR C,EXFL9		; less than 5, try again
+ 1132                   	
+ 1133 F3C8  FE 0A       	CP 10
+ 1134 F3CA  38 B7       	JR C,EXFL7 		; less than 10, rstore und seek
+ 1135                   	
+ 1136 F3CC  18 CD       	JR EXFL8 		; -> fatal error
+ 1137                   
+ 1138                   	;---------------------------------------------------------------------
+ 1139                   	; execute write
+ 1140                   
+ 1141 F3CE  3A F402     EXFL10:	LD A,(DRVCOD)
+ 1142 F3D1  4F          	LD C,A
+ 1143 F3D2  E5          	PUSH HL
+ 1144 F3D3  D5          	PUSH DE
+ 1145 F3D4  C5          	PUSH BC
+ 1146 F3D5  CD F2A9     	CALL WRFLP
+ 1147 F3D8  C1          	POP BC
+ 1148 F3D9  D1          	POP DE
+ 1149 F3DA  E1          	POP HL
+ 1150 F3DB  E6 FC       	AND 11111100B
+ 1151 F3DD  28 C1       	JR Z,NOERR 		; alles ok
+ 1152 F3DF  E6 10       	AND 00010000B 		; record not found
+ 1153 F3E1  20 A0       	JR NZ,EXFL7		; gleich neuen Seek ausfuehren
+ 1154 F3E3  3A F401     	LD A,(ERRCNT)
+ 1155 F3E6  3C          	INC A
+ 1156 F3E7  32 F401     	LD (ERRCNT),A 
+ 1157 F3EA  FE 04       	CP 4  			; recht bald, da i.A. nur record not fnd
+ 1158 F3EC  38 95       	JR C,EXFL7 		; daher nur 4 Versuche
+ 1159 F3EE  18 AB       	JR EXFL8 		; -> fatal error
+ 1160                   
+ 1161                   ;------------------------------------------------------------------------------
+ 1162                   ; execute seek
+ 1163                   
+ 1164 F3F0  E5          EXSEEK:	PUSH HL
+ 1165 F3F1  D5          	PUSH DE
+ 1166 F3F2  C5          	PUSH BC
+ 1167 F3F3  CD F2D3     	CALL SEEK
+ 1168 F3F6  C1          	POP BC
+ 1169 F3F7  D1          	POP DE
+ 1170 F3F8  E1          	POP HL
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  21
+MON80V2 Z80
+
+ 1171 F3F9  C9          	RET
+ 1172                   
+ 1173                   ;==============================================================================
+ 1174                   ; *** ENDE der Floppy-Routinen ***
+ 1175                   ;==============================================================================
+ 1176                   ; RAM
+ 1177                   
+ 1178                   ; Buffer Bereich fuer Floppy-Routinen
+ 1179                   
+ 1180 F3FA              STEPRATE:
+ 1181 F3FA  00          	DEFB 0    		; Merker fuer die Steprate + SSO-Option
+ 1182 F3FB              SSOFLAG:
+ 1183 F3FB  00          	DEFB 0    		; zusaetzlich, dominant, fuer MINI
+ 1184 F3FC  0000        SP0:	DEFW 0 			; Stackmerker fuer BDOS
+ 1185                   				; =2, dann mit sso, sonst 0
+ 1186 F3FE  00 00 00    SAVINT:	DEFB 0,0,0 		; Merker fuer alten Inhalt Int-Vektor
+ 1187 F401  00          ERRCNT:	DEFB 0    		; Floppy error counter for retry
+ 1188 F402  00          DRVCOD:	DEFB 0    		; drive code
+ 1189 F403  FF          CURDRV:	DEFB 0FFH  		; last/current drive
+ 1190                   
+ 1191                   	; track table for 16 drives
+ 1192 F404  FF FF FF FF DRVTAB:	DEFB 0FFH,0ffh,0ffh,0ffh
+ 1193 F408  FF FF FF FF 	DEFB 0FFH,0ffh,0ffh,0ffh
+ 1194 F40C  FF FF FF FF 	DEFB 0FFH,0ffh,0ffh,0ffh
+ 1195 F410  FF FF FF FF 	DEFB 0FFH,0ffh,0ffh,0ffh
+ 1196                   
+ 1197                   ;==============================================================================
+ 1198                   	
+ 1199 F414    0064      	DEFS 100   		; local stack
+ 1200 F478  00          TSTACK:	DEFB 0
+ 1201                   
+ 1202                   ;==============================================================================
+ 1203                   ; ENDE FLO2-Routinen
+ 1204                   ;==============================================================================
+ 1205                   
+ 1206                   ; werden bis auf FLOTYP alle nicht verwendet ???
+ 1207                   
+ 1208 F479    0006      TASK:	DEFS 6  		;task block
+ 1209 F47F  0000        OLDSEC:	DEFW 0  		;frueherer sector a 128
+ 1210 F481  FF          IMWR:	DEFB 0ffh 		;wichtig init auf ff,wiini etc
+ 1211 F482    0100      HSTBUF:	DEFS 256 		;sector buffer
+ 1212 F582  00          IMBEF:	DEFB 0  		;befehl =1 read =2 write
+ 1213 F583  0000        SECTRK:	DEFW 0  		;sectoradresse a 128
+ 1214 F585  0000        IMDMA:	DEFW 0  		;adresse ziel,quelle
+ 1215 F587  00          FLOTYP:	DEFB 0  		;0=FLO2, 1=FLO1
+ 1216                   
+ 1217                   ;==============================================================================
+ 1218                   ; IDE/CF card interface
+ 1219                   ;
+ 1220                   ; Read one IDE/CF card sector (256 bytes)
+ 1221                   ;
+ 1222                   ; Address for data in HL
+ 1223                   ; LBA bits 0 to 7 passed in C
+ 1224                   ; LBA bits 8 to 15 passed in B
+ 1225                   ; LBA bits 16 to 23 passed in E
+ 1226                   
+ 1227 F588              IDERD:
+ 1228 F588  DB 1F       IDERD1:	IN	A,(IDESTAT)	; check status
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  22
+MON80V2 Z80
+
+ 1229 F58A  E6 80       	AND	80H		; check BSY bit
+ 1230 F58C  C2 F588     	JP	NZ,IDERD1	; loop until not busy
+ 1231                   
+ 1232 F58F  DB 1F       IDERD2:	IN	A,(IDESTAT)	; check	status
+ 1233 F591  E6 40       	AND	40H		; check DRDY bit
+ 1234 F593  CA F58F     	JP	Z,IDERD2	; loop until ready
+ 1235                   
+ 1236 F596  3E 01       	LD	A,01H		; number of sectors = 1
+ 1237 F598  D3 1A       	OUT	(SECCND),A	; sector count register
+ 1238 F59A  79          	LD	A,C
+ 1239 F59B  D3 1B       	OUT	(LBA7),A	; lba bits 0 - 7
+ 1240 F59D  78          	LD	A,B
+ 1241 F59E  D3 1C       	OUT	(LBA15),A	; lba bits 8 - 15
+ 1242 F5A0  7B          	LD	A,E
+ 1243 F5A1  D3 1D       	OUT	(LBA23),A	; lba bits 16 - 23
+ 1244 F5A3  3E E0       	LD	A,11100000B	; LBA mode, select drive 0
+ 1245 F5A5  D3 1E       	OUT	(IDEHEAD),A	; drive/head register
+ 1246 F5A7  3E 20       	LD	A,20H		; Read sector command
+ 1247 F5A9  D3 1F       	OUT	(IDESTAT),A
+ 1248                   
+ 1249 F5AB              IDERD3:	; wait for drq set
+ 1250 F5AB  DB 1F       	IN	A,(IDESTAT)	; read status
+ 1251 F5AD  E6 08       	AND	08H		; DRQ bit
+ 1252 F5AF  CA F5AB     	JP	Z,IDERD3	; loop until bit set
+ 1253                   	
+ 1254 F5B2              IDERD4:	; wait for busy clear
+ 1255 F5B2  DB 1F       	IN	A,(IDESTAT)
+ 1256 F5B4  E6 80       	AND	80H
+ 1257 F5B6  C2 F5B2     	JP	NZ,IDERD4
+ 1258                   	
+ 1259 F5B9  DB 1F       	IN	A,(IDESTAT)	; clear INTRQ
+ 1260                   
+ 1261 F5BB              IDERD5: ; read loop
+ 1262 F5BB  DB 18       	IN	A,(IDEDATA)	; get data
+ 1263 F5BD  77          	LD	(HL),A
+ 1264 F5BE  23          	INC	HL
+ 1265 F5BF  DB 1F       	IN	A,(IDESTAT)	; check status
+ 1266 F5C1  E6 08       	AND	08H		; DRQ bit
+ 1267 F5C3  C2 F5BB     	JP	NZ,IDERD5	; loop until cleared
+ 1268                   	
+ 1269 F5C6  C9          	RET
+ 1270                   			
+ 1271                   ;------------------------------------------------------------------------------
+ 1272                   ; Write one IDE/CF-card sector (256 bytes)
+ 1273                   ;
+ 1274                   ; Address of data in HL
+ 1275                   ; LBA bits 0 to 7 passed in C
+ 1276                   ; LBA bits 8 to 15 passed in B
+ 1277                   ; LBA bits 16 to 23 passed in E
+ 1278                   
+ 1279 F5C7              IDEWR:
+ 1280 F5C7  DB 1F       IDEWR1:	IN	A,(IDESTAT)	; check status
+ 1281 F5C9  E6 80       	AND	80H		; check BSY bit
+ 1282 F5CB  C2 F5C7     	JP	NZ,IDEWR1	; loop until not busy
+ 1283                   
+ 1284 F5CE  DB 1F       IDEWR2:	IN	A,(IDESTAT)	; check status
+ 1285 F5D0  E6 40       	AND	40H		; check DRDY bit
+ 1286 F5D2  CA F5CE     	JP	Z,IDEWR2	; loop until ready
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  23
+MON80V2 Z80
+
+ 1287                   
+ 1288 F5D5  3E 01       	LD	A,01H		; number of sectors = 1
+ 1289 F5D7  D3 1A       	OUT	(SECCND),A	; sector count register
+ 1290 F5D9  79          	LD	A,C
+ 1291 F5DA  D3 1B       	OUT	(LBA7),A	; lba bits 0 - 7
+ 1292 F5DC  78          	LD	A,B
+ 1293 F5DD  D3 1C       	OUT	(LBA15),A	; lba bits 8 - 15
+ 1294 F5DF  7B          	LD	A,E
+ 1295 F5E0  D3 1D       	OUT	(LBA23),A	; lba bits 16 - 23
+ 1296 F5E2  3E E0       	LD	A,11100000B	; LBA mode, select drive 0
+ 1297 F5E4  D3 1E       	OUT	(IDEHEAD),A	; drive/head register
+ 1298 F5E6  3E 30       	LD	A,30H		; Write sector command
+ 1299 F5E8  D3 1F       	OUT	(IDESTAT),A
+ 1300                   	
+ 1301 F5EA              IDEWR3:	; wait for drq set
+ 1302 F5EA  DB 1F       	IN	A,(IDESTAT)	; read status
+ 1303 F5EC  E6 08       	AND	08H		; DRQ bit
+ 1304 F5EE  CA F5EA     	JP	Z,IDEWR3	; loop until bit set			
+ 1305                   
+ 1306 F5F1              IDEWR4:	; write loop
+ 1307 F5F1  7E          	LD	A,(HL)
+ 1308 F5F2  D3 18       	OUT	(IDEDATA),A	; write data
+ 1309 F5F4  23          	INC	HL
+ 1310 F5F5  DB 1F       	IN	A,(IDESTAT)	; read status
+ 1311 F5F7  E6 08       	AND	08H		; check DRQ bit
+ 1312 F5F9  C2 F5F1     	JP	NZ,IDEWR4	; write until bit cleared
+ 1313                   
+ 1314 F5FC              IDEWR5:	; wait for busy clear
+ 1315 F5FC  DB 1F       	IN	A,(IDESTAT)
+ 1316 F5FE  E6 80       	AND	80H
+ 1317 F600  C2 F5FC     	JP	NZ,IDEWR5
+ 1318                   
+ 1319 F603  DB 1F       	IN	A,(IDESTAT)	; clear INTRQ
+ 1320 F605  C9          	RET
+ 1321                   
+ 1322                   ;==============================================================================
+ 1323                   
+ 1324                   ; The driver section of the Monitor that is used by the CP/M BIOS ends here.
+ 1325                   ; The area starting here can be overwritten by CP/M, for buffers etc.
+ 1326                   
+ 1327         F606      FREEMEM EQU $
+ 1328                   
+ 1329                   ;==============================================================================
+ 1330                   ; Monitor start message
+ 1331                   
+ 1332 F606              MSGSTRT:
+ 1333 F606              MSGCRLF:
+ 1334 F606  0D 0A       	DEFB CR,LF
+ 1335                   
+ 1336 F608  1B 5B 32 4A 	DEFM ESC,"[2J",ESC,"[H",BELL,CR,LF
+ 1337 F612  20 2D 2D 2D 	DEFM " -------------------------",CR,LF
+ 1338 F62E  20 4D 6F 6E 	DEFM " Monitor MC COMPUTER V "
+ 1339                   	
+ 1340         FFFF      	IF NOT DG01
+ 1341                   	
+ 1342 F645  37 2E 31    	DEFM "7.1"
+ 1343                   	
+ 1344                   	ELSE
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  24
+MON80V2 Z80
+
+ 1348                   	ENDIF
+ 1349                   	
+ 1350 F648  0D 0A       	DEFM CR,LF
+ 1351 F64A  20 20 20 52 	DEFM "   RDK/JS 1985 - UH 2026",CR,LF
+ 1352 F664  20 2D 2D 2D 	DEFM	" -------------------------",CR,LF,LF
+ 1353 F681  20 42 6F 6F 	DEFM " Bootmenue = I",CR,LF,LF,0
+ 1354         008D      	MSGL EQU $-MSGSTRT
+ 1355                   
+ 1356                   ;------------------------------------------------------------------------------
+ 1357                   
+ 1358 F693              INIT1:	; only called once
+ 1359                   
+ 1360                   ; Init SIO on OUT-Board
+ 1361                   
+ 1362 F693  0E F1       	LD C,SA_STS
+ 1363 F695  06 08       	LD B,8
+ 1364 F697  21 F6A7     	LD HL,TABSIOA
+ 1365 F69A  ED B3       	OTIR
+ 1366                   	
+ 1367 F69C  0E F3       	LD C,SB_STS
+ 1368 F69E  06 08       	LD B,8
+ 1369 F6A0  21 F6AF     	LD HL,TABSIOB
+ 1370 F6A3  ED B3       	OTIR
+ 1371                   	
+ 1372 F6A5  18 10       	JR SKSKL
+ 1373                   
+ 1374 F6A7              TABSIOA:
+ 1375 F6A7  01 00       	DEFB 1,0
+ 1376 F6A9  03 E1       	DEFB 3,11100001B	; -CTS UND -DCD ENABLE rev 3.4 term1
+ 1377 F6AB  04 4C       	DEFB 4,01001100B
+ 1378 F6AD  05 EA       	DEFB 5,11101010B	; dtr rts +12V bedeutet ready rev 3.4
+ 1379                   
+ 1380 F6AF              TABSIOB:
+ 1381 F6AF  01 00       	DEFB 1,0
+ 1382 F6B1  03 E1       	DEFB 3,11100001B	; -CTS UND -DCD ENABLE
+ 1383 F6B3  04 4C       	DEFB 4,01001100B
+ 1384 F6B5  05 EA       	DEFB 5,11101010B	; dtr rts +12V bedeutet ready rev 3.4
+ 1385                   
+ 1386                   ;------------------------------------------------------------------------------
+ 1387                   
+ 1388                   ; Init 8251 (D71051c) on CPU-Board
+ 1389                   
+ 1390 F6B7              SKSKL:
+ 1391                   
+ 1392                   	;TODO
+ 1393                   	;IF Z80S
+ 1394                   
+ 1395                   ;INIT_UART:
+ 1396 F6B7  AF          	XOR	A		; lt. Datenblatt erst mal 'aufwecken'
+ 1397 F6B8  D3 21       	OUT	(SU_STS),A	; SyncMode
+ 1398 F6BA  D3 21       	OUT	(SU_STS),A	; SyncMode
+ 1399 F6BC  D3 21       	OUT	(SU_STS),A	; SyncMode
+ 1400                   
+ 1401 F6BE  3E 40       	LD	A,40H		; Reset
+ 1402 F6C0  D3 21       	OUT	(SU_STS),A	; UART Status Port
+ 1403                   
+ 1404 F6C2  3E 4E       	LD	A,04EH		; BAUD x16, 8,1,n
+ 1405 F6C4  D3 21       	OUT	(SU_STS),A	; UART Status Port
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  25
+MON80V2 Z80
+
+ 1406 F6C6  3E 37       	LD	A,37H		; Cmd: TXE,RXE,RTS=LOW,DSR=LOW
+ 1407 F6C8  D3 21       	OUT	(SU_STS),A	; UART Status Port
+ 1408                   
+ 1409                   	;ENDIF
+ 1410                   
+ 1411                   ;------------------------------------------------------------------------------
+ 1412                   ; Monitor cold start
+ 1413                   
+ 1414 F6CA  3A 7000     COLD:	LD A,(7000H)		; activate RAM below 8000h
+ 1415 F6CD  AF          	XOR A			; switch all input/output to console
+ 1416 F6CE  32 F14C     	LD (IOBYT),A
+ 1417                   
+ 1418 F6D1  31 F6D5     	LD SP,AHEAD-4		; dirty stack hack ???, use AHEAD as return address?
+ 1419 F6D4  C3 F119     	JP MEMSIZB
+ 1420                   
+ 1421 F6D7  F6D9        	DEFW AHEAD
+ 1422                   
+ 1423 F6D9  F9          AHEAD:	LD SP,HL		; set stack to end of memory, but before F000h
+ 1424 F6DA  EB          	EX DE,HL
+ 1425 F6DB  01 0023     	LD BC,ENDX-EXIT
+ 1426 F6DE  21 FDDB     	LD HL,EXIT
+ 1427 F6E1  ED B0       	LDIR
+ 1428 F6E3  EB          	EX DE,HL
+ 1429 F6E4  01 FFA1     	LD BC,-5FH
+ 1430 F6E7  09          	ADD HL,BC
+ 1431 F6E8  E5          	PUSH HL
+ 1432 F6E9  21 0000     	LD HL,0
+ 1433 F6EC  06 0A       	LD B,10 		; REGISTER
+ 1434                   
+ 1435 F6EE  E5          STKIT:	PUSH HL
+ 1436 F6EF  10 FD       	DJNZ STKIT
+ 1437                   
+ 1438 F6F1  0E 1A       HELLO:	LD C,1AH
+ 1439 F6F3  CD F0AD     	CALL CONOUT
+ 1440 F6F6  06 8D       	LD B,MSGL
+ 1441 F6F8  CD FB76     	CALL OUTSTRT		; output monitor start message
+ 1442                   
+ 1443                   	;----------------------------------------------------------------------
+ 1444                   	
+ 1445 F6FB              WARM:	; main input loop
+ 1446                   
+ 1447 F6FB  11 F6FB     WARM:	LD DE,WARM
+ 1448 F6FE  D5          	PUSH DE
+ 1449 F6FF  CD FBEB     	CALL CRLF
+ 1450 F702  0E 3E       	LD C,'>'
+ 1451 F704  CD F0AD     	CALL CONOUT
+ 1452                   	
+ 1453 F707  CD FD69     WARM1:	CALL TI
+ 1454 F70A  E6 7F       	AND 7FH
+ 1455 F70C  28 F9       	JR Z,WARM1
+ 1456                   	
+ 1457 F70E  D6 41       	SUB 'A'
+ 1458 F710  F8          	RET M
+ 1459 F711  FE 1A       	CP 'Z'-'A'+1
+ 1460 F713  D0          	RET NC
+ 1461 F714  87          	ADD A,A
+ 1462 F715  21 F725     	LD HL,TBL
+ 1463 F718  85          	ADD A,L
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  26
+MON80V2 Z80
+
+ 1464 F719  6F          	LD L,A
+ 1465 F71A  7C          	LD A,H
+ 1466 F71B  CE 00       	ADC A,0
+ 1467 F71D  67          	LD H,A
+ 1468 F71E  7E          	LD A,(HL)
+ 1469 F71F  23          	INC HL
+ 1470 F720  66          	LD H,(HL)
+ 1471 F721  6F          	LD L,A
+ 1472 F722  0E 02       	LD C,2
+ 1473 F724  E9          	JP (HL)		; execute monitor command
+ 1474                   
+ 1475                   ;------------------------------------------------------------------------------
+ 1476                   ; Befehlstabelle
+ 1477                   ; enthaelt alle Monitorbefehle
+ 1478                   
+ 1479 F725  F800        TBL:	DEFW ASSIGN	; A
+ 1480 F727  F84B        	DEFW BYE	; B
+ 1481 F729  F878        	DEFW COMP	; C
+ 1482 F72B  F899        	DEFW DISP	; D
+ 1483 F72D  F8B0        	DEFW EOF	; E
+ 1484 F72F  F8CC        	DEFW FILL	; F
+ 1485 F731  F8D9        	DEFW GOTO	; G
+ 1486 F733  FC3F        	DEFW HEXN	; H
+ 1487 F735  F78D        	DEFW BOOT	; I
+ 1488 F737  F927        	DEFW TEST	; J
+ 1489 F739  F153        	DEFW KEXEC	; K
+ 1490 F73B  FCB6        	DEFW LOAD	; L
+ 1491 F73D  F945        	DEFW MOVE	; M
+ 1492 F73F  FBD8        	DEFW NULL	; N
+ 1493 F741  F14D        	DEFW OEXEC	; O
+ 1494 F743  F859        	DEFW PUTA	; P
+ 1495 F745  FD8A        	DEFW QUERY	; Q
+ 1496 F747  F950        	DEFW READ	; R
+ 1497 F749  FA09        	DEFW SUBST	; S
+ 1498 F74B  FA32        	DEFW TYPE	; T
+ 1499 F74D  FBC3        	DEFW UNLOAD	; U
+ 1500 F74F  FDB5        	DEFW VERIFY	; V
+ 1501 F751  FA9A        	DEFW WRITE	; W
+ 1502 F753  FAD7        	DEFW XAM	; X
+ 1503 F755  FA52        	DEFW WHERE	; Y
+ 1504 F757  FBA7        	DEFW SIZE	; Z
+ 1505                   
+ 1506                   ;------------------------------------------------------------------------------
+ 1507                   ; BOOT FLOPPY HARD/SOFT/MINI
+ 1508                   
+ 1509 F759              BOOTMSG:
+ 1510 F759  0D 0A 0A    	DEFB CR,LF,LF
+ 1511 F75C  46 4C 4F 32 	DEFM "FLO2-Boot = 1, IDE/CF Karte = 2, FLO1-Boot = 3 : " 
+ 1512         0034      FLPL	EQU $-BOOTMSG
+ 1513                   
+ 1514 F78D  CD F208     BOOT:	CALL INIFLP 	; Vektoren etc definieren
+ 1515 F790  21 F759     	LD HL,BOOTMSG 	; Meldung ausgeben
+ 1516 F793  06 34       	LD B,FLPL 	 
+ 1517 F795  CD FB79     	CALL OUTMSG
+ 1518 F798  CD F084     	CALL CONIN 	; und auf Antwort abwarten
+ 1519 F79B  E6 7F       	AND 7FH  	; ohne Paritaet
+ 1520 F79D  4F          	LD C,A
+ 1521 F79E  CD F0AD     	CALL CONOUT	; echo
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  27
+MON80V2 Z80
+
+ 1522 F7A1  CD FBEB     	CALL CRLF
+ 1523                   	
+ 1524 F7A4  FE 49       	CP "I"  	; I-Vektor fuer Benutzerbefehl
+ 1525 F7A6  CA F150     	JP Z,IEXEC	; 'I'
+ 1526                   	
+ 1527 F7A9  FE 32       	CP "2"
+ 1528 F7AB  28 45       	JR Z,IDE_CF	; '2' -> IDE-CF Boot
+ 1529                   	
+ 1530 F7AD  FE 33       	CP '3'
+ 1531 F7AF  C2 F7BA     	JP NZ,BOOT1
+ 1532                   	
+ 1533                   	; '3' = FLO1
+ 1534 F7B2  3E 01       	LD A,1
+ 1535 F7B4  32 F587     	LD (FLOTYP),A	; 1 = FLO1
+ 1536 F7B7  C3 F7C9     	JP BOOT3
+ 1537                   	
+ 1538 F7BA  FE 31       BOOT1:	CP '1' 
+ 1539 F7BC  C2 F7C6     	JP NZ,BOOT2
+ 1540                   	
+ 1541                   	; '1' = FLO2
+ 1542 F7BF  AF          	XOR A
+ 1543 F7C0  32 F587     	LD (FLOTYP),A 	; 0 = FLO2
+ 1544 F7C3  C3 F7C9     	JP BOOT3
+ 1545                   
+ 1546 F7C6  C3 FB8B     BOOT2:	JP ERROR
+ 1547                   
+ 1548                   ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++		
+ 1549                   ; Ueberspringt autom. Format Erkennung bei boot 
+ 1550                   ; fuer original loeschen oder auskommentieren
+ 1551                   ; 2026 geaendert wg. Boot von DD Disketten
+ 1552                   ; FLO1/FLO2 in A
+ 1553                   
+ 1554 F7C9              BOOT3:
+ 1555 F7C9  0E 21       	LD C,00100001B 	; immer von Laufwerk A Mini Floppy Seite 0, DD booten
+ 1556 F7CB  21 0080     	LD HL,80H	; SD, load 128 byte boot sector to address 0080h
+ 1557 F7CE  C3 F7E3     	JP EXEC1
+ 1558                   	
+ 1559                   ; Ende +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1560                   			; automatisch Format bestimmen, REV 1.1
+ 1561 F7D1  0E 01       	LD C,00000001b 	; immer von Laufwerk A  Seite 0 booten
+ 1562 F7D3  CD F156     	CALL GETFRM	; Formatierung bestimmen
+ 1563 F7D6  DA FB8B     	JP C,ERROR	; bei Fehler zurueck ins Menue	
+ 1564 F7D9  21 0080     	LD HL,80H 	; bei einfacher Dichte nach 80h
+ 1565 F7DC  CB 61       	BIT 4,C  	; =0, dann dd, sonst sd
+ 1566 F7DE  20 03       	JR NZ,EXEC1 	; sd
+ 1567 F7E0  21 FC00     	LD HL,0FC00H 	; sonst 1K Block ggf. dorthin.
+ 1568                   ; Ende +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1569                   
+ 1570 F7E3  E5          EXEC1:	PUSH HL 	; rev (1.5) 1.1
+ 1571 F7E4  06 01       	LD B,1  	; lesen
+ 1572 F7E6  16 00       	LD D,0  	; track 0
+ 1573 F7E8  1E 01       	LD E,1  	; sektor 1
+ 1574 F7EA  CD F213     	CALL FLOP
+ 1575 F7ED  E1          	POP HL  	; Boot sector address
+ 1576 F7EE  C2 FB8B     	JP NZ,ERROR
+ 1577                   	
+ 1578 F7F1  E9          	JP (HL) 	; Boot sector ausfuehren
+ 1579                   
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  28
+MON80V2 Z80
+
+ 1580                   ;------------------------------------------------------------------------------
+ 1581                   ; Load boot sector from IDE/CF-card to RAM location 08000h
+ 1582                   
+ 1583 F7F2  21 8000     IDE_CF:	LD HL,08000h
+ 1584 F7F5  01 0000     	LD BC,0000h	; B,C,E = 0 -> LBA = 0
+ 1585 F7F8  1E 00       	LD E,00H
+ 1586 F7FA  CD F588     	CALL IDERD	; IDE read
+ 1587 F7FD  C3 8000     	JP 08000H	; Execute boot sector
+ 1588                   
+ 1589                   ;------------------------------------------------------------------------------
+ 1590                   ; Monitor command ASSIGN
+ 1591                   ; assign IOBYTE
+ 1592                   
+ 1593                   ; 000000XX CONSOLE
+ 1594                   ; 0000XX00 READER
+ 1595                   ; 00XX0000 PUNCH
+ 1596                   ; XX000000 LISTER
+ 1597                   ; 00= TELETYPE CONS
+ 1598                   
+ 1599 F800  CD FD69     ASSIGN:	CALL TI
+ 1600 F803  21 FDC7     	LD HL,ASSTBL
+ 1601 F806  01 0400     	LD BC,400H
+ 1602 F809  11 0005     	LD DE,5
+ 1603                   
+ 1604 F80C  BE          ASSIG1:	CP (HL)
+ 1605 F80D  28 06       	JR Z,ASSIG2
+ 1606                   	
+ 1607 F80F  19          	ADD HL,DE
+ 1608 F810  0C          	INC C
+ 1609 F811  10 F9       	DJNZ ASSIG1
+ 1610 F813  18 15       	JR ASSIG5
+ 1611                   	
+ 1612 F815  59          ASSIG2:	LD E,C
+ 1613                   
+ 1614 F816  CD FD69     ASSIG3:	CALL TI
+ 1615 F819  FE 3D       	CP "="
+ 1616 F81B  20 F9       	JR NZ,ASSIG3
+ 1617                   	
+ 1618 F81D  CD FD69     	CALL TI
+ 1619 F820  01 0400     	LD BC,400H
+ 1620                   
+ 1621 F823  23          ASSIG4:	INC HL
+ 1622 F824  BE          	CP (HL)
+ 1623 F825  28 06       	JR Z,ASSIG6
+ 1624                   	
+ 1625 F827  0C          	INC C
+ 1626 F828  10 F9       	DJNZ ASSIG4
+ 1627                   	
+ 1628 F82A              ASSIG5:	; error
+ 1629 F82A  C3 FB8B     	JP ERROR
+ 1630                   	
+ 1631 F82D  3E 03       ASSIG6:	LD A,3
+ 1632 F82F  1C          	INC E
+ 1633                   
+ 1634 F830  1D          ASSIG7:	DEC E
+ 1635 F831  28 08       	JR Z,ASSIG8
+ 1636                   	
+ 1637 F833  CB 21       	SLA  C
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  29
+MON80V2 Z80
+
+ 1638 F835  CB 21       	SLA  C
+ 1639 F837  17          	RLA
+ 1640 F838  17          	RLA
+ 1641 F839  18 F5       	JR ASSIG7
+ 1642                   	
+ 1643 F83B  2F          ASSIG8:	CPL
+ 1644 F83C  57          	LD D,A
+ 1645                   	
+ 1646 F83D  CD FCA1     ASSIG9:	CALL PCHK
+ 1647 F840  30 FB       	JR NC,ASSIG9
+ 1648 F842  3A F14C     	LD A,(IOBYT)
+ 1649 F845  A2          	AND D
+ 1650 F846  B1          	OR C
+ 1651 F847  4F          	LD C,A
+ 1652 F848  C3 F106     	JP IOSET
+ 1653                   
+ 1654                   ;------------------------------------------------------------------------------
+ 1655                   ; Monitor command BYE
+ 1656                   
+ 1657 F84B  CD FBEB     BYE:	CALL CRLF
+ 1658                   
+ 1659 F84E  CD FD63     BYE1:	CALL CONIN7	; In HEX Dump 1E 
+ 1660 F851  FE 0E       	CP 0EH  	; CRTL-N ist 0Eh
+ 1661 F853  20 F9       	JR NZ,BYE1 	; gaendert gegenueber MC-Vers
+ 1662                   
+ 1663 F855  D1          	POP DE
+ 1664 F856  C3 F6F1     	JP HELLO
+ 1665                   
+ 1666                   ;------------------------------------------------------------------------------
+ 1667                   ; Monitor command PUT ASCII
+ 1668                   ; PUT ASCII INTO MEM
+ 1669                   ; Texte direkt in den Speicher eingeben
+ 1670                   
+ 1671 F859  CD FC00     PUTA:	CALL EXPRA
+ 1672 F85C  CD FBEB     	CALL CRLF
+ 1673 F85F  E1          	POP HL
+ 1674                   
+ 1675 F860  CD FD63     PUTA1:	CALL CONIN7
+ 1676 F863  FE 04       	CP 4  		; Beenden der Eingabe CTRL-D
+ 1677 F865  CA FBAE     	JP Z,LFADR
+ 1678 F868  FE 5F       	CP "_"  	; Rueckwaertsschritt
+ 1679 F86A  28 08       	JR Z,PUTA3
+ 1680                   	
+ 1681 F86C  77          	LD (HL),A
+ 1682 F86D  4F          	LD C,A
+ 1683 F86E  23          	INC HL
+ 1684                   
+ 1685 F86F  CD F0AD     PUTA2:	CALL CONOUT
+ 1686 F872  18 EC       	JR PUTA1
+ 1687                   
+ 1688 F874  2B          PUTA3:	DEC HL
+ 1689 F875  4E          	LD C,(HL)
+ 1690 F876  18 F7       	JR PUTA2
+ 1691                   
+ 1692                   ;------------------------------------------------------------------------------
+ 1693                   ; Monitor command COMPARE
+ 1694                   ;
+ 1695                   ; COMPARE BIN
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  30
+MON80V2 Z80
+
+ 1696                   ; Vergleich eines Speicherbereichs mit dem Reader
+ 1697                   
+ 1698 F878  CD FBE6     COMP:	CALL EXLF
+ 1699                   
+ 1700 F87B  CD FBA0     COMP1:	CALL RIFF	; Reader in
+ 1701 F87E  BE          	CP (HL)
+ 1702 F87F  C4 F887     	CALL NZ,CERR
+ 1703                   	
+ 1704 F882  CD FC2F     	CALL HILOX	; -> check HL, RET
+ 1705 F885  18 F4       	JR COMP1
+ 1706                   
+ 1707                   	; M AUSGABE
+ 1708                   
+ 1709 F887              CERR:	; error
+ 1710 F887  47          	LD B,A
+ 1711 F888  CD FBB1     	CALL HLSP
+ 1712 F88B  7E          	LD A,(HL)
+ 1713 F88C  CD FC50     	CALL LBYTE
+ 1714 F88F  CD FBB4     	CALL BLK
+ 1715 F892  78          	LD A,B
+ 1716 F893  CD FC50     	CALL LBYTE
+ 1717 F896  C3 FBEB     	JP CRLF
+ 1718                   
+ 1719                   ;------------------------------------------------------------------------------
+ 1720                   ; Monitor command DISPLAY
+ 1721                   ; Ausgabe eines Speicherbereichs
+ 1722                   
+ 1723 F899  CD FBE6     DISP:	CALL EXLF
+ 1724                   
+ 1725 F89C  CD FBAE     DISP1:	CALL LFADR
+ 1726                   
+ 1727 F89F  CD FBB4     DISP2:	CALL BLK
+ 1728 F8A2  7E          	LD A,(HL)
+ 1729 F8A3  CD FC50     	CALL LBYTE
+ 1730 F8A6  CD FC2F     	CALL HILOX	; -> check HL, RET
+ 1731 F8A9  7D          	LD A,L
+ 1732 F8AA  E6 0F       	AND 0FH
+ 1733 F8AC  20 F1       	JR NZ,DISP2
+ 1734                   	
+ 1735 F8AE  18 EC       	JR DISP1
+ 1736                   
+ 1737                   ;------------------------------------------------------------------------------
+ 1738                   ; Monitor command EOF
+ 1739                   ; Output EOF for Punch
+ 1740                   ; Intel-Hex Ende ausgeben
+ 1741                   
+ 1742 F8B0  CD FC00     EOF:	CALL EXPRA
+ 1743 F8B3  CD FBB9     	CALL PEOL
+ 1744 F8B6  0E 3A       	LD C,':'
+ 1745 F8B8  CD F0C1     	CALL PUNOUT
+ 1746 F8BB  AF          	XOR A
+ 1747 F8BC  CD FC85     	CALL PBYTE
+ 1748 F8BF  E1          	POP HL
+ 1749 F8C0  CD FC80     	CALL PADR
+ 1750 F8C3  21 0000     	LD HL,0
+ 1751 F8C6  CD FC80     	CALL PADR
+ 1752 F8C9  C3 FBD8     	JP NULL
+ 1753                   
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  31
+MON80V2 Z80
+
+ 1754                   ;------------------------------------------------------------------------------
+ 1755                   ; Monitor command FILL
+ 1756                   ; Einen Speicherbereich mit einem Wert fuellen
+ 1757                   
+ 1758 F8CC  CD FBF5     FILL:	CALL EXPRX	; C=2, get 3 arguments
+ 1759                   
+ 1760 F8CF  71          FILL1:	LD (HL),C
+ 1761 F8D0  CD FC35     	CALL HILO
+ 1762 F8D3  30 FA       	JR NC,FILL1
+ 1763                   	
+ 1764 F8D5  D1          	POP DE
+ 1765 F8D6  C3 F6FB     	JP WARM
+ 1766                   
+ 1767                   ;------------------------------------------------------------------------------
+ 1768                   ; Monitor command GOTO
+ 1769                   ; Start eines Anwenderprogramms mit Break-Points
+ 1770                   
+ 1771 F8D9  CD FCA1     GOTO:	CALL PCHK
+ 1772 F8DC  38 40       	JR C,GOTO5
+ 1773 F8DE  28 10       	JR Z,GOTO1
+ 1774                   	
+ 1775 F8E0  CD FC27     	CALL EXPRF
+ 1776 F8E3  D1          	POP DE
+ 1777 F8E4  21 0034     	LD HL,PLOC
+ 1778 F8E7  39          	ADD HL,SP
+ 1779 F8E8  72          	LD (HL),D
+ 1780 F8E9  2B          	DEC HL
+ 1781 F8EA  73          	LD (HL),E
+ 1782 F8EB  78          	LD A,B
+ 1783 F8EC  FE 0D       	CP 0DH
+ 1784 F8EE  28 2E       	JR Z,GOTO5
+ 1785                   
+ 1786 F8F0  16 02       GOTO1:	LD D,2
+ 1787 F8F2  21 0035     	LD HL,TLOC
+ 1788 F8F5  39          	ADD HL,SP
+ 1789                   
+ 1790 F8F6  E5          GOTO2:	PUSH HL
+ 1791 F8F7  CD FC00     	CALL EXPRA
+ 1792 F8FA  58          	LD E,B
+ 1793 F8FB  C1          	POP BC
+ 1794 F8FC  E1          	POP HL
+ 1795 F8FD  78          	LD A,B
+ 1796 F8FE  B1          	OR C
+ 1797 F8FF  28 0A       	JR Z,GOTO3
+ 1798                   	
+ 1799 F901  71          	LD (HL),C
+ 1800 F902  23          	INC HL
+ 1801 F903  70          	LD (HL),B
+ 1802 F904  23          	INC HL
+ 1803 F905  0A          	LD A,(BC)
+ 1804 F906  77          	LD (HL),A
+ 1805 F907  23          	INC HL
+ 1806 F908  3E FF       	LD A,0FFH
+ 1807 F90A  02          	LD (BC),A
+ 1808                   
+ 1809 F90B  7B          GOTO3:	LD A,E
+ 1810 F90C  FE 0D       	CP 0DH
+ 1811 F90E  28 03       	JR Z,GOTO4
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  32
+MON80V2 Z80
+
+ 1812                   
+ 1813 F910  15          	DEC D
+ 1814 F911  20 E3       	JR NZ,GOTO2
+ 1815                   
+ 1816 F913  3E C3       GOTO4:	LD A,0C3H 	; Rueckkehr mit RST7 vorbereiten
+ 1817 F915  32 0038     	LD (RST7),A
+ 1818 F918  21 F01E     	LD HL,TRAP
+ 1819 F91B  22 0039     	LD (RST7+1),HL
+ 1820                   
+ 1821 F91E  CD FBEB     GOTO5:	CALL CRLF
+ 1822 F921  D1          	POP DE
+ 1823 F922  21 0016     	LD HL,22
+ 1824 F925  39          	ADD HL,SP
+ 1825 F926  E9          	JP (HL)  	; und Programm starten
+ 1826                   	
+ 1827                   ;------------------------------------------------------------------------------
+ 1828                   ; Monitor command TEST
+ 1829                   ; Fast Complement Test fuer den Speicher
+ 1830                   
+ 1831 F927  CD FBE6     TEST:	CALL EXLF
+ 1832                   
+ 1833 F92A  7E          TEST1:	LD A,(HL)
+ 1834 F92B  47          	LD B,A
+ 1835 F92C  2F          	CPL
+ 1836 F92D  77          	LD (HL),A
+ 1837 F92E  AE          	XOR (HL)
+ 1838 F92F  28 0E       	JR Z,TEST2
+ 1839                   	
+ 1840 F931  D5          	PUSH DE
+ 1841 F932  50          	LD D,B
+ 1842 F933  5F          	LD E,A
+ 1843 F934  CD FBB1     	CALL HLSP
+ 1844 F937  CD FD9C     	CALL BITS
+ 1845 F93A  CD FBEB     	CALL CRLF
+ 1846 F93D  42          	LD B,D
+ 1847 F93E  D1          	POP DE
+ 1848                   
+ 1849 F93F  70          TEST2:	LD (HL),B
+ 1850 F940  CD FC2F     	CALL HILOX	; -> check HL, RET
+ 1851 F943  18 E5       	JR TEST1
+ 1852                   	
+ 1853                   ;------------------------------------------------------------------------------
+ 1854                   ; Monitor command MOVE
+ 1855                   ; Speicherbereich verschieben
+ 1856                   
+ 1857 F945  CD FBF5     MOVE:	CALL EXPRX	; C=2, get 3 arguments
+ 1858                   
+ 1859 F948  7E          MOVE1:	LD A,(HL)
+ 1860 F949  02          	LD (BC),A
+ 1861 F94A  03          	INC BC
+ 1862 F94B  CD FC2F     	CALL HILOX	; -> check HL, RET
+ 1863 F94E  18 F8       	JR MOVE1
+ 1864                   	
+ 1865                   ;------------------------------------------------------------------------------
+ 1866                   ; Monitor command READ
+ 1867                   ; Einlesen von Intel-Hex oder TDL-Daten
+ 1868                   
+ 1869 F950  CD FC00     READ:	CALL EXPRA
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  33
+MON80V2 Z80
+
+ 1870 F953  78          	LD A,B
+ 1871 F954  D6 0D       	SUB 0DH
+ 1872 F956  47          	LD B,A
+ 1873 F957  4F          	LD C,A
+ 1874 F958  D1          	POP DE
+ 1875 F959  28 04       	JR Z,READ1
+ 1876                   	
+ 1877 F95B  CD FC00     	CALL EXPRA
+ 1878 F95E  C1          	POP BC
+ 1879                   
+ 1880 F95F  EB          READ1:	EX DE,HL
+ 1881 F960  D9          	EXX
+ 1882 F961  CD FBEB     	CALL CRLF
+ 1883                   
+ 1884 F964  CD FCB0     READ2:	CALL RIX
+ 1885 F967  D6 3A       	SUB ':'
+ 1886 F969  47          	LD B,A
+ 1887 F96A  E6 FE       	AND 0FEH
+ 1888 F96C  20 F6       	JR NZ,READ2
+ 1889                   	
+ 1890 F96E  57          	LD D,A
+ 1891 F96F  CD F9EA     	CALL SBYTE
+ 1892 F972  5F          	LD E,A
+ 1893 F973  CD F9EA     	CALL SBYTE
+ 1894 F976  F5          	PUSH AF
+ 1895 F977  CD F9EA     	CALL SBYTE
+ 1896 F97A  D9          	EXX
+ 1897 F97B  D1          	POP DE
+ 1898 F97C  5F          	LD E,A
+ 1899 F97D  C5          	PUSH BC
+ 1900 F97E  D5          	PUSH DE
+ 1901 F97F  E5          	PUSH HL
+ 1902 F980  19          	ADD HL,DE
+ 1903 F981  E3          	EX (SP),HL
+ 1904 F982  DD E1       	POP IX
+ 1905 F984  D9          	EXX
+ 1906 F985  E1          	POP HL
+ 1907 F986  CD F9EA     	CALL SBYTE
+ 1908 F989  3D          	DEC A
+ 1909 F98A  78          	LD A,B
+ 1910 F98B  C1          	POP BC
+ 1911 F98C  20 03       	JR NZ,READ3
+ 1912                   	
+ 1913 F98E  09          	ADD HL,BC
+ 1914 F98F  DD 09       	ADD IX,BC
+ 1915                   
+ 1916 F991              READ3:	; arepa
+ 1917 F991  1C          	INC E
+ 1918 F992  1D          	DEC E
+ 1919 F993  28 19       	JR Z,READ7
+ 1920 F995  3D          	DEC A
+ 1921 F996  28 22       	JR Z,READ8
+ 1922                   
+ 1923 F998  CD F9EA     READ4:	CALL SBYTE
+ 1924 F99B  CD F9FD     	CALL STORE
+ 1925 F99E  20 F8       	JR NZ,READ4
+ 1926                   
+ 1927 F9A0  CD F9EA     READ5:	CALL SBYTE
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  34
+MON80V2 Z80
+
+ 1928 F9A3  28 BF       	JR Z,READ2
+ 1929                   	
+ 1930 F9A5              READ6:	; err
+ 1931 F9A5  DD E5       	PUSH IX
+ 1932 F9A7  E1          	POP HL
+ 1933 F9A8  CD FC4B     	CALL LADR
+ 1934 F9AB  C3 FB8B     	JP ERROR
+ 1935                   	
+ 1936 F9AE              READ7:	; done
+ 1937 F9AE  7C          	LD A,H
+ 1938 F9AF  B5          	OR  L
+ 1939 F9B0  C8          	RET Z
+ 1940 F9B1  EB          	EX DE,HL
+ 1941 F9B2  21 0034     	LD HL,PLOC
+ 1942 F9B5  39          	ADD HL,SP
+ 1943 F9B6  72          	LD (HL),D
+ 1944 F9B7  2B          	DEC HL
+ 1945 F9B8  73          	LD (HL),E
+ 1946 F9B9  C9          	RET
+ 1947                   	
+ 1948 F9BA  2E 01       READ8:	LD L,1
+ 1949                   
+ 1950 F9BC  CD F9DA     READ9:	CALL READ12
+ 1951 F9BF  38 07       	JR C,READ11
+ 1952                   
+ 1953 F9C1  CD F9FD     READ10:	CALL STORE
+ 1954 F9C4  20 F6       	JR NZ,READ9
+ 1955 F9C6  18 D8       	JR READ5
+ 1956                   
+ 1957 F9C8  4F          READ11:	LD C,A
+ 1958 F9C9  CD F9DA     	CALL READ12
+ 1959 F9CC  47          	LD B,A
+ 1960 F9CD  D9          	EXX
+ 1961 F9CE  C5          	PUSH BC
+ 1962 F9CF  D9          	EXX 
+ 1963 F9D0  E3          	EX (SP),HL
+ 1964 F9D1  09          	ADD HL,BC
+ 1965 F9D2  7D          	LD A,L
+ 1966 F9D3  CD F9FD     	CALL STORE
+ 1967 F9D6  7C          	LD A,H
+ 1968 F9D7  E1          	POP HL
+ 1969 F9D8  18 E7       	JR READ10
+ 1970                   
+ 1971 F9DA  2D          READ12:	DEC L
+ 1972 F9DB  20 07       	JR NZ,READ13
+ 1973                   	
+ 1974 F9DD  CD F9EA     	CALL SBYTE
+ 1975 F9E0  1D          	DEC E
+ 1976 F9E1  67          	LD H,A
+ 1977 F9E2  2E 08       	LD L,8
+ 1978                   
+ 1979 F9E4  CD F9EA     READ13:	CALL SBYTE
+ 1980 F9E7  CB 24       	SLA H
+ 1981 F9E9  C9          	RET
+ 1982                   
+ 1983                   ;------------------------------------------------------------------------------
+ 1984                   
+ 1985 F9EA              SBYTE:	; sbyte
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  35
+MON80V2 Z80
+
+ 1986 F9EA  C5          	PUSH BC
+ 1987 F9EB  CD FC6D     	CALL RIBBLE
+ 1988 F9EE  07          	RLCA
+ 1989 F9EF  07          	RLCA
+ 1990 F9F0  07          	RLCA
+ 1991 F9F1  07          	RLCA
+ 1992 F9F2  4F          	LD C,A
+ 1993 F9F3  CD FC6D     	CALL RIBBLE
+ 1994 F9F6  B1          	OR C
+ 1995 F9F7  4F          	LD C,A
+ 1996 F9F8  82          	ADD A,D
+ 1997 F9F9  57          	LD D,A
+ 1998 F9FA  79          	LD  A,C
+ 1999 F9FB  C1          	POP BC
+ 2000 F9FC  C9          	RET
+ 2001                   
+ 2002                   ;------------------------------------------------------------------------------
+ 2003                   
+ 2004 F9FD              STORE:	; store
+ 2005 F9FD  DD 77 00    	LD (IX+0),A
+ 2006 FA00  DD BE 00    	CP (IX+0)
+ 2007 FA03  20 A0       	JR NZ,READ6
+ 2008 FA05  DD 23       	INC IX
+ 2009 FA07  1D          	DEC E
+ 2010 FA08  C9          	RET
+ 2011                   	
+ 2012                   ;------------------------------------------------------------------------------
+ 2013                   ; Monitor command SUBST
+ 2014                   ; Interaktive Eingabe von Hex-Werten
+ 2015                   
+ 2016 FA09  CD FC00     SUBST:	CALL EXPRA
+ 2017 FA0C  E1          	POP HL
+ 2018                   	
+ 2019 FA0D  7E          SUBST1:	LD A,(HL)
+ 2020 FA0E  CD FC50     	CALL LBYTE
+ 2021 FA11  CD FC9C     	CALL COPCK
+ 2022 FA14  D8          	RET C
+ 2023 FA15  28 0F       	JR Z,SUBST2
+ 2024 FA17  FE 5F       	CP '_'
+ 2025 FA19  28 14       	JR Z,SUBST4
+ 2026                   	
+ 2027 FA1B  E5          	PUSH HL
+ 2028 FA1C  CD FC27     	CALL EXPRF
+ 2029 FA1F  D1          	POP DE
+ 2030 FA20  E1          	POP HL
+ 2031 FA21  73          	LD (HL),E
+ 2032 FA22  78          	LD A,B
+ 2033 FA23  FE 0D       	CP 0DH
+ 2034 FA25  C8          	RET Z
+ 2035                   
+ 2036 FA26  23          SUBST2:	INC HL
+ 2037                   
+ 2038 FA27  7D          SUBST3:	LD A,L
+ 2039 FA28  E6 07       	AND 7
+ 2040 FA2A  CC FBAE     	CALL Z,LFADR
+ 2041 FA2D  18 DE       	JR SUBST1
+ 2042                   
+ 2043 FA2F  2B          SUBST4:	DEC HL
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  36
+MON80V2 Z80
+
+ 2044 FA30  18 F5       	JR SUBST3
+ 2045                   	
+ 2046                   ;------------------------------------------------------------------------------
+ 2047                   ; Monitor command TYPE
+ 2048                   ; Ausgabe von Speicherbereichen in lesbarer Form
+ 2049                   ;
+ 2050 FA32  CD FBE6     TYPE:	CALL EXLF
+ 2051                   
+ 2052 FA35  CD FBAE     TYPE1:	CALL LFADR
+ 2053 FA38  06 40       	LD B,32+32
+ 2054                   
+ 2055 FA3A  7E          TYPE2:	LD A,(HL)
+ 2056 FA3B  E6 7F       	AND 7FH
+ 2057 FA3D  FE 20       	CP ' '
+ 2058 FA3F  30 02       	JR NC,TYPE4
+ 2059                   
+ 2060 FA41  3E 2E       TYPE3:	LD A,'.'
+ 2061                   
+ 2062 FA43  FE 7C       TYPE4:	CP 7CH
+ 2063 FA45  30 FA       	JR NC,TYPE3
+ 2064                   	
+ 2065 FA47  4F          	LD C,A
+ 2066 FA48  CD F0AD     	CALL CONOUT
+ 2067 FA4B  CD FC2F     	CALL HILOX
+ 2068 FA4E  10 EA       	DJNZ TYPE2
+ 2069                   	
+ 2070 FA50  18 E3       	JR TYPE1
+ 2071                   	
+ 2072                   ;------------------------------------------------------------------------------
+ 2073                   ; Monitor command SEARCH
+ 2074                   ; Suchen von Werten im Speicher
+ 2075                   ;
+ 2076 FA52  16 00       WHERE:	LD D,0
+ 2077                   
+ 2078 FA54  CD FC00     WHER1:	CALL EXPRA
+ 2079 FA57  E1          	POP HL
+ 2080 FA58  65          	LD H,L
+ 2081 FA59  E5          	PUSH HL
+ 2082 FA5A  33          	INC  SP
+ 2083 FA5B  14          	INC D
+ 2084 FA5C  78          	LD A,B
+ 2085 FA5D  D6 0D       	SUB 0DH
+ 2086 FA5F  20 F3       	JR NZ,WHER1
+ 2087 FA61  47          	LD B,A
+ 2088 FA62  4F          	LD C,A
+ 2089 FA63  67          	LD H,A
+ 2090 FA64  6A          	LD L,D
+ 2091 FA65  2D          	DEC L
+ 2092 FA66  39          	ADD HL,SP
+ 2093 FA67  E5          	PUSH HL
+ 2094 FA68  C5          	PUSH BC
+ 2095                   
+ 2096 FA69              WHER2:	; findc
+ 2097 FA69  C5          	PUSH BC
+ 2098 FA6A  CD FBEB     	CALL CRLF
+ 2099 FA6D  C1          	POP BC
+ 2100                   	
+ 2101 FA6E              WHER3:	; find
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  37
+MON80V2 Z80
+
+ 2102 FA6E  E1          	POP HL
+ 2103 FA6F  DD E1       	POP IX
+ 2104 FA71  5A          	LD E,D
+ 2105 FA72  DD 7E 00    	LD A,(IX+0)
+ 2106 FA75  ED B1       	CPIR
+ 2107 FA77  E2 FA95     	JP PO,WHER6
+ 2108                   	
+ 2109 FA7A  DD E5       	PUSH IX
+ 2110 FA7C  E5          	PUSH HL
+ 2111                   	
+ 2112 FA7D              WHER4:	; found
+ 2113 FA7D  1D          	DEC E
+ 2114 FA7E  28 0B       	JR Z,WHER5
+ 2115                   	
+ 2116 FA80  DD 7E FF    	LD A,(IX-1)
+ 2117 FA83  BE          	CP (HL)
+ 2118 FA84  20 E8       	JR NZ,WHER3
+ 2119                   	
+ 2120 FA86  23          	INC HL
+ 2121 FA87  DD 2B       	DEC IX
+ 2122 FA89  18 F2       	JR WHER4
+ 2123                   	
+ 2124 FA8B              WHER5:	; tell
+ 2125 FA8B  E1          	POP HL
+ 2126 FA8C  E5          	PUSH HL
+ 2127 FA8D  2B          	DEC HL
+ 2128 FA8E  C5          	PUSH BC
+ 2129 FA8F  CD FC4B     	CALL LADR
+ 2130 FA92  C1          	POP BC
+ 2131 FA93  18 D4       	JR WHER2
+ 2132                   
+ 2133 FA95              WHER6:	; done
+ 2134 FA95  33          	INC SP
+ 2135 FA96  1D          	DEC E
+ 2136 FA97  20 FC       	JR NZ,WHER6
+ 2137 FA99  C9          	RET
+ 2138                   
+ 2139                   ;------------------------------------------------------------------------------
+ 2140                   ; Monitor command WRITE
+ 2141                   ; Output Intex Hex to Punch
+ 2142                   
+ 2143 FA9A  CD FBE6     WRITE:	CALL EXLF
+ 2144                   
+ 2145 FA9D  CD FBB9     WRITE1:	CALL PEOL
+ 2146 FAA0  01 003A     	LD BC,':'
+ 2147 FAA3  CD F0C1     	CALL PUNOUT
+ 2148 FAA6  D5          	PUSH DE
+ 2149 FAA7  E5          	PUSH HL
+ 2150                   
+ 2151 FAA8  04          WRITE2:	INC B
+ 2152 FAA9  CD FC35     	CALL HILO
+ 2153 FAAC  38 24       	JR C,WRITE5
+ 2154                   	
+ 2155 FAAE  3E 18       	LD A,24
+ 2156 FAB0  90          	SUB B
+ 2157 FAB1  20 F5       	JR NZ,WRITE2
+ 2158                   	
+ 2159 FAB3  E1          	POP HL
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  38
+MON80V2 Z80
+
+ 2160 FAB4  CD FABA     	CALL WRITE3
+ 2161 FAB7  D1          	POP DE
+ 2162 FAB8  18 E3       	JR WRITE1
+ 2163                   	
+ 2164                   	;----------------------------------------------------------------------
+ 2165                   
+ 2166 FABA  57          WRITE3:	LD D,A
+ 2167 FABB  78          	LD A,B
+ 2168 FABC  CD FC85     	CALL PBYTE
+ 2169 FABF  CD FC80     	CALL PADR
+ 2170 FAC2  AF          	XOR  A
+ 2171 FAC3  CD FC85     	CALL PBYTE
+ 2172                   
+ 2173 FAC6  7E          WRITE4:	LD A,(HL)
+ 2174 FAC7  CD FC85     	CALL PBYTE
+ 2175 FACA  23          	INC HL
+ 2176 FACB  10 F9       	DJNZ WRITE4
+ 2177                   	
+ 2178 FACD  AF          	XOR A
+ 2179 FACE  92          	SUB D
+ 2180 FACF  C3 FC85     	JP PBYTE
+ 2181                   
+ 2182 FAD2  E1          WRITE5:	POP HL
+ 2183 FAD3  D1          	POP DE
+ 2184 FAD4  AF          	XOR  A
+ 2185 FAD5  18 E3       	JR WRITE3
+ 2186                   
+ 2187                   ;------------------------------------------------------------------------------
+ 2188                   ; Monitor command XAM
+ 2189                   ; Output and change microcontroller registers
+ 2190                   
+ 2191 FAD7  CD FD69     XAM:	CALL TI
+ 2192 FADA  21 FDFE     	LD HL,ACTBL
+ 2193 FADD  FE 0D       	CP 0DH
+ 2194 FADF  28 5A       	JR Z,XAM7
+ 2195                   	
+ 2196 FAE1  FE 27       	CP "'"
+ 2197 FAE3  20 0A       	JR NZ,XAM1
+ 2198                   
+ 2199 FAE5  21 FE17     	LD HL,PRMTB
+ 2200 FAE8  CD FD69     	CALL TI
+ 2201 FAEB  FE 0D       	CP 0DH
+ 2202 FAED  28 4C       	JR Z,XAM7
+ 2203                   	
+ 2204 FAEF  BE          XAM1:	CP (HL)
+ 2205 FAF0  28 09       	JR Z,XAM2
+ 2206                   	
+ 2207 FAF2  CB 7E       	BIT 7,(HL)
+ 2208 FAF4  C2 FB8B     	JP NZ,ERROR
+ 2209                   	
+ 2210 FAF7  23          	INC HL
+ 2211 FAF8  23          	INC HL
+ 2212 FAF9  18 F4       	JR XAM1
+ 2213                   
+ 2214 FAFB  CD FBB4     XAM2:	CALL BLK
+ 2215                   
+ 2216 FAFE  23          XAM3:	INC HL
+ 2217 FAFF  7E          	LD A,(HL)
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  39
+MON80V2 Z80
+
+ 2218 FB00  47          	LD B,A
+ 2219 FB01  E6 3F       	AND 3FH
+ 2220 FB03  EB          	EX DE,HL
+ 2221 FB04  6F          	LD L,A
+ 2222 FB05  26 00       	LD H,0
+ 2223 FB07  39          	ADD HL,SP
+ 2224 FB08  EB          	EX DE,HL
+ 2225 FB09  23          	INC HL
+ 2226 FB0A  1A          	LD A,(DE)
+ 2227 FB0B  CD FC50     	CALL LBYTE
+ 2228 FB0E  CB 78       	BIT 7,B
+ 2229 FB10  28 05       	JR Z,XAM4
+ 2230                   	
+ 2231 FB12  1B          	DEC DE
+ 2232 FB13  1A          	LD A,(DE)
+ 2233 FB14  CD FC50     	CALL LBYTE
+ 2234                   
+ 2235 FB17  CD FC9C     XAM4:	CALL COPCK
+ 2236 FB1A  D8          	RET C
+ 2237                   	
+ 2238 FB1B  28 19       	JR Z,XAM6
+ 2239                   	
+ 2240 FB1D  E5          	PUSH HL
+ 2241 FB1E  C5          	PUSH BC
+ 2242 FB1F  CD FC27     	CALL EXPRF
+ 2243 FB22  E1          	POP HL
+ 2244 FB23  F1          	POP AF
+ 2245 FB24  C5          	PUSH BC
+ 2246 FB25  F5          	PUSH AF
+ 2247 FB26  7D          	LD A,L
+ 2248 FB27  12          	LD (DE),A
+ 2249 FB28  C1          	POP BC
+ 2250 FB29  CB 78       	BIT 7,B
+ 2251 FB2B  28 03       	JR Z,XAM5
+ 2252                   	
+ 2253 FB2D  13          	INC DE
+ 2254 FB2E  7C          	LD A,H
+ 2255 FB2F  12          	LD (DE),A
+ 2256                   
+ 2257 FB30  C1          XAM5:	POP BC
+ 2258 FB31  E1          	POP HL
+ 2259 FB32  78          	LD A,B
+ 2260 FB33  FE 0D       	CP 0DH
+ 2261 FB35  C8          	RET Z
+ 2262                   
+ 2263 FB36  CB 7E       XAM6:	BIT 7,(HL)
+ 2264 FB38  C0          	RET NZ
+ 2265 FB39  18 C3       	JR XAM3
+ 2266                   
+ 2267 FB3B  CD FBEB     XAM7:	CALL CRLF
+ 2268                   
+ 2269 FB3E  CD FBB4     XAM8:	CALL BLK
+ 2270 FB41  7E          	LD A,(HL)
+ 2271 FB42  23          	INC HL
+ 2272 FB43  B7          	OR A
+ 2273 FB44  F8          	RET M
+ 2274 FB45  4F          	LD C,A
+ 2275 FB46  CD F0AD     	CALL CONOUT
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  40
+MON80V2 Z80
+
+ 2276 FB49  0E 3D       	LD C,"="
+ 2277 FB4B  CD F0AD     	CALL CONOUT
+ 2278 FB4E  7E          	LD A,(HL)
+ 2279 FB4F  47          	LD B,A
+ 2280 FB50  E6 3F       	AND 3FH
+ 2281 FB52  23          	INC HL
+ 2282 FB53  EB          	EX DE,HL
+ 2283 FB54  6F          	LD L,A
+ 2284 FB55  26 00       	LD H,0
+ 2285 FB57  39          	ADD HL,SP
+ 2286 FB58  EB          	EX DE,HL
+ 2287 FB59  CB 70       	BIT 6,B
+ 2288 FB5B  20 0F       	JR NZ,XAM10
+ 2289                   
+ 2290 FB5D  1A          	LD A,(DE)
+ 2291 FB5E  CD FC50     	CALL LBYTE
+ 2292 FB61  CB 78       	BIT 7,B
+ 2293 FB63  28 D9       	JR Z,XAM8
+ 2294                   
+ 2295 FB65  1B          	DEC DE
+ 2296 FB66  1A          	LD A,(DE)
+ 2297                   
+ 2298 FB67  CD FC50     XAM9:	CALL LBYTE
+ 2299 FB6A  18 D2       	JR XAM8
+ 2300                   
+ 2301 FB6C  E5          XAM10:	PUSH HL
+ 2302 FB6D  1A          	LD A,(DE)
+ 2303 FB6E  67          	LD H,A
+ 2304 FB6F  1B          	DEC DE
+ 2305 FB70  1A          	LD A,(DE)
+ 2306 FB71  6F          	LD L,A
+ 2307 FB72  7E          	LD A,(HL)
+ 2308 FB73  E1          	POP HL
+ 2309 FB74  18 F1       	JR XAM9
+ 2310                   	
+ 2311                   ;------------------------------------------------------------------------------
+ 2312                   ; Outputs monitor message start message or CR+LF or message pointer in HL
+ 2313                   ; length in B
+ 2314                   
+ 2315 FB76              OUTSTRT:
+ 2316 FB76              OUTCRLF:
+ 2317 FB76  21 F606     	LD HL,MSGSTRT
+ 2318                   
+ 2319                   	; Message address in HL
+ 2320                   	
+ 2321 FB79  4E          OUTMSG:	LD C,(HL)
+ 2322 FB7A  23          	INC HL
+ 2323 FB7B  CD F0AD     	CALL CONOUT
+ 2324 FB7E  10 F9       	DJNZ OUTMSG
+ 2325                   	
+ 2326                   	; check if char received
+ 2327 FB80  CD F0EF     	CALL CONSTS
+ 2328 FB83  B7          	OR A
+ 2329 FB84  C8          	RET Z
+ 2330                   
+ 2331                   	; check if CTRL-C abort
+ 2332 FB85  CD FD63     	CALL CONIN7
+ 2333 FB88  FE 03       	CP 3
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  41
+MON80V2 Z80
+
+ 2334 FB8A  C0          	RET NZ
+ 2335                   
+ 2336                   	;------------------------------------------------------------------------------
+ 2337                   	; reset stack pointer and output '*' to indicate an error
+ 2338                   
+ 2339 FB8B  CD F118     ERROR:	CALL MEMSIZ
+ 2340 FB8E  11 FFEA     	LD DE,-22
+ 2341 FB91  19          	ADD HL,DE
+ 2342 FB92  F9          	LD SP,HL
+ 2343 FB93  0E 07       	LD C,7
+ 2344 FB95  CD F0AD     	CALL CONOUT
+ 2345 FB98  0E 2A       	LD C,'*'
+ 2346 FB9A  CD F0AD     	CALL CONOUT
+ 2347 FB9D  C3 F6FB     	JP WARM
+ 2348                   
+ 2349                   ;------------------------------------------------------------------------------
+ 2350                   ; Reader Input
+ 2351                   ; abort on carry
+ 2352                   ; compare with D
+ 2353                   
+ 2354 FBA0  CD F097     RIFF:	CALL READIN
+ 2355 FBA3  38 E6       	JR C,ERROR
+ 2356 FBA5  BA          	CP D
+ 2357 FBA6  C9          	RET
+ 2358                   
+ 2359                   ;------------------------------------------------------------------------------
+ 2360                   ; Monitor command SIZE
+ 2361                   ; Output size of memory
+ 2362                   
+ 2363 FBA7  CD F118     SIZE:	CALL MEMSIZ
+ 2364 FBAA  01 0023     	LD BC,ENDX-EXIT
+ 2365 FBAD  09          	ADD HL,BC
+ 2366                   
+ 2367 FBAE  CD FBEB     LFADR:	CALL CRLF
+ 2368                   
+ 2369 FBB1  CD FC4B     HLSP:	CALL LADR
+ 2370                   
+ 2371 FBB4  0E 20       BLK:	LD C,' '
+ 2372 FBB6  C3 F0AD     	JP CONOUT
+ 2373                   
+ 2374                   ;------------------------------------------------------------------------------
+ 2375                   ; Punch EOL
+ 2376                   ; CR+LF to Punch
+ 2377                   
+ 2378 FBB9  0E 0D       PEOL:	LD C,0DH
+ 2379 FBBB  CD F0C1     	CALL PUNOUT
+ 2380 FBBE  0E 0A       	LD C,0AH
+ 2381 FBC0  C3 F0C1     	JP PUNOUT
+ 2382                   
+ 2383                   ;------------------------------------------------------------------------------
+ 2384                   ; Monitor command UNLOAD
+ 2385                   ; Ausgabe eines Speicherbereichs binaer ueber Punch
+ 2386                   
+ 2387 FBC3  CD FBE6     UNLOAD:	CALL EXLF
+ 2388 FBC6  CD FC64     	CALL LEAD
+ 2389 FBC9  CD FC5F     	CALL MARK
+ 2390                   
+ 2391 FBCC  4E          UNLOD1:	LD C,(HL)
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  42
+MON80V2 Z80
+
+ 2392 FBCD  CD F0C1     	CALL PUNOUT
+ 2393 FBD0  CD FC35     	CALL HILO
+ 2394 FBD3  30 F7       	JR NC,UNLOD1
+ 2395                   	
+ 2396 FBD5  CD FC5F     	CALL MARK
+ 2397                   
+ 2398                   ;------------------------------------------------------------------------------
+ 2399                   ; Monitor command NULL
+ 2400                   ; NULL PUNCH
+ 2401                   ;
+ 2402 FBD8  CD FC64     NULL:	CALL LEAD
+ 2403 FBDB  C9          	RET
+ 2404                   
+ 2405                   ;------------------------------------------------------------------------------
+ 2406                   
+ 2407 FBDC  E6 0F       CONV:	AND 0FH
+ 2408 FBDE  C6 90       	ADD A,90H
+ 2409 FBE0  27          	DAA 
+ 2410 FBE1  CE 40       	ADC A,40H
+ 2411 FBE3  27          	DAA
+ 2412 FBE4  4F          	LD C,A 	;HEX TO ASC
+ 2413 FBE5  C9          	RET
+ 2414                   
+ 2415                   ;------------------------------------------------------------------------------
+ 2416                   
+ 2417 FBE6  CD FC02     EXLF:	CALL EXPR
+ 2418 FBE9  D1          	POP DE
+ 2419 FBEA  E1          	POP HL
+ 2420                   
+ 2421 FBEB  E5          CRLF:	PUSH HL
+ 2422 FBEC  F5          	PUSH AF
+ 2423 FBED  06 02       	LD B,2
+ 2424 FBEF  CD FB76     	CALL OUTCRLF	; output CR+LF
+ 2425 FBF2  F1          	POP AF
+ 2426 FBF3  E1          	POP HL
+ 2427 FBF4  C9          	RET
+ 2428                   
+ 2429                   ;------------------------------------------------------------------------------
+ 2430                   ; Eingabe von Hex-Wertes von der Console
+ 2431                   ; Anzahl-1 in C
+ 2432                   ; war EXPR3
+ 2433                   
+ 2434 FBF5  0C          EXPRX:	INC C
+ 2435 FBF6  CD FC02     	CALL EXPR
+ 2436 FBF9  CD FBEB     	CALL CRLF
+ 2437 FBFC  C1          	POP BC
+ 2438 FBFD  D1          	POP DE
+ 2439 FBFE  E1          	POP HL
+ 2440 FBFF  C9          	RET
+ 2441                   
+ 2442                   ;------------------------------------------------------------------------------
+ 2443                   
+ 2444 FC00  0E 01       EXPRA:	LD C,1
+ 2445                   
+ 2446 FC02  21 0000     EXPR:	LD HL,0
+ 2447                   
+ 2448 FC05  CD FD69     EXPR1:	CALL TI
+ 2449                   
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  43
+MON80V2 Z80
+
+ 2450 FC08  47          EXPR2:	LD B,A
+ 2451 FC09  CD FC70     	CALL NIBBLE
+ 2452 FC0C  38 08       	JR C,EXPR3
+ 2453                   	
+ 2454 FC0E  29          	ADD HL,HL
+ 2455 FC0F  29          	ADD HL,HL
+ 2456 FC10  29          	ADD HL,HL
+ 2457 FC11  29          	ADD HL,HL
+ 2458 FC12  B5          	OR L
+ 2459 FC13  6F          	LD L,A
+ 2460 FC14  18 EF       	JR EXPR1
+ 2461                   
+ 2462 FC16  E3          EXPR3:	EX (SP),HL
+ 2463 FC17  E5          	PUSH HL
+ 2464 FC18  78          	LD A,B
+ 2465 FC19  CD FCA4     	CALL QCHK
+ 2466 FC1C  30 02       	JR NC,EXPR4
+ 2467                   	
+ 2468 FC1E  0D          	DEC  C
+ 2469 FC1F  C8          	RET Z
+ 2470                   
+ 2471 FC20  C2 FB8B     EXPR4:	JP NZ,ERROR
+ 2472 FC23  0D          	DEC C
+ 2473 FC24  20 DC       	JR NZ,EXPR
+ 2474 FC26  C9          	RET
+ 2475                   
+ 2476                   	; entry point
+ 2477                   
+ 2478 FC27  0E 01       EXPRF:	LD C,1
+ 2479 FC29  21 0000     	LD HL,0
+ 2480 FC2C  C3 FC08     	JP EXPR2
+ 2481                   
+ 2482                   ;------------------------------------------------------------------------------
+ 2483                   
+ 2484 FC2F  CD FC35     HILOX:	CALL HILO
+ 2485 FC32  D0          	RET NC
+ 2486                   
+ 2487 FC33  D1          	POP DE
+ 2488 FC34  C9          	RET
+ 2489                   
+ 2490                   ;------------------------------------------------------------------------------
+ 2491                   
+ 2492 FC35  23          HILO:	INC HL
+ 2493 FC36  7C          	LD A,H
+ 2494 FC37  B5          	OR L
+ 2495 FC38  37          	SCF
+ 2496 FC39  C8          	RET Z
+ 2497                   	
+ 2498 FC3A  7B          	LD A,E
+ 2499 FC3B  95          	SUB L
+ 2500 FC3C  7A          	LD  A,D
+ 2501 FC3D  9C          	SBC A,H
+ 2502 FC3E  C9          	RET
+ 2503                   
+ 2504                   ;------------------------------------------------------------------------------
+ 2505                   ; Monitor command HEXN
+ 2506                   ; HEX MATH
+ 2507                   
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  44
+MON80V2 Z80
+
+ 2508 FC3F  CD FBE6     HEXN:	CALL EXLF
+ 2509 FC42  E5          	PUSH HL
+ 2510 FC43  19          	ADD HL,DE
+ 2511 FC44  CD FBB1     	CALL HLSP
+ 2512 FC47  E1          	POP HL
+ 2513 FC48  B7          	OR   A
+ 2514 FC49  ED 52       	SBC HL,DE
+ 2515                   	
+ 2516                   	; Entry
+ 2517                   	
+ 2518 FC4B  7C          LADR:	LD A,H
+ 2519 FC4C  CD FC50     	CALL LBYTE
+ 2520 FC4F  7D          	LD A,L
+ 2521                   
+ 2522 FC50  F5          LBYTE:	PUSH AF
+ 2523 FC51  0F          	RRCA
+ 2524 FC52  0F          	RRCA
+ 2525 FC53  0F          	RRCA
+ 2526 FC54  0F          	RRCA
+ 2527 FC55  CD FC59     	CALL LXR22
+ 2528 FC58  F1          	POP AF
+ 2529                   
+ 2530 FC59  CD FBDC     LXR22:	CALL CONV
+ 2531 FC5C  C3 F0AD     	JP CONOUT
+ 2532                   
+ 2533                   ;------------------------------------------------------------------------------
+ 2534                   
+ 2535 FC5F  01 08FF     MARK:	LD BC,8FFH
+ 2536 FC62  18 03       	JR LEAD1
+ 2537                   
+ 2538 FC64  01 4800     LEAD:	LD BC,4800H
+ 2539                   
+ 2540 FC67  CD F0C1     LEAD1:	CALL PUNOUT
+ 2541 FC6A  10 FB       	DJNZ  LEAD1
+ 2542                   	
+ 2543 FC6C  C9          	RET
+ 2544                   
+ 2545                   ;------------------------------------------------------------------------------
+ 2546                   
+ 2547 FC6D  CD FCB0     RIBBLE:	CALL RIX
+ 2548                   
+ 2549 FC70  D6 30       NIBBLE:	SUB '0'
+ 2550 FC72  D8          	RET C
+ 2551 FC73  FE 17       	CP 'G'-'0'
+ 2552 FC75  3F          	CCF
+ 2553 FC76  D8          	RET C
+ 2554 FC77  FE 0A       	CP 10
+ 2555 FC79  3F          	CCF
+ 2556 FC7A  D0          	RET NC
+ 2557 FC7B  D6 07       	SUB 'A'-'9'-1
+ 2558 FC7D  FE 0A       	CP 0AH
+ 2559 FC7F  C9          	RET
+ 2560                   	
+ 2561                   ;------------------------------------------------------------------------------
+ 2562                   
+ 2563 FC80  7C          PADR:	LD A,H
+ 2564 FC81  CD FC85     	CALL PBYTE
+ 2565 FC84  7D          	LD A,L
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  45
+MON80V2 Z80
+
+ 2566                   
+ 2567 FC85  F5          PBYTE:	PUSH AF
+ 2568 FC86  0F          	RRCA
+ 2569 FC87  0F          	RRCA
+ 2570 FC88  0F          	RRCA
+ 2571 FC89  0F          	RRCA
+ 2572 FC8A  CD FBDC     	CALL CONV
+ 2573 FC8D  CD F0C1     	CALL PUNOUT
+ 2574 FC90  F1          	POP AF
+ 2575 FC91  F5          	PUSH AF
+ 2576 FC92  CD FBDC     	CALL CONV
+ 2577 FC95  CD F0C1     	CALL PUNOUT
+ 2578 FC98  F1          	POP AF
+ 2579 FC99  82          	ADD A,D
+ 2580 FC9A  57          	LD D,A
+ 2581 FC9B  C9          	RET
+ 2582                   
+ 2583                   ;------------------------------------------------------------------------------
+ 2584                   
+ 2585 FC9C  0E 2D       COPCK:	LD C,'-'
+ 2586 FC9E  CD F0AD     	CALL CONOUT
+ 2587                   
+ 2588 FCA1  CD FD69     PCHK:	CALL TI
+ 2589                   
+ 2590 FCA4  FE 20       QCHK:	CP ' '
+ 2591 FCA6  C8          	RET Z
+ 2592                   	
+ 2593 FCA7  FE 2C       	CP ','
+ 2594 FCA9  C8          	RET Z
+ 2595                   	
+ 2596 FCAA  FE 0D       	CP 0DH
+ 2597 FCAC  37          	SCF
+ 2598 FCAD  C8          	RET Z
+ 2599                   	
+ 2600 FCAE  3F          	CCF
+ 2601 FCAF  C9          	RET
+ 2602                   	
+ 2603                   ;------------------------------------------------------------------------------
+ 2604                   
+ 2605 FCB0  CD FBA0     RIX:	CALL RIFF	; Reader input
+ 2606 FCB3  E6 7F       	AND 7FH
+ 2607 FCB5  C9          	RET
+ 2608                   
+ 2609                   ;------------------------------------------------------------------------------
+ 2610                   ; Monitor command LOAD
+ 2611                   ; Laden von Binaerdaten 
+ 2612                   ; Startkennung ist eine Gruppe von 0FFh-Werten
+ 2613                   
+ 2614 FCB6  CD FC00     LOAD:	CALL EXPRA
+ 2615 FCB9  E1          	POP HL
+ 2616 FCBA  CD FBEB     	CALL CRLF
+ 2617 FCBD  16 FF       	LD D,0FFH
+ 2618                   
+ 2619 FCBF  06 04       LOAD1:	LD B,4
+ 2620                   
+ 2621 FCC1  CD FBA0     LOAD2:	CALL RIFF	; Reader input
+ 2622 FCC4  20 F9       	JR NZ,LOAD1
+ 2623                   	
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  46
+MON80V2 Z80
+
+ 2624 FCC6  10 F9       	DJNZ LOAD2
+ 2625                   	
+ 2626 FCC8  CD FBA0     LOAD3:	CALL RIFF	; Reader input
+ 2627 FCCB  28 FB       	JR Z,LOAD3
+ 2628                   	
+ 2629 FCCD  77          	LD (HL),A
+ 2630 FCCE  3E 07       	LD A,7
+ 2631                   	
+ 2632                   ;+++ OUT TTY +++
+ 2633 FCD0  23          LOAD4:	INC HL
+ 2634 FCD1  CD FBA0     	CALL RIFF
+ 2635 FCD4  28 03       	JR Z,LOAD5
+ 2636                   	
+ 2637 FCD6  77          	LD (HL),A
+ 2638 FCD7  18 F7       	JR LOAD4
+ 2639                   
+ 2640 FCD9  1E 01       LOAD5:	LD E,1
+ 2641                   
+ 2642 FCDB  CD FBA0     LOAD6:	CALL RIFF	; Reader input
+ 2643 FCDE  20 09       	JR NZ,LOAD7
+ 2644                   	
+ 2645 FCE0  1C          	INC E
+ 2646 FCE1  3E 07       	LD A,7 		; MAX +++
+ 2647 FCE3  BB          	CP E
+ 2648 FCE4  20 F5       	JR NZ,LOAD6
+ 2649 FCE6  C3 FC4B     	JP LADR
+ 2650                   
+ 2651 FCE9  72          LOAD7:	LD (HL),D
+ 2652 FCEA  23          	INC HL
+ 2653 FCEB  1D          	DEC  E
+ 2654 FCEC  20 FB       	JR NZ,LOAD7
+ 2655                   	
+ 2656 FCEE  77          	LD (HL),A
+ 2657 FCEF  18 DF       	JR  LOAD4
+ 2658                   
+ 2659                   ; -----------------------------------------------------------------------------
+ 2660                   ; Entry after Break-Point
+ 2661                   
+ 2662 FCF1  E5          RSTRTB:	PUSH HL
+ 2663 FCF2  D5          	PUSH DE
+ 2664 FCF3  C5          	PUSH BC
+ 2665 FCF4  F5          	PUSH AF
+ 2666 FCF5  CD F118     	CALL MEMSIZ
+ 2667 FCF8  EB          	EX DE,HL
+ 2668 FCF9  21 000A     	LD HL,10
+ 2669 FCFC  39          	ADD HL,SP
+ 2670 FCFD  06 04       	LD B,4
+ 2671 FCFF  EB          	EX DE,HL
+ 2672                   
+ 2673 FD00  2B          RSTRT2:	DEC HL
+ 2674 FD01  72          	LD (HL),D
+ 2675 FD02  2B          	DEC HL
+ 2676 FD03  73          	LD (HL),E
+ 2677 FD04  D1          	POP DE
+ 2678 FD05  10 F9       	DJNZ RSTRT2
+ 2679                   	
+ 2680 FD07  C1          	POP BC
+ 2681 FD08  0B          	DEC BC
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  47
+MON80V2 Z80
+
+ 2682 FD09  F9          	LD SP,HL
+ 2683 FD0A  21 0025     	LD HL,TLOCX
+ 2684 FD0D  39          	ADD HL,SP
+ 2685 FD0E  7E          	LD A,(HL)
+ 2686 FD0F  91          	SUB C
+ 2687 FD10  23          	INC HL
+ 2688 FD11  20 04       	JR NZ,RSTRT3
+ 2689                   	
+ 2690 FD13  7E          	LD A,(HL)
+ 2691 FD14  90          	SUB B
+ 2692 FD15  28 0C       	JR Z,RSTRT5
+ 2693                   
+ 2694 FD17  23          RSTRT3:	INC HL
+ 2695 FD18  23          	INC HL
+ 2696 FD19  7E          	LD  A,(HL)
+ 2697 FD1A  91          	SUB C
+ 2698 FD1B  20 05       	JR NZ,RSTRT4
+ 2699                   	
+ 2700 FD1D  23          	INC HL
+ 2701 FD1E  7E          	LD  A,(HL)
+ 2702 FD1F  90          	SUB B
+ 2703 FD20  28 01       	JR Z,RSTRT5
+ 2704                   
+ 2705 FD22  03          RSTRT4:	INC BC
+ 2706                   
+ 2707 FD23  21 0020     RSTRT5:	LD HL,LLOCX
+ 2708 FD26  39          	ADD HL,SP
+ 2709 FD27  73          	LD (HL),E
+ 2710 FD28  23          	INC HL
+ 2711 FD29  72          	LD (HL),D
+ 2712 FD2A  23          	INC HL
+ 2713 FD2B  23          	INC HL
+ 2714 FD2C  71          	LD (HL),C
+ 2715 FD2D  23          	INC HL
+ 2716 FD2E  70          	LD (HL),B
+ 2717 FD2F  C5          	PUSH BC
+ 2718 FD30  0E 40       	LD C,'@'
+ 2719 FD32  CD F0AD     	CALL CONOUT
+ 2720 FD35  E1          	POP HL
+ 2721 FD36  CD FC4B     	CALL LADR
+ 2722 FD39  21 0025     	LD HL,TLOCX
+ 2723 FD3C  39          	ADD HL,SP
+ 2724 FD3D  01 0200     	LD BC,200H
+ 2725                   
+ 2726 FD40  5E          RSTRT6:	LD E,(HL)
+ 2727 FD41  71          	LD (HL),C
+ 2728 FD42  23          	INC HL
+ 2729 FD43  56          	LD D,(HL)
+ 2730 FD44  71          	LD (HL),C
+ 2731 FD45  23          	INC HL
+ 2732 FD46  7B          	LD A,E
+ 2733 FD47  B2          	OR D
+ 2734 FD48  28 02       	JR Z,RSTRT7
+ 2735 FD4A  7E          	LD A,(HL)
+ 2736 FD4B  12          	LD (DE),A
+ 2737                   
+ 2738 FD4C  23          RSTRT7:	INC HL
+ 2739 FD4D  10 F1       	DJNZ RSTRT6
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  48
+MON80V2 Z80
+
+ 2740 FD4F  08          	EX AF,AF'
+ 2741 FD50  D9          	EXX
+ 2742 FD51  E5          	PUSH HL
+ 2743 FD52  D5          	PUSH DE
+ 2744 FD53  C5          	PUSH BC
+ 2745 FD54  F5          	PUSH AF
+ 2746 FD55  DD E5       	PUSH IX
+ 2747 FD57  FD E5       	PUSH IY
+ 2748 FD59  ED 57       	LD A,I
+ 2749 FD5B  47          	LD B,A
+ 2750 FD5C  ED 5F       	LD A,R
+ 2751 FD5E  4F          	LD C,A
+ 2752 FD5F  C5          	PUSH BC
+ 2753 FD60  C3 F6FB     	JP WARM
+ 2754                   
+ 2755                   ;------------------------------------------------------------------------------
+ 2756                   ; Console Input, 7 Bit
+ 2757                   
+ 2758 FD63  CD F084     CONIN7:	CALL CONIN
+ 2759 FD66  E6 7F       	AND 7FH
+ 2760 FD68  C9          	RET
+ 2761                   
+ 2762                   ;------------------------------------------------------------------------------
+ 2763                   ; Input, analyse and convert a char from the console
+ 2764                   
+ 2765 FD69  CD FD63     TI:	CALL CONIN7
+ 2766 FD6C  C8          	RET Z
+ 2767                   	
+ 2768 FD6D  3C          	INC A
+ 2769 FD6E  F8          	RET M		; return if minus, char >= 7Fh
+ 2770                   	
+ 2771 FD6F  3D          	DEC A
+ 2772 FD70  FE 0D       	CP 0DH
+ 2773 FD72  C8          	RET Z		; char = CR
+ 2774                   	
+ 2775 FD73  FE 4E       	CP 'N'
+ 2776 FD75  C8          	RET Z		; char = 'N'
+ 2777                   	
+ 2778 FD76  FE 6E       	CP 'n'
+ 2779 FD78  28 0D       	JR Z,TI1	; char = 'n'
+ 2780                   	
+ 2781 FD7A  C5          	PUSH BC
+ 2782 FD7B  4F          	LD C,A
+ 2783 FD7C  CD F0AD     	CALL CONOUT	; echo
+ 2784 FD7F  79          	LD A,C
+ 2785 FD80  C1          	POP BC
+ 2786 FD81  FE 40       	CP 'A'-1
+ 2787 FD83  D8          	RET C
+ 2788                   	
+ 2789 FD84  FE 7B       	CP 'z'+1
+ 2790 FD86  D0          	RET NC
+ 2791                   	
+ 2792 FD87  E6 5F       TI1:	AND 05FH
+ 2793 FD89  C9          	RET
+ 2794                   
+ 2795                   ;------------------------------------------------------------------------------
+ 2796                   ; Monitor command QUERY
+ 2797                   ; Ein- und Ausgabe auf Ports
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  49
+MON80V2 Z80
+
+ 2798                   
+ 2799 FD8A  CD FD69     QUERY:	CALL TI
+ 2800 FD8D  FE 4F       	CP 'O'
+ 2801 FD8F  28 1C       	JR Z,BITS2
+ 2802                   	
+ 2803 FD91  FE 49       	CP 'I'
+ 2804 FD93  C2 FB8B     	JP NZ,ERROR
+ 2805                   	
+ 2806 FD96  CD FC00     	CALL EXPRA
+ 2807 FD99  C1          	POP BC
+ 2808 FD9A  ED 58       	IN E,(C)
+ 2809                   
+ 2810                   	;----------------------------------------------------------------------
+ 2811                   	; entry point BITS
+ 2812                   	
+ 2813 FD9C  06 08       BITS:	LD B,8
+ 2814 FD9E  CD FBB4     	CALL BLK
+ 2815                   
+ 2816 FDA1  CB 23       BITS1:	SLA E
+ 2817 FDA3  3E 18       	LD A,'0' SHR 1
+ 2818 FDA5  8F          	ADC A,A
+ 2819 FDA6  4F          	LD C,A
+ 2820 FDA7  CD F0AD     	CALL CONOUT
+ 2821 FDAA  10 F5       	DJNZ BITS1
+ 2822 FDAC  C9          	RET
+ 2823                   
+ 2824 FDAD  CD FC02     BITS2:	CALL EXPR
+ 2825 FDB0  D1          	POP DE
+ 2826 FDB1  C1          	POP BC
+ 2827 FDB2  ED 59       	OUT (C),E
+ 2828 FDB4  C9          	RET
+ 2829                   
+ 2830                   ;------------------------------------------------------------------------------
+ 2831                   ; Monitor command VERFIY
+ 2832                   ; Vergleich von Speicherbereichen
+ 2833                    
+ 2834 FDB5  CD FBF5     VERIFY:	CALL EXPRX	; C=2, get 3 arguments
+ 2835                   
+ 2836 FDB8  0A          VERIF1:	LD A,(BC)
+ 2837 FDB9  BE          	CP (HL)
+ 2838 FDBA  28 05       	JR Z,VERIF2
+ 2839                   	
+ 2840 FDBC  C5          	PUSH BC
+ 2841 FDBD  CD F887     	CALL CERR
+ 2842 FDC0  C1          	POP BC
+ 2843                   
+ 2844 FDC1  03          VERIF2:	INC BC
+ 2845 FDC2  CD FC2F     	CALL HILOX
+ 2846 FDC5  18 F1       	JR VERIF1
+ 2847                   
+ 2848                   ;------------------------------------------------------------------------------
+ 2849                   ; IO lookup table (for ASSIGN command)
+ 2850                   
+ 2851 FDC7  43          ASSTBL:	DEFB 'C'	; console
+ 2852 FDC8  54          	DEFB 'T'	; tty
+ 2853 FDC9  56          	DEFB 'V'	; video
+ 2854 FDCA  42          	DEFB 'B'	; batch
+ 2855 FDCB  55          	DEFB 'U'	; user
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  50
+MON80V2 Z80
+
+ 2856                   
+ 2857 FDCC  52          	DEFB 'R'	; reader
+ 2858 FDCD  54          	DEFB 'T'	; tty
+ 2859 FDCE  50          	DEFB 'P'	; punch-read
+ 2860 FDCF  43          	DEFB 'C'	; cassette
+ 2861 FDD0  55          	DEFB 'U'	; user
+ 2862                   
+ 2863 FDD1  50          	DEFB 'P'	; punch
+ 2864 FDD2  54          	DEFB 'T'	; tty
+ 2865 FDD3  50          	DEFB 'P'	; punch.read
+ 2866 FDD4  43          	DEFB 'C'	; cassette
+ 2867 FDD5  55          	DEFB 'U'	; user
+ 2868                   
+ 2869 FDD6  4C          	DEFB 'L'	; list
+ 2870 FDD7  54          	DEFB 'T'	; tty
+ 2871 FDD8  56          	DEFB 'V'	; video
+ 2872 FDD9  4C          	DEFB 'L'	; list
+ 2873 FDDA  55          	DEFB 'U'	; user
+ 2874                   
+ 2875                   ;------------------------------------------------------------------------------
+ 2876                   ; ???
+ 2877                   
+ 2878 FDDB  C1          EXIT:	POP BC
+ 2879 FDDC  79          	LD A,C
+ 2880 FDDD  ED 4F       	LD R,A
+ 2881 FDDF  78          	LD A,B
+ 2882 FDE0  ED 47       	LD I,A
+ 2883 FDE2  FD E1       	POP IY
+ 2884 FDE4  DD E1       	POP IX
+ 2885 FDE6  F1          	POP AF
+ 2886 FDE7  C1          	POP BC
+ 2887 FDE8  D1          	POP DE
+ 2888 FDE9  E1          	POP HL
+ 2889 FDEA  08          	EX AF,AF'
+ 2890 FDEB  D9          	EXX
+ 2891 FDEC  D1          	POP DE
+ 2892 FDED  C1          	POP BC
+ 2893 FDEE  F1          	POP AF
+ 2894 FDEF  E1          	POP HL
+ 2895 FDF0  F9          	LD SP,HL
+ 2896 FDF1  00          	NOP
+ 2897 FDF2  21 0000     	LD HL,0
+ 2898 FDF5  C3 0000     	JP 0
+ 2899                   
+ 2900                   ;------------------------------------------------------------------------------
+ 2901                   
+ 2902 FDF8  0000        	DEFW 0
+ 2903 FDFA  00          	DEFB 0
+ 2904 FDFB  0000        	DEFW 0
+ 2905 FDFD  00          	DEFB 0  	;TRAP AREA
+ 2906                   
+ 2907 FDFE              ENDX:
+ 2908                   
+ 2909         0015      ALOC	EQU 15H
+ 2910         0013      BLOC	EQU 13H
+ 2911         0012      CLOC	EQU 12H
+ 2912         0011      DLOC	EQU 11H
+ 2913         0010      ELOC	EQU 10H
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  51
+MON80V2 Z80
+
+ 2914         0014      FLOC	EQU 14H
+ 2915         0031      HLOC	EQU 31H
+ 2916         0030      LLOC	EQU 30H
+ 2917         0034      PLOC	EQU 34H
+ 2918         0017      SLOC	EQU 17H
+ 2919         0035      TLOC	EQU 35H
+ 2920         0025      TLOCX	EQU 25H
+ 2921         0020      LLOCX	EQU 20H
+ 2922                   
+ 2923         0009      APLOC	EQU 9
+ 2924         000B      BPLOC	EQU 0BH
+ 2925         000A      CPLOC	EQU 0AH
+ 2926         000D      DPLOC	EQU 0DH
+ 2927         000C      EPLOC	EQU 0CH
+ 2928         0008      FPLOC	EQU 8
+ 2929         000F      HPLOC	EQU 0FH
+ 2930         000E      LPLOC	EQU 0EH
+ 2931         0007      XLOC	EQU 7
+ 2932         0005      YLOC	EQU 5
+ 2933         0002      RLOC	EQU 2
+ 2934         0003      ILOC	EQU 3
+ 2935                   
+ 2936                   ;------------------------------------------------------------------------------
+ 2937                   ; TABELLE
+ 2938                   
+ 2939 FDFE  41 15       ACTBL:	DEFB 'A',ALOC OR 0
+ 2940 FE00  42 13       	DEFB 'B',BLOC OR 0
+ 2941 FE02  43 12       	DEFB 'C',CLOC OR 0
+ 2942 FE04  44 11       	DEFB 'D',DLOC OR 0
+ 2943 FE06  45 10       	DEFB 'E',ELOC OR 0
+ 2944 FE08  46 14       	DEFB 'F',FLOC OR 0
+ 2945 FE0A  48 31       	DEFB 'H',HLOC OR 0
+ 2946 FE0C  4C 30       	DEFB 'L',LLOC OR 0
+ 2947 FE0E  4D F1       	DEFB 'M',HLOC OR 0C0H
+ 2948 FE10  50 B4       	DEFB 'P',PLOC OR 080H
+ 2949 FE12  53 97       	DEFB 'S',SLOC OR 080H
+ 2950 FE14  49 03       	DEFB 'I',ILOC OR 0
+ 2951 FE16  C1          	DEFB 0C1H
+ 2952                   
+ 2953 FE17  41 09       PRMTB:	DEFB 'A',APLOC OR 0
+ 2954 FE19  42 0B       	DEFB 'B',BPLOC OR 0
+ 2955 FE1B  43 0A       	DEFB 'C',CPLOC OR 0
+ 2956 FE1D  44 0D       	DEFB 'D',DPLOC OR 0
+ 2957 FE1F  45 0C       	DEFB 'E',EPLOC OR 0
+ 2958 FE21  46 08       	DEFB 'F',FPLOC OR 0
+ 2959 FE23  48 0F       	DEFB 'H',HPLOC OR 0
+ 2960 FE25  4C 0E       	DEFB 'L',LPLOC OR 0
+ 2961 FE27  4D CF       	DEFB 'M',HPLOC OR 0C0H
+ 2962 FE29  58 87       	DEFB 'X',XLOC  OR 080H
+ 2963 FE2B  59 85       	DEFB 'Y',YLOC  OR 080H
+ 2964 FE2D  52 02       	DEFB 'R',RLOC  OR 0
+ 2965 FE2F  C1          	DEFB 0C1H
+ 2966                   
+ 2967 FE30              LASTMON:
+ 2968 FE30  00          	DEFB 0 	; LAST STORAGE
+ 2969                   
+ 2970                   	.DEPHASE
+ 2971                   
+"MC CPM-Computer Mon80V2"       			    Z80ASM 1.32 Page  52
+MON80V2 Z80
+
+ 2972                   	END 
+ 0 Error(s) Detected.
+ 3662 Absolute Bytes. 375 Symbols Detected.
+       	DEFB 0C1H

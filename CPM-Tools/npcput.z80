@@ -1,0 +1,256 @@
+;*****************************************************************
+; PCPUT - Dieses Programm sendet eine Datei von einem CP/M Rechner
+; zu einem PC über die serielle Schnittstelle. Dabei wird das 
+; XMODEM-Protokoll verwendet.
+;
+; Urheber des Programms ist Ward Christensen.
+; 2026 Angepasst für MC-Computer SYS-80s U.Haumann
+; 
+;*****************************************************************
+;
+; Hardwareadressen und -parameter ( 8152 Kanal A)
+;
+
+SIOACR	EQU	021H		; SIO Kanal A Steuerregister
+SIOADR	EQU	020H		; SIO Kanal A Datenregister
+XMTMSK	EQU	1		; Sendpuffer leer
+RCVMSK	EQU	2		; Byte vorhanden
+;
+ERRLMT	EQU	5		; max. Anzahl von Fehlern
+;
+;  ASCII-Zeichen fuer Datentransfer und Anzeige
+;
+SOH	EQU	01H		; Blockanfang
+CTRLC	EQU	03H		; Abbruch
+EOT	EQU	04H		; Transferende
+ACK	EQU	06H		; positive Bestaetigung
+LF	EQU	0AH		; Zeilenvorschub
+CR	EQU	0DH		; Wagenruecklauf
+NAK	EQU	15H		; negative Bestaetigung
+;
+BDOS	EQU	0005H		; BDOS-Eintritt
+FCB	EQU	005CH		; Standard-Dateisteuerblock
+PARAM	EQU	FCB+1		; Kommando-Parameter
+BUFFER	EQU	0080H		; CP/M-Standardpuffer
+TPA	EQU	0100H		; Anwendungsprogramme
+;
+; BDOS-Funktionen
+;
+PRINT	EQU	9		; Zeichenkette ausgeben
+CONST	EQU	11		; Konsolenstatus
+OPEN	EQU	15		; Datei oeffnen
+CLOSE	EQU	16		; Datei schliessen
+SRCHF	EQU	17		; Dateieintrag suchen
+ERASE	EQU	19		; Datei loeschen
+READ	EQU	20		; Sektor lesen
+WRITE	EQU	21		; Sektor schreiben
+MAKE	EQU	22		; Datei anlegen
+;
+	ASEG			;
+	ORG	TPA		;
+;
+; Parameter pruefen
+;
+	LD	A,(PARAM)	; 1. Zeichen des Parameters
+	CP	' '		; Zeichen vorhanden?
+	JR	NZ,DOXFER	; ja, weiter
+	LD	DE,HLPMSG	; Benutzungshinweis
+	LD	C,PRINT		;  ausgeben
+	CALL	BDOS		;
+	RET			; zurueck zum CP/M
+;
+; Dateinamen gefunden, lokalen Stapel 
+; einrichten und auf Uebertragung warten
+;
+DOXFER:	LD	HL,0		; HL=0
+	ADD	HL,SP		; CP/M-Stapelzeiger
+	LD	(STACK),HL	;  retten
+	LD	SP,STACK	; lokalen Stapel benutzen
+	XOR	A		;
+	LD	(SECTNO),A	; Blocknummer initialisieren
+	CALL	OPNFIL		; Datei oeffnen
+	LD	DE,RCVMSG	; Startmeldung ausgeben
+SENDA:	LD	C,PRINT		;  ausgeben
+	CALL	BDOS		;
+;
+; noch anstehende Bytes entfernen
+;
+PURGE:	LD	B,1		; max. 1s warten
+	CALL	RECV		; Byte empfangen
+	JR	C,WAITNAK	; kein Byte vorhanden
+	CP	CTRLC		; Abbruch angefordert?
+	JR	NZ,PURGE	; nein, Byte ignorieren
+;
+; Uebertragung abgebrochen
+;
+ABORT:	CALL	ERXIT		;
+	DEFB	13,10,10,'Abbruch',13,10,'$'
+;
+; auf Empfaenger warten und Uebertragung beginnen
+;	
+WAITNAK:LD	B,1		; max. 1s warten
+	CALL	RECV		; Byte empfangen
+	JR	C,WAITNAK	; 
+	CP	CTRLC		; Abbruch angefordert?
+	JR	Z,ABORT		; ja
+	CP	NAK		; NAK empfangen?
+	JR	NZ,WAITNAK	; ja, Datei senden
+;
+; Block lesen und senden
+;
+SENDB:	CALL	RDSEC		; Sektor lesen
+	LD	A,(SECTNO)	; Blocknummer
+	INC	A		;  erhoehen
+	LD	(SECTNO),A	;
+;
+; Block senden oder wiederholen
+;
+REPTB:	LD	A,SOH		; Blockanfang
+	CALL	SEND		;  senden
+	LD	A,(SECTNO)	; Blocknummer
+	CALL	SEND		;  senden
+	LD	A,(SECTNO)	;
+	CPL			; Komplement
+	CALL	SEND		;  senden
+	LD	C,0		; Pruefsumme initialisieren
+	LD	HL,BUFFER	;
+SENDC:	LD	A,(HL)		; Byte holen
+	CALL	SEND		;  und senden
+	INC	HL		; Pufferzeiger erhoehen
+	LD	A,H		;
+	CP	1		; Pufferende erreicht?
+	JR	NZ,SENDC	; nein, naechstes Byte
+;
+; Pruefsumme senden
+;
+	LD	A,C		; Pruefsumme laden
+	CALL	SEND		;  und senden
+;
+; positve Bestaetigung abwarten
+;
+	LD	B,4		; max. 4s warten
+	CALL	RECV		; Byte empfangen
+	JR	C,REPTB		; Zeitueberschreitung
+				; Block wiederholen
+	CP	ACK		; positive Betstaetigung?
+	JR	Z,SENDB		; ja, naechsten Block senden
+	CP	CTRLC		; Abbruch?
+	JR	Z,ABORT		; ja
+	JR	REPTB		; keine positive Bestaetigung,
+				; Block wiederholen
+;
+; Datei oeffnen
+;
+OPNFIL:	LD	DE,FCB		; Datei
+	LD	C,OPEN		;  oeffnen
+	CALL	BDOS		;
+	INC	A		; Fehler?
+	RET	NZ		; nein
+	CALL	ERXIT		; Fehlermeldung ausgeben
+	DEFB	13,10,'Datei kann nicht goeffnet werden',13,10,'$'
+;
+; Ausgabe einer Meldung und Rueckkehr zum CP/M
+;
+ERXIT:	POP	DE		; Adresse holen
+	LD	C,PRINT		;  und Meldung ausgeben
+	CALL	BDOS		;
+EXIT:	LD	HL,(STACK)	; CP/M-Stapelzeiger holen
+	LD	SP,HL		;  und zurueckspeichern
+	RET			; zurueck zum CP/M
+;
+; Byte empfangen
+;
+RECV:	PUSH	DE		; DE retten
+MSEC:	LD	DE,159 SHL 7	; 1s einstellen, hardwareabhaengig!
+MWTI:	IN	A,(SIOACR)	;
+	AND	RCVMSK		; Byte vorhanden?
+	JR	NZ,MCHAR	; ja
+	DEC	E		; Zeit herunterzaehlen
+	JR	NZ,MWTI		;
+	DEC	D		;
+	JR	NZ,MWTI		;
+	DEC	B		; Sekunden abgelaufen?
+	JR	NZ,MSEC		; nein, warten
+;
+; Zeitueberschreitung
+;
+	POP	DE		; DE wiederherstellen
+	SCF			; Uebertrag signalisiert Zeitueberschreitung
+	RET			;
+;
+; Byte holen
+;
+MCHAR:	IN	A,(SIOADR)	; Byte holen
+	POP	DE		; DE wiederherstellen
+	PUSH	AF		; Byte retten
+	ADD	A,C		; zur Pruefsumme addieren
+	LD	C,A		;  und abspeichern
+	POP	AF		; Byte zurueckholen
+	OR	A		; Uebertrag loeschen (keine Zeitueberschreitung)
+	RET			;
+;
+; Byte senden
+;
+SEND:	PUSH	AF		; Byte retten
+	ADD	A,C		; Pruefsumme berechnen
+	LD	C,A		;  und merken
+SENDW:	IN	A,(SIOACR)	; Status holen
+	AND	XMTMSK		; Sendepuffer leer?
+	JR	Z,SENDW		; nein, warten
+	POP	AF		; Byte zurueckholen
+	OUT	(SIOADR),A	;  und senden
+	RET			;
+;
+; Block lesen
+;
+RDSEC:	LD	DE,FCB		;
+	LD	C,READ		;
+	CALL	BDOS		;
+	OR	A		; Fehler?
+	RET	Z		; nein, zurueck
+	DEC	A		; Dateiende?
+	JR	NZ,RDERR	; nein, Lesefehler
+;
+; Dateiende
+;
+	XOR	A		;
+	LD	(ERRCNT),A	; Fehleranzahl loeschen
+SEOT:	LD	A,EOT		; Ubertragungsende
+	CALL	SEND		;  senden 
+	LD	B,3		; max. 3s warten
+	CALL	RECV		; Byte empfangen
+	JR	C,EOTERR	; EOT Zeitueberschreitung
+	CP	ACK		;
+	JR	NZ,EOTERR	;
+	CALL	ERXIT		; Fertig!
+	DEFB	13,10,10,'Uebertragung erfolgreich',13,10,'$'
+;
+; ACK NOT RECIEVED
+;
+EOTERR:	LD	A,(ERRCNT)	;
+	INC	A		;
+	LD	(ERRCNT),A	;
+	CP	ERRLMT		;
+	JR	C,SEOT		;
+	CALL	ERXIT		;
+	DEFB	13,10,10	;
+	DEFB	'No ACK received on EOT, but transfer is complete.',13,10,'$'
+;
+; Lesefehler
+;
+RDERR:	CALL	ERXIT		;
+	DEFB	13,10,'File Read Error',13,10,'$'
+;
+; Meldungen
+;
+RCVMSG:	DEFB	'Empfang starten...$'
+HLPMSG:	DEFB	'Kommando: PUTPC Dateiname',CR,LF,LF,'$'
+;
+; Data area
+;
+	DEFS	40		; Stapelspeicher
+STACK:	DEFS	2		; CP/M-Stapelzeiger
+SECTNO:	DEFS	1		; aktuelle Blocknummer 
+ERRCNT:	DEFS	1		; Fehleranzahl
+;
+	END			;

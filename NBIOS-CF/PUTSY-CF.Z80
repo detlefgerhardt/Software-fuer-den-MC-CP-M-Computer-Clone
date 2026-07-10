@@ -1,0 +1,91 @@
+;*****************************************************************************
+; PUTYS-CF.Z80
+;
+; Writes CP/M and BIOS from memory (notice start addresses to the IDE/CF
+; Interface
+;
+; based on PUTSYS from Donn Stewart, June 2019
+; changed by Ulrich Haumann 04/2026
+;
+;*****************************************************************************
+;Image size is 6400 bytes, so need to save 6400/128 = 50 sectors
+;For system with 64-sector tracks, image can all be on track 0
+;Load and run from ROM monitor
+;Uses calls to cbios, in memory at EA00h
+;benuzt calls zum Monitor im oberen RAM F000h
+;Copies the memory image of CP/M loaded at CPM onto track 0 of the first CP/M disk
+;Writes track 0, sectors 1 to 50 (sector 0 has cpm loader)
+;
+; PLEASE NOTE THE CHANGED CP/M & BIOS START ADDRESS AND CF/IDE DRIVES !!!
+;
+; Version history
+;
+; 10.07.2026 *dg* Renamed to PUTSY-CF and reformatted
+;                 Changed BIOS address to E200
+;		  Changed for CF/IDE drives 4..7 (E..H)
+
+
+CPM	EQU 0D400H-800H
+BIOS	EQU 0EA00H-800H
+
+; Monitor calls
+
+MWARM	EQU 0F033H	; Monitor entry
+
+; bios calls
+
+SELDSK	EQU BIOS+01BH	; pass disk no. in c
+SETDMA	EQU BIOS+024H	; pass address in bc
+SETTRK	EQU BIOS+01EH	; pass track in reg C
+SETSEC	EQU BIOS+021H	; pass sector in reg c
+WRITE	EQU BIOS+02AH	; write one CP/M sector to disk
+
+STDRIVE	EQU 4		; first IDE/CF-drive
+
+;-----------------------------------------------------------------------------
+
+	ORG 100H	; start at 100H
+
+; write track 0, sectors 1 to 50
+
+PUT:	LD C,STDRIVE	; first CF/IDE drive
+	CALL SELDSK		
+	LD A,1		; starting sector
+	LD (SECTOR),A
+	LD HL,CPM	; memory address to start
+	LD (ADDR),HL
+	LD C,0		; CP/M track
+	CALL SETTRK
+
+PUT1:	; track loop
+	LD A,(SECTOR)
+	LD C,A		; CP/M sector
+	CALL SETSEC
+	LD BC,(ADDR)	; memory location
+	CALL SETDMA
+	CALL WRITE
+	LD A,(SECTOR)
+	CP 50
+	JP Z,PUT2
+		
+	INC A
+	LD (SECTOR),A
+	LD HL,(ADDR)
+	LD DE,128
+	ADD HL,DE
+	LD (ADDR),HL
+	JP PUT1
+
+PUT2:	JP MWARM	; call Monitor
+
+;-----------------------------------------------------------------------------
+
+SECTOR:	DB	00H
+ADDR:	DW	0000H
+
+;-----------------------------------------------------------------------------
+
+	END
+
+;-----------------------------------------------------------------------------
+

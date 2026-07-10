@@ -1,0 +1,538 @@
+'SYSGEN80 for MC CP/M Computer' 			    Z80ASM 1.32 Page   1
+SYSGEN80Z80
+
+    2                   	
+    3                   	.Z80
+    4                   
+    5         0014      VERS	EQU	20	;X.X
+    6                   ;
+    7                   ;	COPYRIGHT (C) DIGITAL RESEARCH 1976, 1977, 1978, 1979
+    8                   ;
+    9                   ;	Disassembled from SYSGEN80.COM - 31.05.2026 *dg*
+   10                   ;
+   11         001A      NSECTS	EQU	26	;NO. OF SECTORS PER TRACK	SYSGEN80
+   12         0002      NTRKS	EQU	2	;NO. OF OPERATING SYSTEM TRACKS	SYSGEN80
+   13         0002      NDISKS	EQU	2	;NUMBER OF DISK DRIVES
+   14         0100      SECSIZ	EQU	256	;SIZE OF EACH SECTOR
+   15         0007      LOG2SEC	EQU	7	;LOG 2 SECSIZ			SYSGEN80
+   16         0001      SKEW	EQU	1	;SECTOR SKEW FACTOR
+   17                   ;
+   18         005C      FCB	EQU	005CH	;DEFAULT FCB LOCATION
+   19         007C      FCBCR	EQU	FCB+32	;CURRENT RECORD LOCATION
+   20         0100      TPA	EQU	0100H	;TRANSIENT PROGRAM AREA
+   21         0900      LOADP	EQU	900H	;LOAD POINT FOR SYSTEM DURING LOAD/STORE
+   22         0005      BDOS	EQU	5H	;DOS ENTRY POINT
+   23         0000      BOOT	EQU	0	;JP TO 'BOOT' TO REBOOT SYSTEM
+   24         0001      CONI	EQU	1	;CONSOLE INPUT FUNCTION
+   25         0002      CONO	EQU	2	;CONSOLE OUTPUT FUNCTION
+   26         000E      SELF	EQU	14	;SELECT DISK
+   27         000F      OPENF	EQU	15	;DISK OPEN FUNCTION
+   28         0014      DREADF	EQU	20	;DISK READ FUNCTION
+   29                   ;
+   30         000A      MAXTRY	EQU	10	;MAXIMUM NUMBER OF RETRIES ON EACH READ/WRITE
+   31         000D      CR	EQU	0DH	;CARRIAGE RETURN
+   32         000A      LF	EQU	0AH	;LINE FEED
+   33         0010      STACKSIZE	EQU	16	;SIZE OF LOCAL STACK
+   34                   ;
+   35         0001      WBOOT	EQU	1	;ADDRESS OF WARM BOOT (OTHER PATCH ENTRY
+   36                   ;			POINTS ARE COMPUTED RELATIVE TO WBOOT)
+   37         0018      SELDSK	EQU	24	;WBOOT+24 FOR DISK SELECT
+   38         0021      SETTRK	EQU	33; 27	;WBOOT+27 FOR SET TRACK FUNCTION	SYSGEN80
+   39         001E      SETSEC	EQU	30	;WBOOT+30 FOR SET SECTOR FUNCTION
+   40         0021      SETDMA	EQU	33	;WBOOT+33 FOR SET DMA ADDRESS
+   41         0024      READF	EQU	36	;WBOOT+36 FOR READ FUNCTION
+   42         0027      WRITF	EQU	39	;WBOOT+39 FOR WRITE FUNCTION
+   43                   ;
+   44         0100      	ORG	TPA	;TRANSIENT PROGRAM AREA
+   45                   	
+   46                   ;-----------------------------------------------------------------------------
+   47                   	
+   48 0100  C3 0222     	JP	START
+   49 0103  43 4F 50 59 	DB	'COPYRIGHT (C) 1978, DIGITAL RESEARCH '
+   50                   
+   51                   ;-----------------------------------------------------------------------------
+   52                   
+   53                   ;	TRANSLATE TABLE - SECTOR NUMBERS ARE TRANSLATED
+   54                   ;	HERE TO DECREASE THE SYSGEN TIME FOR MISSED SECTORS
+   55                   ;	WHEN SLOW CONTROLLERS ARE INVOLVED.  TRANSLATION TAKES
+   56                   ;	PLACE ACCORDING TO THE "SKEW" FACTOR SET ABOVE.
+   57                   
+   58 0128  02          OST:	DB	NTRKS	;OPERATING SYSTEM TRACKS
+   59 0129  1A          SPT:	DB	NSECTS	;SECTORS PER TRACK (CAN BE PATCHED)
+'SYSGEN80 for MC CP/M Computer' 			    Z80ASM 1.32 Page   2
+SYSGEN80Z80
+
+   60 012A              TRAN:			;BASE OF TRANSLATE TABLE
+   61         0001      TRELT	DEFL	1	;FIRST/NEXT TRAN ELEMENT
+   62         0001      TRBASE	DEFL	1	;BASE FOR WRAPAROUND
+   63                   	REPT	NSECTS	;ONCE FOR EACH SECTOR ON A TRACK
+   64                   	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+   65                   TRELT	DEFL	TRELT+SKEW
+   66                   	IF	TRELT GT NSECTS
+   67                   TRBASE	DEFL	TRBASE+1
+   68                   TRELT	DEFL	TRBASE
+   69                   	ENDIF
+   70                   	ENDM
+    1 012A  01          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 012B  02          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 012C  03          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 012D  04          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 012E  05          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 012F  06          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 0130  07          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 0131  08          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 0132  09          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 0133  0A          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 0134  0B          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 0135  0C          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 0136  0D          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 0137  0E          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 0138  0F          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 0139  10          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 013A  11          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 013B  12          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 013C  13          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 013D  14          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 013E  15          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 013F  16          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 0140  17          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 0141  18          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 0142  19          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+    1 0143  1A          	DB	TRELT	;GENERATE FIRST/NEXT SECTOR
+   71                   ;
+   72                   ;	NOW LEAVE SPACE FOR EXTENSIONS TO TRANSLATE TABLE
+   73         FFFF      	IF	NSECTS LT 64
+   74                   	REPT	64-NSECTS
+   75                   	DB	0
+   76                   	;ENDIF
+   77                   	ENDM
+    1 0144  00          	DB	0
+    1 0145  00          	DB	0
+    1 0146  00          	DB	0
+    1 0147  00          	DB	0
+    1 0148  00          	DB	0
+    1 0149  00          	DB	0
+    1 014A  00          	DB	0
+    1 014B  00          	DB	0
+    1 014C  00          	DB	0
+    1 014D  00          	DB	0
+    1 014E  00          	DB	0
+    1 014F  00          	DB	0
+    1 0150  00          	DB	0
+    1 0151  00          	DB	0
+'SYSGEN80 for MC CP/M Computer' 			    Z80ASM 1.32 Page   3
+SYSGEN80Z80
+
+    1 0152  00          	DB	0
+    1 0153  00          	DB	0
+    1 0154  00          	DB	0
+    1 0155  00          	DB	0
+    1 0156  00          	DB	0
+    1 0157  00          	DB	0
+    1 0158  00          	DB	0
+    1 0159  00          	DB	0
+    1 015A  00          	DB	0
+    1 015B  00          	DB	0
+    1 015C  00          	DB	0
+    1 015D  00          	DB	0
+    1 015E  00          	DB	0
+    1 015F  00          	DB	0
+    1 0160  00          	DB	0
+    1 0161  00          	DB	0
+    1 0162  00          	DB	0
+    1 0163  00          	DB	0
+    1 0164  00          	DB	0
+    1 0165  00          	DB	0
+    1 0166  00          	DB	0
+    1 0167  00          	DB	0
+    1 0168  00          	DB	0
+    1 0169  00          	DB	0
+   78                   
+   79                   ;-----------------------------------------------------------------------------
+   80                   ; UTILITY SUBROUTINES
+   81                   
+   82 016A              MULTSEC:
+   83                   	;MULTIPLY THE SECTOR NUMBER IN A BY THE SECTOR SIZE
+   84 016A  6F          	LD L,A
+   85 016B  26 00       	LD H,0 ;SECTOR NUMBER IN HL
+   86                   	REPT LOG2SEC	;LOG 2 OF SECTOR SIZE
+   87                   	ADD HL,HL
+   88                   	ENDM
+    1 016D  29          	ADD HL,HL
+    1 016E  29          	ADD HL,HL
+    1 016F  29          	ADD HL,HL
+    1 0170  29          	ADD HL,HL
+    1 0171  29          	ADD HL,HL
+    1 0172  29          	ADD HL,HL
+    1 0173  29          	ADD HL,HL
+   89 0174  C9          	RET ;WITH HL = SECTOR * SECTOR SIZE
+   90                   
+   91                   ;-----------------------------------------------------------------------------
+   92                   ; READ CONSOLE CHARACTER TO REGISTER A
+   93                   
+   94 0175              GETCHAR:
+   95 0175  0E 01       	LD C,CONI
+   96 0177  CD 0005     	CALL BDOS
+   97                   	
+   98                   ;	CONVERT TO UPPER CASE BEFORE RETURN
+   99 017A  FE 61       	CP 'A' OR 20H
+  100 017C  D8          	RET C	;RETURN IF BELOW LOWER CASE A
+  101                   	
+  102 017D  FE 7B       	CP ('Z' OR 20H) + 1
+  103 017F  D0          	RET NC	;RETURN IF ABOVE LOWER CASE Z
+  104                   	
+'SYSGEN80 for MC CP/M Computer' 			    Z80ASM 1.32 Page   4
+SYSGEN80Z80
+
+  105 0180  E6 5F       	AND 5FH
+  106 0182  C9          	RET
+  107                   
+  108                   ;-----------------------------------------------------------------------------
+  109                   ; WRITE CHARACTER FROM A TO CONSOLE
+  110                   
+  111 0183              PUTCHAR:
+  112 0183  5F          	LD E,A
+  113 0184  0E 02       	LD C,CONO
+  114 0186  CD 0005     	CALL BDOS
+  115 0189  C9          	RET
+  116                   
+  117                   ;-----------------------------------------------------------------------------
+  118                   
+  119 018A              CRLF:	;SEND CARRIAGE RETURN, LINE FEED
+  120 018A  3E 0D       	LD	A,CR
+  121 018C  CD 0183     	CALL	PUTCHAR
+  122 018F  3E 0A       	LD	A,LF
+  123 0191  CD 0183     	CALL	PUTCHAR
+  124 0194  C9          	RET
+  125                   
+  126                   ;-----------------------------------------------------------------------------
+  127                   ; PRINT MESSAGE ADDRESSED BY H,L TIL ZERO
+  128                   ; WITH LEADING CRLF
+  129                   
+  130 0195  E5          CRMSG:	PUSH HL
+  131 0196  CD 018A     	CALL CRLF
+  132 0199  E1          	POP HL 		;DROP THRU TO OUTMSG0
+  133                   
+  134                   ; PRINT MESSAGE ADDRESSED BY H,L TIL ZERO
+  135                   
+  136 019A  7E          OUTMSG:	LD A,(HL)
+  137 019B  B7          	OR A
+  138 019C  C8          	RET Z
+  139                   	; MESSAGE NOT YET COMPLETED
+  140 019D  E5          	PUSH HL
+  141 019E  CD 0183     	CALL PUTCHAR
+  142 01A1  E1          	POP HL
+  143 01A2  23          	INC HL
+  144 01A3  C3 019A     	JP	OUTMSG
+  145                   
+  146                   ;-----------------------------------------------------------------------------
+  147                   ; SELECT DISK GIVEN BY REGISTER A
+  148                   
+  149 01A6              SEL:	;LD C,A
+  150                   	;LD HL,(WBOOT)
+  151                   	;LD DE,SELDSK
+  152                   	;ADD HL,DE
+  153                   	;JP (HL)
+  154 01A6  32 0457     	LD (SDISK),A
+  155 01A9  C9          	RET
+  156                   	
+  157                   ;-----------------------------------------------------------------------------
+  158                   
+  159 01AA              TRK:	;SET UP TRACK
+  160 01AA  2A 0001     	LD	HL,(WBOOT)	;ADDRESS OF BOOT ENTRY
+  161 01AD  11 0021     	LD	DE,SETTRK	;OFFSET FOR SETTRK ENTRY
+  162 01B0  19          	ADD	HL,DE
+'SYSGEN80 for MC CP/M Computer' 			    Z80ASM 1.32 Page   5
+SYSGEN80Z80
+
+  163 01B1  E9          	JP	(HL)		;GONE TO SETTRK
+  164                   
+  165                   ;-----------------------------------------------------------------------------
+  166                   
+  167 01B2              SEC:	;SET UP SECTOR NUMBER
+  168                   	;LD	HL,(WBOOT)
+  169                   	;LD	DE,SETSEC
+  170                   	;ADD	HL,DE
+  171                   	;JP	(HL)
+  172                   
+  173 01B2              DMA:	;SET DMA ADDRESS TO VALUE OF B,C
+  174                   	;LD	HL,(WBOOT)
+  175                   	;LD	DE,SETDMA
+  176                   	;ADD	HL,DE
+  177                   	;JP	(HL)
+  178                   
+  179 01B2              READ:	;PERFORM READ OPERATION
+  180                   	;LD	HL,(WBOOT)
+  181                   	;LD	DE,READF
+  182                   	;ADD	HL,DE
+  183                   	;JP	(HL)
+  184                   
+  185 01B2              WRITE:	;PERFORM WRITE OPERATON
+  186                   	;LD	HL,(WBOOT)
+  187                   	;LD	DE,WRITF
+  188                   	;ADD	HL,DE
+  189                   	;JP	(HL)
+  190                   
+  191                   ;-----------------------------------------------------------------------------
+  192                   
+  193 01B2              DREAD:	;DISK READ FUNCTION
+  194 01B2  0E 14       	LD	C,DREADF
+  195 01B4  C3 0005     	JP	BDOS
+  196                   
+  197                   ;-----------------------------------------------------------------------------
+  198                   
+  199 01B7              OPEN:	;FILE OPEN FUNCTION
+  200 01B7  0E 0F       	LD C,OPENF
+  201 01B9  C3 0005     	JP BDOS
+  202                   
+  203                   ;-----------------------------------------------------------------------------
+  204                   ; GET OR PUT CP/M (RW=0 FOR READ, 1 FOR WRITE)
+  205                   ; DISK IS ALREADY SELECTED
+  206                   
+  207 01BC  21 0900     GETPUT:	LD HL,LOADP
+  208 01BF  E5          	PUSH HL
+  209 01C0  16 00       	LD D,00h
+  210 01C2  1E 01       	LD E,01h
+  211 01C4  CD 0207     	CALL L0207
+  212 01C7  E1          	POP HL
+  213 01C8  11 0080     	LD DE,0080h
+  214 01CB  19          	ADD HL,DE
+  215 01CC  06 07       	LD B,07h
+  216 01CE  16 00       	LD D,00h
+  217 01D0  1E 02       	LD E,02h
+  218                   
+  219 01D2  E5          GETP1:	PUSH HL
+  220 01D3  D5          	PUSH DE
+'SYSGEN80 for MC CP/M Computer' 			    Z80ASM 1.32 Page   6
+SYSGEN80Z80
+
+  221 01D4  C5          	PUSH BC
+  222 01D5  CD 0207     	CALL L0207
+  223 01D8  C1          	POP BC
+  224 01D9  D1          	POP DE
+  225 01DA  E1          	POP HL
+  226 01DB  DA 01F3     	JP C,GETP3
+  227                   	
+  228 01DE  D5          	PUSH DE
+  229 01DF  11 0400     	LD DE,0400h	; xxx
+  230 01E2  19          	ADD HL,DE
+  231 01E3  D1          	POP DE
+  232 01E4  1C          	INC E
+  233 01E5  7B          	LD A,E
+  234 01E6  FE 06       	CP 06h
+  235 01E8  DA 01EE     	JP C,GETP2
+  236                   	
+  237 01EB  1E 01       	LD E,01h
+  238 01ED  14          	INC D
+  239                   
+  240 01EE  05          GETP2:	DEC B
+  241 01EF  C2 01D2     	JP NZ,GETP1
+  242 01F2  C9          	RET
+  243                   
+  244 01F3  21 03C2     GETP3:	LD HL,ERRMSG
+  245 01F6  CD 019A     	CALL OUTMSG	; Text ab HL ausgeben
+  246 01F9  CD 0175     	CALL GETCHAR	; Taste lesen
+  247 01FC  FE 0D       	CP 0Dh
+  248 01FE  C2 030D     	JP NZ,ABORT
+  249                   	
+  250 0201  CD 018A     	CALL CRLF
+  251 0204  C3 01BC     	JP GETPUT
+  252                   
+  253                   ;-----------------------------------------------------------------------------
+  254                   ; BIOS-naher Sektorzugriff ueber externen Eintritt bei F027h
+  255                   ; F027h: FLOPPY EXEC VEKTOR MINI (old)
+  256                   
+  257 0207  3A 0453     L0207: 	LD A,(L0453)
+  258 020A  B7          	OR A
+  259 020B  CA 0213     	JP Z,L0213
+  260                   
+  261 020E  06 02       	LD B,02h
+  262 0210  C3 0215     	JP L0215
+  263                   
+  264 0213  06 01       L0213:	LD B,01h
+  265                   
+  266 0215  3A 0457     L0215:	LD A,(SDISK)
+  267 0218  07          	RLCA
+  268 0219  E6 06       	AND 06h
+  269 021B  F6 D0       	OR 0D0h
+  270 021D  4F          	LD C,A
+  271 021E  CD F027     	CALL 0F027h	; xxx
+  272 0221  C9          	RET
+  273                   
+  274                   ;-----------------------------------------------------------------------------
+  275                   
+  276 0222  31 0478     START:	LD SP,STACK
+  277 0225  21 031F     	LD HL,SIGNON
+  278 0228  CD 019A     	CALL OUTMSG 	; Text ab HL ausgeben
+'SYSGEN80 for MC CP/M Computer' 			    Z80ASM 1.32 Page   7
+SYSGEN80Z80
+
+  279                   	
+  280 022B  3A 005D     	LD A,(005Dh)	; xxx
+  281 022E  FE 20       	CP 20h
+  282 0230  CA 0280     	JP Z,L0280
+  283                   	
+  284 0233  11 005C     	LD DE,005Ch	; xxx
+  285 0236  CD 01B7     	CALL OPEN
+  286 0239  3C          	INC A
+  287 023A  C2 0246     	JP NZ,L0246
+  288                   	
+  289 023D  21 0422     	LD HL,NOFILE
+  290 0240  CD 0195     	CALL CRMSG 	; Neue Zeile und Text ab HL ausgeben
+  291 0243  C3 030D     	JP ABORT
+  292                   
+  293 0246  AF          L0246:	XOR A
+  294 0247  32 007C     	LD (007Ch),A	; xxx
+  295 024A  0E 10       	LD C,10h	; BDOS-Funktion 16 (CLOSE_FILE)
+  296                   
+  297 024C  C5          L024C:	PUSH BC
+  298 024D  11 005C     	LD DE,005Ch
+  299 0250  CD 01B2     	CALL SEC
+  300 0253  C1          	POP BC
+  301 0254  B7          	OR A
+  302 0255  C2 0277     	JP NZ,L0277
+  303                   	
+  304 0258  0D          	DEC C
+  305 0259  C2 024C     	JP NZ,L024C
+  306 025C  21 0900     	LD HL,LOADP
+  307                   	
+  308 025F  E5          L025F:	PUSH HL
+  309 0260  44          	LD B,H
+  310 0261  4D          	LD C,L
+  311 0262  CD 01AA     	CALL TRK
+  312 0265  11 005C     	LD DE,005Ch
+  313 0268  CD 01B2     	CALL SEC
+  314 026B  E1          	POP HL
+  315 026C  B7          	OR A
+  316 026D  C2 02C6     	JP NZ,L02C6
+  317                   	
+  318 0270  11 0080     	LD DE,0080h
+  319 0273  19          	ADD HL,DE
+  320 0274  C3 025F     	JP L025F
+  321                   
+  322 0277  21 0439     L0277:	LD HL,BADFILE
+  323 027A  CD 0195     	CALL CRMSG 	; Neue Zeile und Text ab HL ausgeben
+  324 027D  C3 030D     	JP ABORT
+  325                   	
+  326 0280  21 032E     L0280:	LD HL,ASKGET
+  327 0283  CD 0195     	CALL CRMSG	; Neue Zeile und Text ab HL ausgeben
+  328 0286  CD 0175     	CALL GETCHAR	; Taste lesen
+  329 0289  FE 0D       	CP 0Dh
+  330 028B  CA 02C6     	JP Z,L02C6
+  331                   	
+  332 028E  D6 41       	SUB 41h
+  333 0290  FE 04       	CP 04h
+  334 0292  DA 029B     	JP C,L029B
+  335                   	
+  336 0295  CD 0318     	CALL INVDRV
+'SYSGEN80 for MC CP/M Computer' 			    Z80ASM 1.32 Page   8
+SYSGEN80Z80
+
+  337 0298  C3 0280     	JP L0280
+  338                   
+  339 029B  C6 41       L029B:	ADD A,41h
+  340 029D  32 035E     	LD (GDISK),A
+  341 02A0  D6 41       	SUB 41h
+  342 02A2  CD 01A6     	CALL SEL
+  343 02A5  CD 018A     	CALL CRLF
+  344 02A8  21 0354     	LD HL,GETMSG
+  345 02AB  CD 019A     	CALL OUTMSG	; Text ab HL ausgeben
+  346 02AE  CD 0175     	CALL GETCHAR	; Taste lesen
+  347 02B1  FE 0D       	CP 0Dh
+  348 02B3  C2 030D     	JP NZ,ABORT
+  349                   	
+  350 02B6  CD 018A     	CALL CRLF
+  351 02B9  AF          	XOR A
+  352 02BA  32 0453     	LD (L0453),A
+  353 02BD  CD 01BC     	CALL GETPUT
+  354 02C0  21 03E9     	LD HL,DONE
+  355 02C3  CD 019A     	CALL OUTMSG	; Text ab HL ausgeben
+  356                   
+  357 02C6  21 0372     L02C6:	LD HL,ASKPUT
+  358 02C9  CD 0195     	CALL CRMSG	; Neue Zeile und Text ab HL ausgeben
+  359 02CC  CD 0175     	CALL GETCHAR	; Taste lesen
+  360 02CF  FE 0D       	CP 0Dh
+  361 02D1  CA 030D     	JP Z,ABORT
+  362                   	
+  363 02D4  D6 41       	SUB 41h
+  364 02D6  FE 04       	CP 04h
+  365 02D8  DA 02E1     	JP C,L02E1
+  366                   	
+  367 02DB  CD 0318     	CALL INVDRV
+  368 02DE  C3 02C6     	JP L02C6
+  369                   
+  370 02E1  C6 41       L02E1:	ADD A,41h
+  371 02E3  32 03AE     	LD (PDISK),A
+  372 02E6  D6 41       	SUB 41h
+  373 02E8  CD 01A6     	CALL SEL
+  374 02EB  21 039F     	LD HL,PUTMSG
+  375 02EE  CD 0195     	CALL CRMSG
+  376 02F1  CD 0175     	CALL GETCHAR 	; Taste lesen
+  377 02F4  FE 0D       	CP 0Dh
+  378 02F6  C2 030D     	JP NZ,ABORT
+  379                   	
+  380 02F9  CD 018A     	CALL CRLF
+  381 02FC  21 0453     	LD HL,L0453
+  382 02FF  36 01       	LD (HL),01h
+  383 0301  CD 01BC     	CALL GETPUT
+  384 0304  21 03E9     	LD HL,DONE
+  385 0307  CD 019A     	CALL OUTMSG
+  386 030A  C3 02C6     	JP L02C6
+  387                   	
+  388                   ;-----------------------------------------------------------------------------
+  389                   
+  390 030D              ABORT: ; Abbruch/Reboot-Pfad.
+  391 030D  3E 00       	LD A,00h
+  392 030F  CD 01A6     	CALL SEL
+  393 0312  CD 018A     	CALL CRLF
+  394 0315  C3 0000     	JP BOOT
+'SYSGEN80 for MC CP/M Computer' 			    Z80ASM 1.32 Page   9
+SYSGEN80Z80
+
+  395                   	
+  396                   ;-----------------------------------------------------------------------------
+  397                   
+  398 0318              INVDRV: ; Fehlermeldung fuer ungueltiges Laufwerk.
+  399 0318  21 03FB     	LD HL,QDISK
+  400 031B  CD 0195     	CALL CRMSG ; Neue Zeile und Text ab HL ausgeben
+  401 031E  C9          	RET
+  402                   	
+  403                   ;-----------------------------------------------------------------------------
+  404                   
+  405 031F  53 59 53 47 SIGNON: DB 'SYSGEN VER 2.0',00h
+  406 032E  53 4F 55 52 ASKGET: DB 'SOURCE DRIVE NAME (OR RETURN TO SKIP)',00h
+  407 0354  53 4F 55 52 GETMSG:	DB 'SOURCE ON '
+  408 035E    0001      GDISK:	DS 1		; FILLED IN AT GET FUNCTION
+  409 035F  2C 20 54 48 	DB ', THEN TYPE RETURN',00h
+  410 0372  44 45 53 54 ASKPUT: DB 'DESTINATION DRIVE NAME (OR RETURN TO REBOOT)',00h
+  411 039F  44 45 53 54 PUTMSG:	DB 'DESTINATION ON '
+  412 03AE    0001      PDISK:	DS 1		; FILLED IN AT PUT FUNCTION
+  413 03AF  2C 20 54 48 	DB ', THEN TYPE RETURN',00h
+  414 03C2  50 45 52 4D ERRMSG: DB 'PERMANENT ERROR, TYPE RETURN TO IGNORE',00h
+  415 03E9  46 55 4E 43 DONE:	DB 'FUNCTION COMPLETE',0
+  416 03FB  49 4E 56 41 QDISK:	DB 'INVALID DRIVE NAME (USE A, B, C, OR D)',0
+  417 0422  4E 4F 20 53 NOFILE:	DB 'NO SOURCE FILE ON DISK',00h
+  418 0439              BADFILE:
+  419 0439  53 4F 55 52 	DB 'SOURCE FILE INCOMPLETE',00h
+  420                   
+  421 0450  00          	DB 00h
+  422 0451  00          	DB 00h
+  423 0452  00          	DB 00h
+  424                   	
+  425 0453              L0453: ; Arbeitsvariablen/Flags.
+  426 0453  00 00 00 00 	DB 00h, 00h, 00h, 00h
+  427 0457  00          SDISK:	DB 00h
+  428 0458  00 00 00 00 	DB 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h
+  429 0467  00 00 00 00 	DB 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h
+  430 0477  00          	DB 00h
+  431                   	
+  432 0478              STACK: ; Stackbereich des Programms.
+  433 0478  00 00 00 00 	DB 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h
+  434                   
+  435                   	END
+SYSGEN80.Z80 - Missing ENDIF Line 00436
+ 1 Error(s) Detected.
+ 896 Absolute Bytes. 81 Symbols Detected.
+0
+  417 0422  4E 4F 20 53 NOFILE:	DB 'NO SOURCE FILE ON DISK',00h
+  418 0439  

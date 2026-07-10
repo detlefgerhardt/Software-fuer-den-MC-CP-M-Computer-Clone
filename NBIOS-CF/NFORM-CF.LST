@@ -1,0 +1,175 @@
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   1
+NFORM-CFZ80
+
+    1                   ;*****************************************************************************
+    2                   ; NBOOT-CF.Z80
+    3                   ;
+    4                   ; Formats a physikal Disk at the IDE/CF interface as 4 partitions for 4
+    5                   ; CP/M drives
+    6                   ;
+    7                   ; based on FORM-CF by Uli Haumann 05/2026
+    8                   ;
+    9                   ;*****************************************************************************
+   10                   ; Writes E5h to 64 sectors on tracks 1 to 255 of each disk (track 0 is reserved for system)
+   11                   ; Uses BIOS calls. Load a BIOS that supports CF-card to the BIOS address before starting the
+   12                   ; format program.
+   13                   ;
+   14                   ; PLEASE NOTE THE CHANGED BIOS START ADDRESS !!!
+   15                   ;
+   16                   ; Version history
+   17                   ;
+   18                   ; 09.07.2026 *dg* Renamed to NFORM-CF and reformatted
+   19                   ;                 Replaced Monitor write_string function because it might
+   20                   ;                 be overwritten bei the BIOS
+   21                   
+   22         A200      BIOS	EQU 0EA00H-800H-4000H
+   23                   
+   24                   ; BIOS functions
+   25         A21B      SELDSK	EQU BIOS+01BH		; pass disk no. in c
+   26         A224      SETDMA	EQU BIOS+024H		; pass address in bc
+   27         A21E      SETTRK	EQU BIOS+01EH		; pass track in reg C
+   28         A221      SETSEC	EQU BIOS+021H		; pass sector in reg c
+   29         A22A      WRITE	EQU BIOS+02AH		; write one CP/M sector to disk
+   30                   
+   31                   ; Monitor functions
+   32                   ;PRMSG	EQU 0F036H		; does not exist after BIOS was called
+   33         F009      CONOUT	EQU 0F009H		; print a character im Monitor
+   34         F033      MWARM	EQU 0F033H
+   35                   
+   36         0004      STDISK	EQU 4			; first CF disk 
+   37                   
+   38         0100      	ORG 0100H
+   39                   
+   40 0100  31 037A     FORM:	LD SP,STACK
+   41                   
+   42 0103  21 01A6     	LD HL,STMSG
+   43 0106  CD 019B     	CALL WRSTR		; output start message
+   44                   		
+   45                   	;LD HL,DIR_SECTOR	; address of data to write
+   46                   	;LD (ADDRESS),HL
+   47                   	
+   48 0109  3E 04       	LD A,STDISK		; first cf disk
+   49 010B  32 01F7     	LD (DISK),A
+   50                   
+   51 010E              FORM1:	; disk loop
+   52 010E  3A 01F7     	LD A,(DISK)
+   53 0111  4F          	LD C,A			; set current disk
+   54 0112  CD A21B     	CALL SELDSK
+   55 0115  3E 01       	LD A,1			; starting track (offset = 1)
+   56 0117  32 01F9     	LD (TRACK),A
+   57                   
+   58 011A              FORM2:	; track loop
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
+NFORM-CFZ80
+
+   59 011A  3E 00       	LD A,0			; starting sector 0
+   60 011C  32 01F8     	LD (SECTOR),A
+   61 011F  3A 01F9     	LD A,(TRACK)
+   62 0122  4F          	LD C,A			; set track
+   63 0123  CD A21E     	CALL SETTRK
+   64                   
+   65 0126              FORM3:	; sector loop
+   66 0126  3A 01F8     	LD A,(SECTOR)
+   67 0129  4F          	LD C,A			; set sector
+   68 012A  CD A221     	CALL SETSEC
+   69 012D  01 01FB     	LD BC,DIR_SECTOR
+   70                   	;LD BC,(ADDRESS)	; memory location
+   71 0130  CD A224     	CALL SETDMA
+   72 0133  CD A22A     	CALL WRITE
+   73 0136  3A 01F8     	LD A,(SECTOR)
+   74 0139  FE 3F       	CP 63
+   75 013B  CA 0145     	JP Z,FORM4
+   76                   		
+   77 013E  3C          	INC A
+   78 013F  32 01F8     	LD (SECTOR),A
+   79 0142  C3 0126     	JP FORM3		; -> next sector
+   80                   
+   81 0145              FORM4:	; next track
+   82 0145  3A 01F9     	LD A,(TRACK)
+   83 0148  FE FF       	CP 255
+   84 014A  CA 0179     	JP Z,FORM6		; -> next disk
+   85                   		
+   86 014D  3C          	INC A
+   87 014E  32 01F9     	LD (TRACK),A
+   88 0151  3E 2E       	LD A,'.'		; print dot
+   89 0153  4F          	LD C,A
+   90 0154  CD F009     	CALL CONOUT
+   91 0157  3A 01FA     	LD A,(CHAR_COUNT)
+   92 015A  3C          	INC A
+   93 015B  FE 50       	CP 80
+   94 015D  CA 0166     	JP Z,FORM5
+   95                   	
+   96 0160  32 01FA     	LD (CHAR_COUNT),A
+   97 0163  C3 011A     	JP FORM2		; -> next track
+   98                   
+   99 0166  AF          FORM5:	XOR A
+  100 0167  32 01FA     	LD (CHAR_COUNT),A
+  101 016A  3E 0D       	LD A,0DH		; CR ausgeben
+  102 016C  4F          	LD C,A
+  103 016D  CD F009     	CALL CONOUT
+  104 0170  3E 0A       	LD A,0AH		; LF ausgeben
+  105 0172  4F          	LD C,A
+  106 0173  CD F009     	CALL CONOUT
+  107 0176  C3 011A     	JP FORM2		; -> next track
+  108                   
+  109 0179              FORM6:	; next disk
+  110 0179  AF          	XOR A
+  111 017A  32 01FA     	LD (CHAR_COUNT),A
+  112 017D  3A 01F7     	LD A,(DISK)		;naechste virtuelle Diskette
+  113 0180  3C          	INC A
+  114 0181  FE 08       	CP 8			;fertig ?
+  115 0183  CA 0192     	JP Z,FORM7		; -> done
+  116                   
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   3
+NFORM-CFZ80
+
+  117 0186  32 01F7     	LD (DISK),A
+  118                   	;PUSH HL
+  119 0189  21 01E9     	LD HL,DISK_STRING	;next Disk ausgeben
+  120 018C  CD 019B     	CALL WRSTR
+  121                   	;POP HL
+  122 018F  C3 010E     	JP FORM1		; -> next disk
+  123                   
+  124 0192              FORM7:	; done
+  125 0192  21 01CF     	LD HL,END_STRING	; success message
+  126 0195  CD 019B     	CALL WRSTR
+  127 0198  C3 F033     	JP MWARM
+  128                   
+  129                   ;-----------------------------------------------------------------------------
+  130                   ; Used monitor CONOUT to print 0-terminated string
+  131                   ; address in HL
+  132                   ; 00h = string end
+  133                   
+  134 019B  7E          WRSTR:	LD A,(HL)		; get char from string
+  135 019C  A7          	AND A			; check if 0
+  136 019D  C8          	RET Z			; -> end of string
+  137                   	
+  138 019E  4F          	LD C,A
+  139 019F  CD F009     	CALL CONOUT
+  140 01A2  23          	INC HL			; next char in string
+  141 01A3  C3 019B     	JP WRSTR		; start over
+  142                   
+  143                   ;-----------------------------------------------------------------------------
+  144                   
+  145 01A6  0D 0A 0A 46 STMSG:		DEFM	0dh,0ah,0ah,"Formatiere 4 virtuelle Disk",0dh,0ah,"Disk 1",0dh,0ah,0
+  146 01CF  0D 0A 46 6F END_STRING:	DEFM	0dh,0ah,'Formatierung beendet',0dh,0dh,0ah,0
+  147 01E9  0D 0A 6E 65 DISK_STRING:	DEFM	0dh,0ah,'next Disk',0dh,0ah,0
+  148                   
+  149 01F7    0001      DISK:		DEFS	1
+  150 01F8    0001      SECTOR:		DEFS	1
+  151 01F9    0001      TRACK:		DEFS	1
+  152                   ;ADDRESS:	DEFS	2
+  153 01FA    0001      CHAR_COUNT:	DEFS	1
+  154 01FB  E5 E5 E5 E5 DIR_SECTOR:	DS	128,0E5h	;byte for empty directory
+  155 027B    00FF      		DS	0FFh		;stack space
+  156                   
+  157 037A              STACK:
+  158                   
+  159                   ;-----------------------------------------------------------------------------
+  160                   
+  161                   	END
+ 0 Error(s) Detected.
+ 634 Absolute Bytes. 27 Symbols Detected.
+------------------------------------------------------------
+  144                   
+  145 01A6  0D 0A 0A 46 STMSG:

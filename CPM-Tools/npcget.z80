@@ -1,0 +1,411 @@
+;
+;  PCGET - This CP/M program receives a file from a PC via a serial 
+;  port and writes it to a file on the CP/M system. The file transfer uses
+;  the XMODEM protocol. 
+;
+;  Note this program is gutted from the Ward Christenson Modem program.
+;
+;  Hacked together by Mike Douglas for the Altair 2SIO serial interface board.
+;	Ver	Date	Desc
+;	1.0    11/7/12	Initial version
+;	1.1    2/20/14  Allow transfer to occur over 2SIO port B
+;	1.2   12/21/14	Send NAK immediately after file open to speed
+;			up the start-up of file transfer (four second
+;			delay otherwise).
+;	1.3    2026	Angepasst für MC-Computer SYS-80s U.Haumann
+;	
+;
+; *) - hardware dependant
+;
+;  Serial Port Equates *)
+;
+SIOACR	EQU	021H		; SIO port A control register
+SIOADR	EQU	020H		; SIO port A data register
+SIOBCR	EQU	021H		; SIO port B control register
+SIOBDR	EQU	020H		; SIO port B data register
+;
+XMTMASK 	EQU	1		; MASK TO ISOLATE XMIT READY BIT
+XMTRDY  	EQU	1		; VALUE WHEN READY
+RCVMASK 	EQU	2		; MASK TO ISOLATE RECEIVE READY BIT
+RCVRDY	EQU	2		; BIT ON WHEN READY
+;
+;  Transfer related equates
+;
+SOH	EQU	1		;
+EOT	EQU	4		;
+ACK	EQU	6		;
+NAK	EQU	15H		;
+CTRLC		EQU	3		; Control-C
+LF	EQU	10		;
+CR	EQU	13		;
+;
+	ASEG			;
+	ORG	100H		;
+;
+;  Verify a file name was specified
+;
+	LD	A,(PARAM1)	; A=1st character of parameter 1
+	CP	' '		; Make sure something entered
+	JP	NZ,HAVEP1	;
+	LD	DE,MHELP	; Display usage message
+	LD	C,PRINT		;
+	CALL	BDOS		;
+	RET			; Return to CPM
+;
+;  See if port "B" specified (2nd parameter)
+;
+HAVEP1:	LD	B,0		; Assume port b not used
+	LD	DE,MSENDA	; Port a send message
+	LD	A,(PARAM2)	; A=1st character of parameter 2
+	AND	5FH		; Force upper case
+	CP	'B'		; Port b specified?
+	JP	NZ,DOXFER	; No, go do the transfer
+	INC	B		; Force flag to non-zero value
+	LD	DE,MSENDB	; Port b send message
+;	
+;  doXfer - Switch to local stack and do the transfer
+;
+DOXFER:	LD	A,B		; Store the port b flag
+	LD	(FPORTB),A	;
+	LD	HL,0		; HL=0
+	ADD	HL,SP		; HL=STACK FROM CP/M
+	LD	(STACK),HL	; ..SAVE IT
+	LD	SP,STACK	; SP=MY STACK
+	XOR	A		;
+	LD	(SECTNO),A	; Init sector number to zero
+;	CALL	INIT$ACIA	; MASTER RESET THE ACIA
+	NOP			; *)
+	NOP			; *)
+	NOP			; *)
+	LD	C,PRINT		; Print the send message
+	CALL	BDOS		; PRINT ID MESSAGE
+;
+;  GOBBLE UP GARBAGE CHARS FROM THE LINE
+;
+PURGE:	LD	B,1		; Times out after 1 second if no data
+	CALL	RECV		;
+	JP	C,RECEIVE$FILE	; Line is clear, go receive the file
+	CP	CTRLC		; Exit if abort requested
+	JP	Z,ABORT		;
+	JP	PURGE		;
+;
+;**************RECEIVE FILE****************
+;
+RECEIVE$FILE:
+	CALL	ERASE$OLD$FILE	;
+	CALL	MAKE$NEW$FILE	;
+	LD	A,NAK		;
+	CALL	SEND		; SEND NAK
+
+RECV$LOOP:
+RECV$HDR:
+	LD	B,3		; 3 SEC TIMEOUT
+	CALL	RECV
+	JP	NC,RHNTO	; NO TIMEOUT
+
+R_H_TOUT:
+R_S_ERR:
+				; PURGE THE LINE OF INPUT CHARS
+	LD	B,1		; 1 SEC W/NO CHARS
+	CALL	RECV		;
+	JP	NC,R_S_ERR; LOOP UNTIL SENDER DONE
+	LD	A,NAK		;
+	CALL	SEND		; SEND NAK
+	JP	RECV$HDR	;
+;
+; GOT CHAR - MUST BE SOH OR CTRL-C TO ABORT
+;
+RHNTO:	CP	SOH		;
+	JP	Z,GOT$SOH	;
+	CP	CTRLC		; Control-c to abort?
+	JP	Z,ABORT		;
+	CP	EOT		;
+	JP	Z,GOT$EOT	;
+	JP	R_S_ERR	;
+
+GOT$SOH:
+	LD	B,1		;
+	CALL	RECV		;
+	JP	C,R_H_TOUT
+	LD	D,A		; D=BLK #
+	LD	B,1		;
+	CALL	RECV		; GET CMA'D SECT #
+	JP	C,R_H_TOUT
+	CPL			;
+	CP	D		; GOOD SECTOR #?
+	JP	Z,R_SECTOR	;
+	JP	R_S_ERR	;
+;
+;  Receive Sector
+;
+R_SECTOR:
+	LD	A,D		; GET SECTOR #
+	LD	(RSECTNO),A	;
+	LD	C,0		; INIT CKSUM
+	LD	HL,80H		; POINT TO BUFFER
+RECV$CHAR:
+	LD	B,1		; 1 SEC TIMEOUT
+	CALL	RECV		; GET CHAR
+	JP	C,R_H_TOUT
+	LD	(HL),A		; STORE CHAR
+	INC	L		; DONE?
+	JP	NZ,RECV$CHAR	;
+;
+; VERIFY CHECKSUM
+;
+	LD	D,C		; SAVE CHECKSUM
+	LD	B,1		; TIMEOUT
+	CALL	RECV		; GET CHECKSUM
+	JP	C,R_H_TOUT
+	CP	D		; CHECK
+	JP	NZ,R_S_ERR;
+;
+; GOT A SECTOR, WRITE IF = 1+PREV SECTOR
+;
+	LD	A,(RSECTNO)	;
+	LD	B,A		; SAVE IT
+	LD	A,(SECTNO)	; GET PREV
+	INC	A		; CALC NEXT SECTOR #
+	CP	B		; MATCH?
+	JP	NZ,DO$ACK	;
+;
+; GOT NEW SECTOR - WRITE IT
+;
+	LD	DE,FCB		;
+	LD	C,WRITE		;
+	CALL	BDOS		;
+	OR	A		;
+	JP	NZ,WRITE$ERROR	;
+	LD	A,(RSECTNO)	;
+	LD	(SECTNO),A	; UPDATE SECTOR #
+DO$ACK:	LD	A,ACK		;
+	CALL	SEND		;
+	JP	RECV$LOOP	;
+;
+WRITE$ERROR:
+	CALL	ERXIT		;
+	DEFB	13,10,10,'Error Writing File',13,10,'$'
+;
+GOT$EOT:
+	LD	A,ACK		; ACK THE EOT
+	CALL	SEND		;
+	LD	DE,FCB		;
+	LD	C,CLOSE		;
+	CALL	BDOS		;
+	INC	A		;
+	JP	NZ,XFER$CPLT	;
+	CALL	ERXIT		;
+	DEFB	13,10,10,'Error Closing File',13,10,'$'
+;
+ERASE$OLD$FILE:
+	LD	DE,FCB		;
+	LD	C,SRCHF		; SEE IF IT EXISTS
+	CALL	BDOS		;
+	INC	A		; FOUND?
+	RET	Z		; NO, RETURN
+ERAY:	LD	DE,FCB		;
+	LD	C,ERASE		;
+	CALL	BDOS		;
+	RET			;
+;
+MAKE$NEW$FILE:
+	LD	DE,FCB		;
+	LD	C,MAKE		;
+	CALL	BDOS		;
+	INC	A		; FF=BAD
+	RET	NZ		; OPEN OK
+;
+; DIRECTORY FULL - CAN'T MAKE FILE
+	CALL	ERXIT		;
+	DEFB	13,10,10,'Error - Can''t Make File',13,10
+	DEFB	'(directory must be full)',13,10,'$'
+;
+; S U B R O U T I N E S
+;
+; - - - - - - - - - - - - - - -
+;
+; EXIT PRINTING MESSAGE FOLLOWING 'CALL ERXIT'
+;
+ERXIT:	POP	DE		; GET MESSAGE
+	LD	C,PRINT		;
+	CALL	BDOS		; PRINT MESSAGE
+EXIT:	LD	HL,(STACK)	; GET ORIGINAL STACK
+	LD	SP,HL		; RESTORE IT
+	RET			; --EXIT-- TO CP/M
+;
+; - - - - - - - - - - - - - - -
+; MODEM RECV
+;-------------------------------------
+RECV:	PUSH	DE		; SAVE
+MSEC:
+	;LD	DE,159 SHL 7	; 4 MHZ *)	
+	LD	DE,159 SHL 8	; 49 cycle loop, 6.272ms/wrap * 159 = 1 second
+	LD	A,(FPORTB)	; Using port B?
+	OR	A		;
+	JP	NZ,MWTIB	;
+;
+;  port A input
+;
+MWTI:	IN	A,(SIOACR)	;
+	AND	RCVMASK		;
+	CP	RCVRDY		;
+	JP	Z,MCHAR		; GOT CHAR
+	DEC	E		; COUNT DOWN
+	JP	NZ,MWTI		; FOR TIMEOUT
+	DEC	D		;
+	JP	NZ,MWTI		;
+	DEC	B		; DCR # OF SECONDS
+	JP	NZ,MSEC		;
+;
+; MODEM TIMED OUT RECEIVING
+;
+	POP	DE		; RESTORE D,E
+	SCF			; CARRY SHOWS TIMEOUT
+	RET			;
+;
+; GOT MODEM CHAR
+;
+MCHAR:	IN	A,(SIOADR)	;
+	POP	DE		; RESTORE DE
+	PUSH	AF		; CALC CHECKSUM
+	ADD	A,C		;
+	LD	C,A		;
+	POP	AF		;
+	OR	A		; TURN OFF CARRY TO SHOW NO TIMEOUT
+	RET			;
+;
+;  port B input. Look for Ctrl-C on port A to abort
+;
+MWTIB:	IN	A,(SIOBCR)	;
+	AND	RCVMASK		;
+	CP	RCVRDY		;
+	JP	Z,MCHARB	; GOT CHAR
+	DEC	E		; COUNT DOWN
+	JP	NZ,MWTIB	; FOR TIMEOUT
+	IN	A,(SIOACR)	; See if a ctrl-c pressed on console
+	RRCA			; Character present?
+	JP	NC,NOCTRLC	; No
+	IN	A,(SIOADR)	;
+	CP	CTRLC		; Is it a Ctrl-C?
+	JP	NZ,NOCTRLC	; No
+	POP	DE		; Restore d,e
+	RET			; Carry is clear (no timeout), exit
+;
+NOCTRLC:DEC	D		;
+	JP	NZ,MWTIB	;
+	DEC	B		; DCR # OF SECONDS
+	JP	NZ,MSEC		;
+;
+; MODEM TIMED OUT RECEIVING
+;
+	POP	DE		; RESTORE D,E
+	SCF			; CARRY SHOWS TIMEOUT
+	RET
+;
+; GOT MODEM CHAR
+;
+MCHARB:	IN	A,(SIOBDR)	;
+	POP	DE		; RESTORE DE
+	PUSH	AF		; CALC CHECKSUM
+	ADD	A,C		;
+	LD	C,A		;
+	POP	AF		;
+	OR	A		; TURN OFF CARRY TO SHOW NO TIMEOUT
+	RET			;
+;
+; - - - - - - - - - - - - - - -
+; MODEM SEND CHAR ROUTINE
+;----------------------------------
+;
+SEND:	PUSH	AF		; CHECK IF MONITORING OUTPUT
+	ADD	A,C		; CALC CKSUM
+	LD	C,A		;
+	LD	A,(FPORTB)	; Using port B?
+	OR	A		;
+	JP	NZ,SENDWB	;
+;
+; Use port A
+;
+SENDW:	IN	A,(SIOACR)	;
+	AND	XMTMASK		;
+	CP	XMTRDY		;
+	JP	NZ,SENDW	;
+	POP	AF		; GET CHAR
+	OUT	(SIOADR),A	;
+	RET
+;
+; Use port B
+;
+SENDWB:	IN	A,(SIOBCR)	;
+	AND	XMTMASK		;
+	CP	XMTRDY		;
+	JP	NZ,SENDWB	;
+	POP	AF		; GET CHAR
+	OUT	(SIOBDR),A	;
+	RET			;
+;
+; INITITIALIZE THE SERIAL PORT
+;
+INIT$ACIA:
+	LD	A,(FPORTB)	; Using port B?
+	OR	A		;
+	JP	NZ,INITB	; Yes
+;	mvi	a,003h		;don't reset console port
+;	out	SIOACR		;
+	LD	A,015H		; Rts on, 8N1
+	OUT	(SIOACR),A	;
+	RET			;
+;
+; initB - init port B instead
+;
+INITB:	LD	A,3		;
+	OUT	(SIOBCR),A	;
+	LD	A,015H		; Rts on, 8N1
+	OUT	(SIOBCR),A	;
+	RET			;
+;
+MSENDA:	DEFB	'Send the file now using XMODEM...$'
+MSENDB:	DEFB	'Send the file now using XMODEM on Port B...$'
+MHELP:	DEFB	CR,LF,'GETPC Version SYS-80s',CR,LF,LF
+	DEFB	'Usage: GETPC file.ext ',CR,LF,LF,'$'
+;
+; DONE - CLOSE UP SHOP
+;
+XFER$CPLT:
+	CALL	ERXIT		;
+	DEFB	13,10,10,'Transfer Complete',13,10,'$'
+;
+ABORT:	CALL	ERXIT		;
+	DEFB	13,10,10,'Transfer Aborted',13,10,'$'
+;
+	DEFS	40		; STACK AREA
+STACK:	DEFS	2		; STACK POINTER
+RSECTNO:DEFS	1		; RECEIVED SECTOR NUMBER
+SECTNO:	DEFS	1		; CURRENT SECTOR NUMBER 
+FPORTB:	DEFS	1		; Flag to use 2SIO port B instead of A
+;
+; BDOS EQUATES (VERSION 2)
+;
+RDCON	EQU	1		;
+WRCON	EQU	2		;
+PRINT	EQU	9		;
+CONST	EQU	11		; CONSOLE STAT
+OPEN	EQU	15		; 0FFH=NOT FOUND
+CLOSE	EQU	16		;   "	"
+SRCHF	EQU	17		;   "	"
+SRCHN	EQU	18		;   "	"
+ERASE	EQU	19		; NO RET CODE
+READ	EQU	20		; 0=OK, 1=EOF
+WRITE	EQU	21		; 0=OK, 1=ERR, 2=?, 0FFH=NO DIR SPC
+MAKE	EQU	22		; 0FFH=BAD
+REN	EQU	23		; 0FFH=BAD
+STDMA	EQU	26		;
+BDOS	EQU	5		;
+REIPL	EQU	0		;
+FCB	EQU	5CH		; DEFAULT FCB
+PARAM1	EQU	FCB+1		; COMMAND LINE PARAMETER 1 IN FCB
+PARAM2	EQU	PARAM1+16	; COMMAND LINE PARAMETER 2
+;
+;
+;
+	END

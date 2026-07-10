@@ -1,0 +1,284 @@
+;*****************************************************************************
+; NBOOT-CF.Z80
+;
+; Tests four CP/M disks on IDE Interface
+;
+; based on FORM-CF by Uli Haumann 05/2026
+;
+;*****************************************************************************
+; Writes E5h (+ drive, track and sector) to 64 sectors on tracks 1 to 255 of
+; each disk (track 0 is reserved for system)
+; Uses BIOS calls. Load a BIOS that supports CF-card to the BIOS address
+; before starting the format program.
+;
+; PLEASE NOTE THE CHANGED BIOS START ADDRESS !!!
+;
+; Version history
+;
+; 10.07.2026 *dg* Created to test Monitor and BIOS IDE/CF routines
+
+BIOS	EQU 0EA00H-800H
+
+; BIOS functions
+SELDSK	EQU BIOS+01BH		; pass disk no. in c
+SETDMA	EQU BIOS+024H		; pass address in bc
+SETTRK	EQU BIOS+01EH		; pass track in reg C
+SETSEC	EQU BIOS+021H		; pass sector in reg c
+READ	EQU BIOS+027H		; read one CP/M sector from disk
+WRITE	EQU BIOS+02AH		; write one CP/M sector to disk
+
+; Monitor functions
+CONOUT	EQU 0F009H		; print a character im Monitor
+MWARM	EQU 0F033H
+
+STDISK	EQU 4			; first CF disk 
+
+;-----------------------------------------------------------------------------
+
+	ORG 0100H
+
+START:	LD SP,STACK
+
+	CALL FORM
+	CALL VERIFY
+
+	JP MWARM
+
+;-----------------------------------------------------------------------------
+
+FORM:	LD HL,FOMSG
+	CALL WRSTR		; output start message
+	
+	LD A,STDISK		; first cf disk
+	LD (DISK),A
+
+FORM1:	; disk loop
+	LD A,(DISK)
+	LD C,A			; set current disk
+	CALL SELDSK
+	LD A,1			; starting track (offset = 1)
+	LD (TRACK),A
+
+FORM2:	; track loop
+	LD A,0			; starting sector 0
+	LD (SECTOR),A
+	LD A,(TRACK)
+	LD C,A			; set track
+	CALL SETTRK
+
+FORM3:	; sector loop
+
+	; write test header
+	LD HL,DIR_SECTOR
+	LD A,(DISK)
+	LD (HL),A
+	INC HL
+	LD A,(TRACK)
+	LD (HL),A
+	INC HL
+	LD A,(SECTOR)
+	LD (HL),A
+
+	LD A,(SECTOR)
+	LD C,A			; set sector
+	CALL SETSEC
+	LD BC,DIR_SECTOR
+	CALL SETDMA
+	CALL WRITE
+	
+	LD A,(SECTOR)
+	CP 63
+	JP Z,FORM4
+		
+	INC A
+	LD (SECTOR),A
+	JP FORM3		; -> next sector
+
+FORM4:	; next track
+	LD A,(TRACK)
+	CP 255
+	JP Z,FORM6		; -> next disk
+		
+	INC A
+	LD (TRACK),A
+	LD A,'.'		; print dot
+	LD C,A
+	CALL CONOUT
+	LD A,(CHAR_COUNT)
+	INC A
+	CP 80
+	JP Z,FORM5
+	
+	LD (CHAR_COUNT),A
+	JP FORM2		; -> next track
+
+FORM5:	XOR A
+	LD (CHAR_COUNT),A
+	LD A,0DH		; CR ausgeben
+	LD C,A
+	CALL CONOUT
+	LD A,0AH		; LF ausgeben
+	LD C,A
+	CALL CONOUT
+	JP FORM2		; -> next track
+
+FORM6:	; next disk
+	XOR A
+	LD (CHAR_COUNT),A
+	LD A,(DISK)		;naechste virtuelle Diskette
+	INC A
+	CP 8			;fertig ?
+	JP Z,FORM7		; -> done
+
+	LD (DISK),A
+	;PUSH HL
+	LD HL,DISK_STRING	;next Disk ausgeben
+	CALL WRSTR
+	;POP HL
+	JP FORM1		; -> next disk
+
+FORM7:	; done
+	LD HL,FOENDMSG	; success message
+	CALL WRSTR
+	
+	RET
+
+;-----------------------------------------------------------------------------
+
+VERIFY:	LD HL,VYMSG
+	CALL WRSTR		; output start message
+	
+	LD A,STDISK		; first cf disk
+	LD (DISK),A
+
+VERF1:	; disk loop
+	LD A,(DISK)
+	LD C,A			; set current disk
+	CALL SELDSK
+	LD A,1			; starting track (offset = 1)
+	LD (TRACK),A
+
+VERF2:	; track loop
+	LD A,0			; starting sector 0
+	LD (SECTOR),A
+	LD A,(TRACK)
+	LD C,A			; set track
+	CALL SETTRK
+
+VERF3:	; sector loop
+	LD A,(SECTOR)
+	LD C,A			; set sector
+	CALL SETSEC
+	LD BC,DIR_SECTOR
+	CALL SETDMA
+	CALL READ
+
+	; check test header
+	LD HL,DIR_SECTOR
+	LD A,(DISK)
+	CP (HL)
+	JP NZ,VERF8		; -> wrong disk
+	INC HL
+	LD A,(TRACK)
+	CP (HL)
+	JP NZ,VERF8		; -> wrong track
+	INC HL
+	LD A,(SECTOR)
+	CP (HL)
+	JP NZ,VERF8		; -> wrong sector
+
+	; sector ok
+	LD A,(SECTOR)
+	CP 63
+	JP Z,VERF4
+		
+	INC A
+	LD (SECTOR),A
+	JP VERF3		; -> next sector
+
+VERF4:	; next track
+	LD A,(TRACK)
+	CP 255
+	JP Z,VERF6		; -> next disk
+		
+	INC A
+	LD (TRACK),A
+	LD A,'.'		; print dot
+	LD C,A
+	CALL CONOUT
+	LD A,(CHAR_COUNT)
+	INC A
+	CP 80
+	JP Z,VERF5
+	
+	LD (CHAR_COUNT),A
+	JP VERF2		; -> next track
+
+VERF5:	XOR A
+	LD (CHAR_COUNT),A
+	LD A,0DH		; CR ausgeben
+	LD C,A
+	CALL CONOUT
+	LD A,0AH		; LF ausgeben
+	LD C,A
+	CALL CONOUT
+	JP VERF2		; -> next track
+
+VERF6:	; next disk
+	XOR A
+	LD (CHAR_COUNT),A
+	LD A,(DISK)		;naechste virtuelle Diskette
+	INC A
+	CP 8			;fertig ?
+	JP Z,VERF7		; -> done
+
+	LD (DISK),A
+	;PUSH HL
+	LD HL,DISK_STRING	;next Disk ausgeben
+	CALL WRSTR
+	;POP HL
+	JP VERF1		; -> next disk
+
+VERF7:	; done
+	LD HL,VYENDMSG	; success message
+	CALL WRSTR
+	RET
+
+VERF8:	; verify error
+	LD HL,VYERRMSG	; error message
+	CALL WRSTR
+	RET
+
+;-----------------------------------------------------------------------------
+; Used monitor CONOUT to print 0-terminated string
+; address in HL
+; 00h = string end
+
+WRSTR:	LD A,(HL)	; get char from string
+	AND A		; check if 0
+	RET Z		; -> end of string
+	
+	LD C,A
+	CALL CONOUT
+	INC HL		; next char in string
+	JP WRSTR	; start over
+
+;-----------------------------------------------------------------------------
+
+FOMSG:		DEFM	0dh,0ah,0ah,"Formatiere 4 virtuelle Disk",0dh,0ah,"Disk 1",0dh,0ah,0
+VYMSG:		DEFM	0dh,0ah,0ah,"Verifizere 4 virtuelle Disk",0dh,0ah,"Disk 1",0dh,0ah,0
+FOENDMSG:	DEFM	0dh,0ah,'Formatierung beendet',0dh,0dh,0ah,0
+VYENDMSG:	DEFM	0dh,0ah,'Verifizieren beendet',0dh,0dh,0ah,0
+VYERRMSG:	DEFM	0dh,0ah,'Fehler beim Verify',0dh,0dh,0ah,0
+DISK_STRING:	DEFM	0dh,0ah,'next Disk',0dh,0ah,0
+
+DISK:		DEFS	1
+SECTOR:		DEFS	1
+TRACK:		DEFS	1
+CHAR_COUNT:	DEFS	1
+DIR_SECTOR:	DS	128,0E5h	;byte for empty directory
+		DS	0FFh		;stack space
+
+STACK:
+		END
+
