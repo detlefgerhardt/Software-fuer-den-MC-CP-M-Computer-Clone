@@ -27,3 +27,5 @@ Dieser Repository gliedert sich in:
 
 Achtung. Die Versionierung und die Namen der Dateien wurden geändert, um eine klaren Schnitt zwischen der OriginalSoftare und dieser Software machen.
 
+Das CP/M wurde auf ein 58K-System geändert. Das CP/M beginnt bei Adresse CC00h und das BIOS bei Adresse E200h. Das war notwendig um ausreichend Platz für BIOS-Erweiterung und BIOS-Experimente zu schaffen.
+
