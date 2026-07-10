@@ -16,9 +16,9 @@ Geplante Erweiterungen sind:
 - Unterstützung weiterer Diskettenformate und eine einfacher Implementierung neuer Formate
 - Die Hardwareunterstützung auf die aktuelle Hardware des MC CP/M-Clones reduzieren, um die Software zu vereinfachen. Wer erweiterte Kompatibilität benötigt, kann auf die Originalsoftware zurückgreifen).
 - Unterstützung der IDE/CF-Karte gleichzeitig zusammen mit Diskettenlaufwerken
-- Vereinheitlichung der Tools um Beispiel für die Nutzung von Disketten und IDE/CF-Laufwerke
+- Vereinheitlichung der Tools - zum Beispiel für die Nutzung von Disketten und IDE/CF-Laufwerke
 
-Dieses Repository gliedert sich in:
+Dieses Repository gliedert sich in (noch in Arbeit):
 - NMON - der Monitor für den CP/M-Computer
 - NBIOS - das angepasste BIOS, die Schnittstelle zwischen den Monitor, der Hardware und CP/M
 - NBIOS-CF - angepasstes BIOS und Tools für das IDE/CF-Interface (noch nicht funktionsfähig)
