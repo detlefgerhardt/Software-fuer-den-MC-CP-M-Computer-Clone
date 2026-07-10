@@ -1,26 +1,27 @@
-	TITLE "MC CPM-Computer Mon80V2"
-	
 	.Z80
-;---------------------------------------------------------------
-; Monitor fuer MC-Computer Platine SYS-80 und SYS-80s
+;*****************************************************************************
+;* NMON.Z80								     *
+;*									     *
+;* based on Mon80V1 by Ulrich Haumann 05/2026	        	             *
+;* V7.2 851216, sowie Teile aus dem Monitor von Donn Stewart ("CPU-Ville"    *
+;* Z80 Computer.)                 					     *
+;* based on RDK Monitor 1.1 850129					     *
+;*****************************************************************************
+; Monitor for MC-Computer board SYS-80 and SYS-80s
 ; Assembliert mit Z80ASM von SLR Systems wegen der langen
-; Label die mit einigen anderen Assemblern nicht moeglich sind.
 ;
-; Erstellt 05/2026 von U. Haumann
-; Enthaelt weitgehend Routinen aus RDK Monitor 1.1 850129
-; V7.2 851216, sowie Teile aus dem Monitor von Donn Stewart 
-; fuer den "CPU-Ville" Z80 Computer.
+; Ulrich Haumann:
 ; Treiber fuer Serielle Schnittstelle auf CPU-Platine mit UART 8251
 ; implementiert.
 ; Flo1 und Flo2 waehlber auf Hardware Basis Adresse 0C0h.
 ; Der Mointor erwartet 64KB Ram Memory. Er darf selbst nicht
-; groesser als 4KB werden, es sein denn man schiebt die MON_ADR
+; groesser als 4KB werden, es sein denn man schiebt die ROMSTRT
 ; und CCP weiter nach unten. Der CPM Bereich verkleinert sich dann.
 ; Der Monitor kopiert sich nach Reset an das Speicherende
-; auf den Wert in MON_ADR und gibt den unteren RAM Bereich frei.
+; auf den Wert in ROMSTRT und gibt den unteren RAM Bereich frei.
 ; Dies wird auf der SYS CPU Platine mit einem Lesebefehl auf
 ; Adresse 7000h erreicht. Das Eprom ist dann ausgeblendet.
-; Somit steht der Speicher durchgaengig ab 0000h bis zu MON_ADR
+; Somit steht der Speicher durchgaengig ab 0000h bis zu ROMSTRT
 ; zur Verfuehgung.
 ; Das CPM BIOS fuer den MC-Computer ueberschreibt den Monitorbereich
 ; ab FC00h. Alle relevanten Teile fuer den Betrieb des Rechners 
@@ -29,12 +30,10 @@
 ; dann nicht mehr funktionsfaehig ist. Funktionsfaehig bleiben nur
 ; die Ein-/Ausgabe-Routinen und die Floppy-Routinen, die vom BIOS
 ; benoetigt werden.
-
-; 07/2026 Ueberarbeitet von Detlef Gerhardt
-; komplette Ueberarbeitung der Labels und sukzessive Kommentierung des Quellcodes
-; um nach und nach moeglichst viele Routinen zu verstehen.
-; Diese Version ist bis auf die Versionsnummer noch binaerkompatibel zu Version 8.0v1
-; --- Work in progress ---
+;
+; NMON Version history
+;
+; 01.07.2026 *dg* Komplette Ueberarbeitung der Kommentate ohne funktionale Aenderungen
 
 ;------------------------------------------------------------------------------
 ; Mapping of REG4-Latch
