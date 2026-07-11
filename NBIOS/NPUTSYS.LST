@@ -26,59 +26,59 @@ NPUTSYS Z80
    23                   ; sector count (1024 byte sectors)
    24                   ; on a mini disk 4 tracks are reserved: 5 * 4 - 1 = 19 sectors
    25         0009      SECCNT	EQU (0F000h-CPMB)/1024
-   26                   
-   27                   ; Monitor functions
-   28         F01E      RSTRT	EQU 0F01EH		; restart
-   29         F027      MINI	EQU 0F027H		; Old MINI routine in Monitor
-   30                   
-   31                   ;-----------------------------------------------------------------------------
-   32                   
-   33         0100      	ORG 0100h		
-   34                   
-   35 0100  31 0200     PUT:	LD SP,200H	;start of stack
-   36                   
-   37 0103  21 CC00     	LD HL,CPMB	; CP/M start address
-   38 0106  06 09       	LD B,SECCNT
-   39                   	
-   40                   	; start with track 0 and sektor 2 because of 1 boot sector
-   41 0108  16 00       	LD D,0
-   42 010A  1E 02       	LD E,2
-   43                   
-   44 010C              PUT1:	; sector loop	
-   45 010C  E5          	PUSH HL
-   46 010D  D5          	PUSH DE
-   47 010E  C5          	PUSH BC
-   48 010F  0E D0       	LD C,11010000B	; drive 0 double dense mini
-   49 0111  06 02       	LD B,2		; 1=read  2=write
-   50 0113  CD F027     	CALL MINI	; Monitor Einsprung Mini Laufwerk
-   51 0116  C1          	POP BC
-   52 0117  D1          	POP DE
-   53 0118  E1          	POP HL
-   54 0119  DA F01E     	JP C,RSTRT	;monitor aufrufen bei fehler (Restart)
-   55                   	
-   56 011C  D5          	PUSH DE		;NEXT ADRESSE
-   57 011D  11 0400     	LD DE,1024	;double dense bloecke
-   58 0120  19          	ADD HL,DE
+   26                   ;SECCNT	EQU 7
+   27                   
+   28                   ; Monitor functions
+   29         F01E      RSTRT	EQU 0F01EH		; restart
+   30         F027      MINI	EQU 0F027H		; Old MINI routine in Monitor
+   31                   
+   32                   ;-----------------------------------------------------------------------------
+   33                   
+   34         0100      	ORG 0100h		
+   35                   
+   36 0100  31 0200     PUT:	LD SP,200H	;start of stack
+   37                   
+   38 0103  21 CC00     	LD HL,CPMB	; CP/M start address
+   39 0106  06 09       	LD B,SECCNT
+   40                   	
+   41                   	; start with track 0 and sektor 2 because of 1 boot sector
+   42 0108  16 00       	LD D,0
+   43 010A  1E 02       	LD E,2
+   44                   
+   45 010C              PUT1:	; sector loop	
+   46 010C  E5          	PUSH HL
+   47 010D  D5          	PUSH DE
+   48 010E  C5          	PUSH BC
+   49 010F  0E D0       	LD C,11010000B	; drive 0 double dense mini
+   50 0111  06 02       	LD B,2		; 1=read  2=write
+   51 0113  CD F027     	CALL MINI	; Monitor Einsprung Mini Laufwerk
+   52 0116  C1          	POP BC
+   53 0117  D1          	POP DE
+   54 0118  E1          	POP HL
+   55 0119  DA F01E     	JP C,RSTRT	;monitor aufrufen bei fehler (Restart)
+   56                   	
+   57 011C  D5          	PUSH DE		;NEXT ADRESSE
+   58 011D  11 0400     	LD DE,1024	;double dense bloecke
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
 NPUTSYS Z80
 
-   59 0121  D1          	POP DE
-   60 0122  1C          	INC E		; inc sector
-   61 0123  7B          	LD A,E
-   62 0124  FE 06       	CP 5+1		; 1..5 erst bei 6 neue Spur (max. 4 tracks)
-   63 0126  DA 012C     	JP C,PUT2
-   64                   	
-   65 0129  1E 01       	LD E,1		; restart with sector 1
-   66 012B  14          	INC D
-   67                   
-   68 012C  05          PUT2:	DEC B
-   69 012D  C2 010C     	JP NZ,PUT1	; -> next sector
-   70 0130  C3 E200     	JP BIOS		; -> CP/M cold boot
-   71                   
-   72                   ;-----------------------------------------------------------------------------
-   73                   		
-   74                   	END
+   59 0120  19          	ADD HL,DE
+   60 0121  D1          	POP DE
+   61 0122  1C          	INC E		; inc sector
+   62 0123  7B          	LD A,E
+   63 0124  FE 06       	CP 5+1		; 1..5 erst bei 6 neue Spur (max. 4 tracks)
+   64 0126  DA 012C     	JP C,PUT2
+   65                   	
+   66 0129  1E 01       	LD E,1		; restart with sector 1
+   67 012B  14          	INC D
+   68                   
+   69 012C  05          PUT2:	DEC B
+   70 012D  C2 010C     	JP NZ,PUT1	; -> next sector
+   71 0130  C3 E200     	JP BIOS		; -> CP/M cold boot
+   72                   
+   73                   ;-----------------------------------------------------------------------------
+   74                   		
+   75                   	END
  0 Error(s) Detected.
  51 Absolute Bytes. 9 Symbols Detected.
-               	
-   56 011C  D5          	PUSH
+        

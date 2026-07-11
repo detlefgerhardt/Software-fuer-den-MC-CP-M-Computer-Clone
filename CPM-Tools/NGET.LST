@@ -1,0 +1,450 @@
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   1
+NGET    Z80
+
+    1                   	.Z80
+    2                   ;*****************************************************************************
+    3                   ; NGET.Z80
+    4                   ;
+    5                   ;  PCGET - This CP/M program receives a file from a PC via a serial 
+    6                   ;  port and writes it to a file on the CP/M system. The file transfer uses
+    7                   ;  the XMODEM protocol. 
+    8                   ;
+    9                   ;  Note this program is gutted from the Ward Christenson Modem program.
+   10                   ;
+   11                   ;  Hacked together by Mike Douglas for the Altair 2SIO serial interface board.
+   12                   ;	Ver	Date	Desc
+   13                   ;	1.0    11/7/12	Initial version
+   14                   ;	1.1    2/20/14  Allow transfer to occur over 2SIO port B
+   15                   ;	1.2   12/21/14	Send NAK immediately after file open to speed
+   16                   ;			up the start-up of file transfer (four second
+   17                   ;			delay otherwise).
+   18                   ;	1.3    2026	Angepasst f|r MC-Computer SYS-80s U.Haumann
+   19                   ;
+   20                   ;*****************************************************************************
+   21                   ;
+   22                   ; The program uses direct hardware access to the serial port
+   23                   ;
+   24                   ; NGET Version history
+   25                   ;
+   26                   ; 11.07.2026 *dg* Renamed to NGET and restart version at 1.0
+   27                   
+   28                   ;-----------------------------------------------------------------------------
+   29                   
+   30                   ; *) - hardware dependant
+   31                   ;
+   32                   ;  Serial Port Equates *)
+   33                   ;
+   34         0021      SIOACR	EQU	021H		; SIO port A control register
+   35         0020      SIOADR	EQU	020H		; SIO port A data register
+   36         0021      SIOBCR	EQU	021H		; SIO port B control register
+   37         0020      SIOBDR	EQU	020H		; SIO port B data register
+   38                   
+   39         0001      XMTMASK 	EQU	1	; MASK TO ISOLATE XMIT READY BIT
+   40         0001      XMTRDY  	EQU	1	; VALUE WHEN READY
+   41         0002      RCVMASK 	EQU	2	; MASK TO ISOLATE RECEIVE READY BIT
+   42         0002      RCVRDY	EQU	2		; BIT ON WHEN READY
+   43                   ;
+   44                   ;  Transfer related equates
+   45                   ;
+   46         0001      SOH	EQU	1		;
+   47         0004      EOT	EQU	4		;
+   48         0006      ACK	EQU	6		;
+   49         0015      NAK	EQU	15H		;
+   50         0003      CTRLC		EQU	3		; Control-C
+   51         000A      LF	EQU	10		;
+   52         000D      CR	EQU	13		;
+   53                   ;
+   54                   	ASEG			;
+   55         0100      	ORG	100H		;
+   56                   ;
+   57                   ;  Verify a file name was specified
+   58                   ;
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
+NGET    Z80
+
+   59 0100  3A 005D     	LD	A,(PARAM1)	; A=1st character of parameter 1
+   60 0103  FE 20       	CP	' '		; Make sure something entered
+   61 0105  C2 0111     	JP	NZ,HAVEP1	;
+   62 0108  11 0371     	LD	DE,MHELP	; Display usage message
+   63 010B  0E 09       	LD	C,PRINT		;
+   64 010D  CD 0005     	CALL	BDOS		;
+   65 0110  C9          	RET			; Return to CPM
+   66                   ;
+   67                   ;  See if port "B" specified (2nd parameter)
+   68                   ;
+   69 0111  06 00       HAVEP1:	LD	B,0		; Assume port b not used
+   70 0113  11 0323     	LD	DE,MSENDA	; Port a send message
+   71 0116  3A 006D     	LD	A,(PARAM2)	; A=1st character of parameter 2
+   72 0119  E6 5F       	AND	5FH		; Force upper case
+   73 011B  FE 42       	CP	'B'		; Port b specified?
+   74 011D  C2 0124     	JP	NZ,DOXFER	; No, go do the transfer
+   75 0120  04          	INC	B		; Force flag to non-zero value
+   76 0121  11 0345     	LD	DE,MSENDB	; Port b send message
+   77                   ;	
+   78                   ;  doXfer - Switch to local stack and do the transfer
+   79                   ;
+   80 0124  78          DOXFER:	LD	A,B		; Store the port b flag
+   81 0125  32 0406     	LD	(FPORTB),A	;
+   82 0128  21 0000     	LD	HL,0		; HL=0
+   83 012B  39          	ADD	HL,SP		; HL=STACK FROM CP/M
+   84 012C  22 0402     	LD	(STACK),HL	; ..SAVE IT
+   85 012F  31 0402     	LD	SP,STACK	; SP=MY STACK
+   86 0132  AF          	XOR	A		;
+   87 0133  32 0405     	LD	(SECTNO),A	; Init sector number to zero
+   88                   ;	CALL	INIT$ACIA	; MASTER RESET THE ACIA
+   89 0136  00          	NOP			; *)
+   90 0137  00          	NOP			; *)
+   91 0138  00          	NOP			; *)
+   92 0139  0E 09       	LD	C,PRINT		; Print the send message
+   93 013B  CD 0005     	CALL	BDOS		; PRINT ID MESSAGE
+   94                   ;
+   95                   ;  GOBBLE UP GARBAGE CHARS FROM THE LINE
+   96                   ;
+   97 013E  06 01       PURGE:	LD	B,1		; Times out after 1 second if no data
+   98 0140  CD 028E     	CALL	RECV		;
+   99 0143  DA 014E     	JP	C,RECEIVE$FILE	; Line is clear, go receive the file
+  100 0146  FE 03       	CP	CTRLC		; Exit if abort requested
+  101 0148  CA 03C1     	JP	Z,ABORT		;
+  102 014B  C3 013E     	JP	PURGE		;
+  103                   ;
+  104                   ;**************RECEIVE FILE****************
+  105                   ;
+  106 014E              RECEIVE$FILE:
+  107 014E  CD 022C     	CALL	ERASE$OLD$FILE	;
+  108 0151  CD 023F     	CALL	MAKE$NEW$FILE	;
+  109 0154  3E 15       	LD	A,NAK		;
+  110 0156  CD 02EA     	CALL	SEND		; SEND NAK
+  111                   
+  112 0159              RECV$LOOP:
+  113 0159              RECV$HDR:
+  114 0159  06 03       	LD	B,3		; 3 SEC TIMEOUT
+  115 015B  CD 028E     	CALL	RECV
+  116 015E  D2 0171     	JP	NC,RHNTO	; NO TIMEOUT
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   3
+NGET    Z80
+
+  117                   
+  118 0161              R_H_TOUT:
+  119 0161              R_S_ERR:
+  120                   				; PURGE THE LINE OF INPUT CHARS
+  121 0161  06 01       	LD	B,1		; 1 SEC W/NO CHARS
+  122 0163  CD 028E     	CALL	RECV		;
+  123 0166  D2 0161     	JP	NC,R_S_ERR; LOOP UNTIL SENDER DONE
+  124 0169  3E 15       	LD	A,NAK		;
+  125 016B  CD 02EA     	CALL	SEND		; SEND NAK
+  126 016E  C3 0159     	JP	RECV$HDR	;
+  127                   ;
+  128                   ; GOT CHAR - MUST BE SOH OR CTRL-C TO ABORT
+  129                   ;
+  130 0171  FE 01       RHNTO:	CP	SOH		;
+  131 0173  CA 0183     	JP	Z,GOT$SOH	;
+  132 0176  FE 03       	CP	CTRLC		; Control-c to abort?
+  133 0178  CA 03C1     	JP	Z,ABORT		;
+  134 017B  FE 04       	CP	EOT		;
+  135 017D  CA 0200     	JP	Z,GOT$EOT	;
+  136 0180  C3 0161     	JP	R_S_ERR	;
+  137                   
+  138 0183              GOT$SOH:
+  139 0183  06 01       	LD	B,1		;
+  140 0185  CD 028E     	CALL	RECV		;
+  141 0188  DA 0161     	JP	C,R_H_TOUT
+  142 018B  57          	LD	D,A		; D=BLK #
+  143 018C  06 01       	LD	B,1		;
+  144 018E  CD 028E     	CALL	RECV		; GET CMA'D SECT #
+  145 0191  DA 0161     	JP	C,R_H_TOUT
+  146 0194  2F          	CPL			;
+  147 0195  BA          	CP	D		; GOOD SECTOR #?
+  148 0196  CA 019C     	JP	Z,R_SECTOR	;
+  149 0199  C3 0161     	JP	R_S_ERR	;
+  150                   ;
+  151                   ;  Receive Sector
+  152                   ;
+  153 019C              R_SECTOR:
+  154 019C  7A          	LD	A,D		; GET SECTOR #
+  155 019D  32 0404     	LD	(RSECTNO),A	;
+  156 01A0  0E 00       	LD	C,0		; INIT CKSUM
+  157 01A2  21 0080     	LD	HL,80H		; POINT TO BUFFER
+  158 01A5              RECV$CHAR:
+  159 01A5  06 01       	LD	B,1		; 1 SEC TIMEOUT
+  160 01A7  CD 028E     	CALL	RECV		; GET CHAR
+  161 01AA  DA 0161     	JP	C,R_H_TOUT
+  162 01AD  77          	LD	(HL),A		; STORE CHAR
+  163 01AE  2C          	INC	L		; DONE?
+  164 01AF  C2 01A5     	JP	NZ,RECV$CHAR	;
+  165                   ;
+  166                   ; VERIFY CHECKSUM
+  167                   ;
+  168 01B2  51          	LD	D,C		; SAVE CHECKSUM
+  169 01B3  06 01       	LD	B,1		; TIMEOUT
+  170 01B5  CD 028E     	CALL	RECV		; GET CHECKSUM
+  171 01B8  DA 0161     	JP	C,R_H_TOUT
+  172 01BB  BA          	CP	D		; CHECK
+  173 01BC  C2 0161     	JP	NZ,R_S_ERR;
+  174                   ;
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   4
+NGET    Z80
+
+  175                   ; GOT A SECTOR, WRITE IF = 1+PREV SECTOR
+  176                   ;
+  177 01BF  3A 0404     	LD	A,(RSECTNO)	;
+  178 01C2  47          	LD	B,A		; SAVE IT
+  179 01C3  3A 0405     	LD	A,(SECTNO)	; GET PREV
+  180 01C6  3C          	INC	A		; CALC NEXT SECTOR #
+  181 01C7  B8          	CP	B		; MATCH?
+  182 01C8  C2 01DD     	JP	NZ,DO$ACK	;
+  183                   ;
+  184                   ; GOT NEW SECTOR - WRITE IT
+  185                   ;
+  186 01CB  11 005C     	LD	DE,FCB		;
+  187 01CE  0E 15       	LD	C,WRITE		;
+  188 01D0  CD 0005     	CALL	BDOS		;
+  189 01D3  B7          	OR	A		;
+  190 01D4  C2 01E5     	JP	NZ,WRITE$ERROR	;
+  191 01D7  3A 0404     	LD	A,(RSECTNO)	;
+  192 01DA  32 0405     	LD	(SECTNO),A	; UPDATE SECTOR #
+  193 01DD  3E 06       DO$ACK:	LD	A,ACK		;
+  194 01DF  CD 02EA     	CALL	SEND		;
+  195 01E2  C3 0159     	JP	RECV$LOOP	;
+  196                   ;
+  197 01E5              WRITE$ERROR:
+  198 01E5  CD 0283     	CALL	ERXIT		;
+  199 01E8  0D 0A 0A 45 	DEFB	13,10,10,'Error Writing File',13,10,'$'
+  200                   ;
+  201 0200              GOT$EOT:
+  202 0200  3E 06       	LD	A,ACK		; ACK THE EOT
+  203 0202  CD 02EA     	CALL	SEND		;
+  204 0205  11 005C     	LD	DE,FCB		;
+  205 0208  0E 10       	LD	C,CLOSE		;
+  206 020A  CD 0005     	CALL	BDOS		;
+  207 020D  3C          	INC	A		;
+  208 020E  C2 03A7     	JP	NZ,XFER$CPLT	;
+  209 0211  CD 0283     	CALL	ERXIT		;
+  210 0214  0D 0A 0A 45 	DEFB	13,10,10,'Error Closing File',13,10,'$'
+  211                   ;
+  212 022C              ERASE$OLD$FILE:
+  213 022C  11 005C     	LD	DE,FCB		;
+  214 022F  0E 11       	LD	C,SRCHF		; SEE IF IT EXISTS
+  215 0231  CD 0005     	CALL	BDOS		;
+  216 0234  3C          	INC	A		; FOUND?
+  217 0235  C8          	RET	Z		; NO, RETURN
+  218 0236  11 005C     ERAY:	LD	DE,FCB		;
+  219 0239  0E 13       	LD	C,ERASE		;
+  220 023B  CD 0005     	CALL	BDOS		;
+  221 023E  C9          	RET			;
+  222                   ;
+  223 023F              MAKE$NEW$FILE:
+  224 023F  11 005C     	LD	DE,FCB		;
+  225 0242  0E 16       	LD	C,MAKE		;
+  226 0244  CD 0005     	CALL	BDOS		;
+  227 0247  3C          	INC	A		; FF=BAD
+  228 0248  C0          	RET	NZ		; OPEN OK
+  229                   ;
+  230                   ; DIRECTORY FULL - CAN'T MAKE FILE
+  231 0249  CD 0283     	CALL	ERXIT		;
+  232 024C  0D 0A 0A 45 	DEFB	13,10,10,'Error - Can''t Make File',13,10
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   5
+NGET    Z80
+
+  233 0268  28 64 69 72 	DEFB	'(directory must be full)',13,10,'$'
+  234                   ;
+  235                   ; S U B R O U T I N E S
+  236                   ;
+  237                   ; - - - - - - - - - - - - - - -
+  238                   ;
+  239                   ; EXIT PRINTING MESSAGE FOLLOWING 'CALL ERXIT'
+  240                   ;
+  241 0283  D1          ERXIT:	POP	DE		; GET MESSAGE
+  242 0284  0E 09       	LD	C,PRINT		;
+  243 0286  CD 0005     	CALL	BDOS		; PRINT MESSAGE
+  244 0289  2A 0402     EXIT:	LD	HL,(STACK)	; GET ORIGINAL STACK
+  245 028C  F9          	LD	SP,HL		; RESTORE IT
+  246 028D  C9          	RET			; --EXIT-- TO CP/M
+  247                   ;
+  248                   ; - - - - - - - - - - - - - - -
+  249                   ; MODEM RECV
+  250                   ;-------------------------------------
+  251 028E  D5          RECV:	PUSH	DE		; SAVE
+  252 028F              MSEC:
+  253                   	;LD	DE,159 SHL 7	; 4 MHZ *)	
+  254 028F  11 9F00     	LD	DE,159 SHL 8	; 49 cycle loop, 6.272ms/wrap * 159 = 1 second
+  255 0292  3A 0406     	LD	A,(FPORTB)	; Using port B?
+  256 0295  B7          	OR	A		;
+  257 0296  C2 02BA     	JP	NZ,MWTIB	;
+  258                   ;
+  259                   ;  port A input
+  260                   ;
+  261 0299  DB 21       MWTI:	IN	A,(SIOACR)	;
+  262 029B  E6 02       	AND	RCVMASK		;
+  263 029D  FE 02       	CP	RCVRDY		;
+  264 029F  CA 02B1     	JP	Z,MCHAR		; GOT CHAR
+  265 02A2  1D          	DEC	E		; COUNT DOWN
+  266 02A3  C2 0299     	JP	NZ,MWTI		; FOR TIMEOUT
+  267 02A6  15          	DEC	D		;
+  268 02A7  C2 0299     	JP	NZ,MWTI		;
+  269 02AA  05          	DEC	B		; DCR # OF SECONDS
+  270 02AB  C2 028F     	JP	NZ,MSEC		;
+  271                   ;
+  272                   ; MODEM TIMED OUT RECEIVING
+  273                   ;
+  274 02AE  D1          	POP	DE		; RESTORE D,E
+  275 02AF  37          	SCF			; CARRY SHOWS TIMEOUT
+  276 02B0  C9          	RET			;
+  277                   ;
+  278                   ; GOT MODEM CHAR
+  279                   ;
+  280 02B1  DB 20       MCHAR:	IN	A,(SIOADR)	;
+  281 02B3  D1          	POP	DE		; RESTORE DE
+  282 02B4  F5          	PUSH	AF		; CALC CHECKSUM
+  283 02B5  81          	ADD	A,C		;
+  284 02B6  4F          	LD	C,A		;
+  285 02B7  F1          	POP	AF		;
+  286 02B8  B7          	OR	A		; TURN OFF CARRY TO SHOW NO TIMEOUT
+  287 02B9  C9          	RET			;
+  288                   ;
+  289                   ;  port B input. Look for Ctrl-C on port A to abort
+  290                   ;
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   6
+NGET    Z80
+
+  291 02BA  DB 21       MWTIB:	IN	A,(SIOBCR)	;
+  292 02BC  E6 02       	AND	RCVMASK		;
+  293 02BE  FE 02       	CP	RCVRDY		;
+  294 02C0  CA 02E1     	JP	Z,MCHARB	; GOT CHAR
+  295 02C3  1D          	DEC	E		; COUNT DOWN
+  296 02C4  C2 02BA     	JP	NZ,MWTIB	; FOR TIMEOUT
+  297 02C7  DB 21       	IN	A,(SIOACR)	; See if a ctrl-c pressed on console
+  298 02C9  0F          	RRCA			; Character present?
+  299 02CA  D2 02D6     	JP	NC,NOCTRLC	; No
+  300 02CD  DB 20       	IN	A,(SIOADR)	;
+  301 02CF  FE 03       	CP	CTRLC		; Is it a Ctrl-C?
+  302 02D1  C2 02D6     	JP	NZ,NOCTRLC	; No
+  303 02D4  D1          	POP	DE		; Restore d,e
+  304 02D5  C9          	RET			; Carry is clear (no timeout), exit
+  305                   ;
+  306 02D6  15          NOCTRLC:DEC	D		;
+  307 02D7  C2 02BA     	JP	NZ,MWTIB	;
+  308 02DA  05          	DEC	B		; DCR # OF SECONDS
+  309 02DB  C2 028F     	JP	NZ,MSEC		;
+  310                   ;
+  311                   ; MODEM TIMED OUT RECEIVING
+  312                   ;
+  313 02DE  D1          	POP	DE		; RESTORE D,E
+  314 02DF  37          	SCF			; CARRY SHOWS TIMEOUT
+  315 02E0  C9          	RET
+  316                   ;
+  317                   ; GOT MODEM CHAR
+  318                   ;
+  319 02E1  DB 20       MCHARB:	IN	A,(SIOBDR)	;
+  320 02E3  D1          	POP	DE		; RESTORE DE
+  321 02E4  F5          	PUSH	AF		; CALC CHECKSUM
+  322 02E5  81          	ADD	A,C		;
+  323 02E6  4F          	LD	C,A		;
+  324 02E7  F1          	POP	AF		;
+  325 02E8  B7          	OR	A		; TURN OFF CARRY TO SHOW NO TIMEOUT
+  326 02E9  C9          	RET			;
+  327                   ;
+  328                   ; - - - - - - - - - - - - - - -
+  329                   ; MODEM SEND CHAR ROUTINE
+  330                   ;----------------------------------
+  331                   ;
+  332 02EA  F5          SEND:	PUSH	AF		; CHECK IF MONITORING OUTPUT
+  333 02EB  81          	ADD	A,C		; CALC CKSUM
+  334 02EC  4F          	LD	C,A		;
+  335 02ED  3A 0406     	LD	A,(FPORTB)	; Using port B?
+  336 02F0  B7          	OR	A		;
+  337 02F1  C2 0301     	JP	NZ,SENDWB	;
+  338                   ;
+  339                   ; Use port A
+  340                   ;
+  341 02F4  DB 21       SENDW:	IN	A,(SIOACR)	;
+  342 02F6  E6 01       	AND	XMTMASK		;
+  343 02F8  FE 01       	CP	XMTRDY		;
+  344 02FA  C2 02F4     	JP	NZ,SENDW	;
+  345 02FD  F1          	POP	AF		; GET CHAR
+  346 02FE  D3 20       	OUT	(SIOADR),A	;
+  347 0300  C9          	RET
+  348                   ;
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   7
+NGET    Z80
+
+  349                   ; Use port B
+  350                   ;
+  351 0301  DB 21       SENDWB:	IN	A,(SIOBCR)	;
+  352 0303  E6 01       	AND	XMTMASK		;
+  353 0305  FE 01       	CP	XMTRDY		;
+  354 0307  C2 0301     	JP	NZ,SENDWB	;
+  355 030A  F1          	POP	AF		; GET CHAR
+  356 030B  D3 20       	OUT	(SIOBDR),A	;
+  357 030D  C9          	RET			;
+  358                   ;
+  359                   ; INITITIALIZE THE SERIAL PORT
+  360                   ;
+  361 030E              INIT$ACIA:
+  362 030E  3A 0406     	LD	A,(FPORTB)	; Using port B?
+  363 0311  B7          	OR	A		;
+  364 0312  C2 031A     	JP	NZ,INITB	; Yes
+  365                   ;	mvi	a,003h		;don't reset console port
+  366                   ;	out	SIOACR		;
+  367 0315  3E 15       	LD	A,015H		; Rts on, 8N1
+  368 0317  D3 21       	OUT	(SIOACR),A	;
+  369 0319  C9          	RET			;
+  370                   ;
+  371                   ; initB - init port B instead
+  372                   ;
+  373 031A  3E 03       INITB:	LD	A,3		;
+  374 031C  D3 21       	OUT	(SIOBCR),A	;
+  375 031E  3E 15       	LD	A,015H		; Rts on, 8N1
+  376 0320  D3 21       	OUT	(SIOBCR),A	;
+  377 0322  C9          	RET			;
+  378                   ;
+  379 0323  53 65 6E 64 MSENDA:	DEFB	'Send the file now using XMODEM...$'
+  380 0345  53 65 6E 64 MSENDB:	DEFB	'Send the file now using XMODEM on Port B...$'
+  381 0371  0D 0A 4E 47 MHELP:	DEFB	CR,LF,'NGET V1.0 for SYS80/S-CPU',CR,LF,LF
+  382 038F  55 73 61 67 	DEFB	'Usage: NGET file.ext ',CR,LF,'$'
+  383                   ;
+  384                   ; DONE - CLOSE UP SHOP
+  385                   ;
+  386 03A7              XFER$CPLT:
+  387 03A7  CD 0283     	CALL	ERXIT		;
+  388 03AA  0D 0A 0A 54 	DEFB	13,10,10,'Transfer Complete',13,10,'$'
+  389                   ;
+  390 03C1  CD 0283     ABORT:	CALL	ERXIT		;
+  391 03C4  0D 0A 0A 54 	DEFB	13,10,10,'Transfer Aborted',13,10,'$'
+  392                   ;
+  393 03DA    0028      	DEFS	40		; STACK AREA
+  394 0402    0002      STACK:	DEFS	2		; STACK POINTER
+  395 0404    0001      RSECTNO:DEFS	1		; RECEIVED SECTOR NUMBER
+  396 0405    0001      SECTNO:	DEFS	1		; CURRENT SECTOR NUMBER 
+  397 0406    0001      FPORTB:	DEFS	1		; Flag to use 2SIO port B instead of A
+  398                   ;
+  399                   ; BDOS EQUATES (VERSION 2)
+  400                   ;
+  401         0001      RDCON	EQU	1		;
+  402         0002      WRCON	EQU	2		;
+  403         0009      PRINT	EQU	9		;
+  404         000B      CONST	EQU	11		; CONSOLE STAT
+  405         000F      OPEN	EQU	15		; 0FFH=NOT FOUND
+  406         0010      CLOSE	EQU	16		;   "	"
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   8
+NGET    Z80
+
+  407         0011      SRCHF	EQU	17		;   "	"
+  408         0012      SRCHN	EQU	18		;   "	"
+  409         0013      ERASE	EQU	19		; NO RET CODE
+  410         0014      READ	EQU	20		; 0=OK, 1=EOF
+  411         0015      WRITE	EQU	21		; 0=OK, 1=ERR, 2=?, 0FFH=NO DIR SPC
+  412         0016      MAKE	EQU	22		; 0FFH=BAD
+  413         0017      REN	EQU	23		; 0FFH=BAD
+  414         001A      STDMA	EQU	26		;
+  415         0005      BDOS	EQU	5		;
+  416         0000      REIPL	EQU	0		;
+  417         005C      FCB	EQU	5CH		; DEFAULT FCB
+  418         005D      PARAM1	EQU	FCB+1		; COMMAND LINE PARAMETER 1 IN FCB
+  419         006D      PARAM2	EQU	PARAM1+16	; COMMAND LINE PARAMETER 2
+  420                   
+  421                   ;-----------------------------------------------------------------------------
+  422                   
+  423                   	END
+ 0 Error(s) Detected.
+ 775 Absolute Bytes. 75 Symbols Detected.
+st Reloc

@@ -23,6 +23,7 @@ BIOS	EQU	04A00H+OFFSET	; start bios
 ; sector count (1024 byte sectors)
 ; on a mini disk 4 tracks are reserved: 5 * 4 - 1 = 19 sectors
 SECCNT	EQU (0F000h-CPMB)/1024
+;SECCNT	EQU 7
 
 ; Monitor functions
 RSTRT	EQU 0F01EH		; restart

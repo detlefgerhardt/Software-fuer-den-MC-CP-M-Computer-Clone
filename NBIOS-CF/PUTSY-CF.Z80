@@ -24,7 +24,6 @@
 ;                 Changed BIOS address to E200
 ;		  Changed for CF/IDE drives 4..7 (E..H)
 
-
 CPM	EQU 0D400H-800H
 BIOS	EQU 0EA00H-800H
 
@@ -42,15 +41,22 @@ WRITE	EQU BIOS+02AH	; write one CP/M sector to disk
 
 STDRIVE	EQU 4		; first IDE/CF-drive
 
+; sector count (1024 byte sectors)
+; on a IDE/CF disk 1 track is reserved: 64 sectors
+;SECCNT	EQU (0F000h-CPM)/128
+SECCNT	EQU 63			; only 64 sectors per track
+
 ;-----------------------------------------------------------------------------
 
-	ORG 100H	; start at 100H
+	ORG 100H	; program starts at 100H
 
 ; write track 0, sectors 1 to 50
+; write track 0, sectors 1 to SECCNT
+; only one system track available
 
 PUT:	LD C,STDRIVE	; first CF/IDE drive
 	CALL SELDSK		
-	LD A,1		; starting sector
+	LD A,1		; starting with 2. sector (0..n-1) 
 	LD (SECTOR),A
 	LD HL,CPM	; memory address to start
 	LD (ADDR),HL
@@ -65,7 +71,8 @@ PUT1:	; track loop
 	CALL SETDMA
 	CALL WRITE
 	LD A,(SECTOR)
-	CP 50
+	;CP 50
+	CP SECCNT
 	JP Z,PUT2
 		
 	INC A
@@ -76,7 +83,8 @@ PUT1:	; track loop
 	LD (ADDR),HL
 	JP PUT1
 
-PUT2:	JP MWARM	; call Monitor
+PUT2:	;JP MWARM	; call Monitor
+	JP BIOS
 
 ;-----------------------------------------------------------------------------
 

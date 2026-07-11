@@ -45,53 +45,62 @@ PUTSY-CFZ80
    42                   
    43         0004      STDRIVE	EQU 4		; first IDE/CF-drive
    44                   
-   45                   ;-----------------------------------------------------------------------------
-   46                   
-   47         0100      	ORG 100H	; start at 100H
-   48                   
-   49                   ; write track 0, sectors 1 to 50
-   50                   
-   51 0100  0E 04       PUT:	LD C,STDRIVE	; first CF/IDE drive
-   52 0102  CD E21B     	CALL SELDSK		
-   53 0105  3E 01       	LD A,1		; starting sector
-   54 0107  32 0142     	LD (SECTOR),A
-   55 010A  21 CC00     	LD HL,CPM	; memory address to start
-   56 010D  22 0143     	LD (ADDR),HL
-   57 0110  0E 00       	LD C,0		; CP/M track
-   58 0112  CD E21E     	CALL SETTRK
+   45                   ; sector count (1024 byte sectors)
+   46                   ; on a IDE/CF disk 1 track is reserved: 64 sectors
+   47                   ;SECCNT	EQU (0F000h-CPM)/128
+   48         003F      SECCNT	EQU 63			; only 64 sectors per track
+   49                   
+   50                   ;-----------------------------------------------------------------------------
+   51                   
+   52         0100      	ORG 100H	; program starts at 100H
+   53                   
+   54                   ; write track 0, sectors 1 to 50
+   55                   ; write track 0, sectors 1 to SECCNT
+   56                   ; only one system track available
+   57                   
+   58 0100  0E 04       PUT:	LD C,STDRIVE	; first CF/IDE drive
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
 PUTSY-CFZ80
 
-   59                   
-   60 0115              PUT1:	; track loop
-   61 0115  3A 0142     	LD A,(SECTOR)
-   62 0118  4F          	LD C,A		; CP/M sector
-   63 0119  CD E221     	CALL SETSEC
-   64 011C  ED 4B 0143  	LD BC,(ADDR)	; memory location
-   65 0120  CD E224     	CALL SETDMA
-   66 0123  CD E22A     	CALL WRITE
-   67 0126  3A 0142     	LD A,(SECTOR)
-   68 0129  FE 32       	CP 50
-   69 012B  CA 013F     	JP Z,PUT2
-   70                   		
-   71 012E  3C          	INC A
-   72 012F  32 0142     	LD (SECTOR),A
-   73 0132  2A 0143     	LD HL,(ADDR)
-   74 0135  11 0080     	LD DE,128
-   75 0138  19          	ADD HL,DE
-   76 0139  22 0143     	LD (ADDR),HL
-   77 013C  C3 0115     	JP PUT1
-   78                   
-   79 013F  C3 F033     PUT2:	JP MWARM	; call Monitor
-   80                   
-   81                   ;-----------------------------------------------------------------------------
-   82                   
-   83 0142  00          SECTOR:	DB	00H
-   84 0143  0000        ADDR:	DW	0000H
-   85                   
-   86                   ;-----------------------------------------------------------------------------
-   87                   
-   88                   	END
+   59 0102  CD E21B     	CALL SELDSK		
+   60 0105  3E 01       	LD A,1		; starting with 2. sector (0..n-1) 
+   61 0107  32 0142     	LD (SECTOR),A
+   62 010A  21 CC00     	LD HL,CPM	; memory address to start
+   63 010D  22 0143     	LD (ADDR),HL
+   64 0110  0E 00       	LD C,0		; CP/M track
+   65 0112  CD E21E     	CALL SETTRK
+   66                   
+   67 0115              PUT1:	; track loop
+   68 0115  3A 0142     	LD A,(SECTOR)
+   69 0118  4F          	LD C,A		; CP/M sector
+   70 0119  CD E221     	CALL SETSEC
+   71 011C  ED 4B 0143  	LD BC,(ADDR)	; memory location
+   72 0120  CD E224     	CALL SETDMA
+   73 0123  CD E22A     	CALL WRITE
+   74 0126  3A 0142     	LD A,(SECTOR)
+   75                   	;CP 50
+   76 0129  FE 3F       	CP SECCNT
+   77 012B  CA 013F     	JP Z,PUT2
+   78                   		
+   79 012E  3C          	INC A
+   80 012F  32 0142     	LD (SECTOR),A
+   81 0132  2A 0143     	LD HL,(ADDR)
+   82 0135  11 0080     	LD DE,128
+   83 0138  19          	ADD HL,DE
+   84 0139  22 0143     	LD (ADDR),HL
+   85 013C  C3 0115     	JP PUT1
+   86                   
+   87 013F  C3 F033     PUT2:	JP MWARM	; call Monitor
+   88                   
+   89                   ;-----------------------------------------------------------------------------
+   90                   
+   91 0142  00          SECTOR:	DB	00H
+   92 0143  0000        ADDR:	DW	0000H
+   93                   
+   94                   ;-----------------------------------------------------------------------------
+   95                   
+   96                   	END
  0 Error(s) Detected.
- 69 Absolute Bytes. 14 Symbols Detected.
- E224     	CALL
+ 69 Absolute Bytes. 15 Symbols Detected.
+D E22A     	CALL WRITE
+   74 0126  3A 0142     	LD A,(SE

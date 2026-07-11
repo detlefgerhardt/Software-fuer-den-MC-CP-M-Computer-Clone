@@ -18,6 +18,7 @@
 ; Version history
 ;
 ; 10.07.2026 *dg* Renamed to NBOOT-CF and reformatted
+; 11.07.2026 *dg* Increased number of sectors to read to 63 because of larger BIOS
 
 
 HSTBUF	EQU	08100H		; will put 256-byte raw sector here
@@ -29,7 +30,8 @@ IDESTAT	EQU	01FH		; Hardwareadresse IDE Statusregister
 
 ; sector count (1024 byte sectors)
 ; on a IDE/CF disk 1 track is reserved: 64 sectors
-SECCNT	EQU (0F000h-CPM)/128
+;SECCNT	EQU (0F000h-CPM)/128
+SECCNT	EQU 63			; only 64 sectors on one track
 
 ;-----------------------------------------------------------------------------
 

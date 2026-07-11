@@ -19,7 +19,7 @@
 ;                 Replaced Monitor write_string function because it might
 ;                 be overwritten bei the BIOS
 
-BIOS	EQU 0EA00H-800H-4000H
+BIOS	EQU 0EA00H-800H
 
 ; BIOS functions
 SELDSK	EQU BIOS+01BH		; pass disk no. in c
@@ -41,9 +41,9 @@ FORM:	LD SP,STACK
 
 	LD HL,STMSG
 	CALL WRSTR		; output start message
-		
-	;LD HL,DIR_SECTOR	; address of data to write
-	;LD (ADDRESS),HL
+
+	LD A,0
+	LD (CHAR_COUNT),A
 	
 	LD A,STDISK		; first cf disk
 	LD (DISK),A
@@ -67,7 +67,6 @@ FORM3:	; sector loop
 	LD C,A			; set sector
 	CALL SETSEC
 	LD BC,DIR_SECTOR
-	;LD BC,(ADDRESS)	; memory location
 	CALL SETDMA
 	CALL WRITE
 	LD A,(SECTOR)

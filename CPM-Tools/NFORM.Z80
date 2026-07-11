@@ -43,6 +43,8 @@ FLOB4	EQU 034H
 
 ;-----------------------------------------------------------------------------
 
+	ORG 100H
+
 	JP START 	; Hauptprogramm
 
 ;-----------------------------------------------------------------------------
@@ -2373,4 +2375,5 @@ CURSEC:	DEFB 0  	; aktueller Sektor
 
 FORMTAB:	; Formatierbereich, hier wird ein Track gelegt.
 
-	END start
+	END
+

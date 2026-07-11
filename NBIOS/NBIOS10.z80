@@ -48,8 +48,8 @@ MINI3	EQU TRUE
 	IF NOT MINI3
 BTDRV	EQU 0		; drive A:
 	ELSE
-;BTDRV	EQU 4		; drive E: (CF)
-BTDRV	EQU 0		; drive A:
+BTDRV	EQU 4		; drive E: (CF)
+;BTDRV	EQU 0		; drive A:
 	ENDIF
 
 ;------------------------------------------------------------------------------
@@ -498,7 +498,11 @@ BOOT:	LD SP,BUFF+80H	; output start message
 	CALL PRMSG
 	
 	; clear / set last used drive
+	IF NOT MINI3
+	XOR A
+	ELSE
 	LD A,BTDRV
+	ENDIF
 	LD (CDISK),A
 	
 	; sector buffer is empty, set to physical sector buffer not changed
@@ -516,7 +520,7 @@ BOOT:	LD SP,BUFF+80H	; output start message
 	
 	IF DG01
 	; patch BDOS avtive drive
-	;CALL PATA
+	CALL PATA
 	;CALL PATB
 	ENDIF
 	
@@ -530,14 +534,14 @@ WBOOT:	; write physical sector buffer to disk if changed
 	OR A
 	JP Z,WBOO1
 
-	IF NOT MINI3
+	;IF NOT MINI3
 	
 	CALL PUTPHS	; normalerweise ist Schreibvorgang
 			; nach einem Direktoryzugriff abgeschlossen
 			; ACHTUNG BUG!? PUTPHS nur fuer Mini/DD-Laufwerke
 			; Bei einem anderen Laufwerk geht das wohl schief
 			
-	ENDIF
+	;ENDIF
 			
 WBOO1:	LD A,0FFH	; alle Tracks ungueltig, bei Diskettenwechsel wichtig
 	LD (CURDRV),A
@@ -607,10 +611,10 @@ GOCPM:	LD BC,BUFF	; Buffer auf Default einstellen
 	
 	IF DG01
 	; clear / set last used drive
-	;LD A,BTDRV
-	;LD (CDISK),A
+	LD A,BTDRV
+	LD (CDISK),A
 	; patch BDOS active drive
-	;CALL PATA
+	CALL PATA
 	;CALL PATB
 	ENDIF
 	
@@ -1806,7 +1810,8 @@ REXEC:	JP 0F05bh	; FLOMON RAM-FLOPPY
 ;=============================================================================
 ; Debuging routines
 
-	IF DG01
+	;IF DG01
+	IF FALSE
 
 ;-----------------------------------------------------------------------------
 ; Debug output (DBANK) (READ/WRITE)
@@ -1927,7 +1932,7 @@ DEBIDE:	PUSH BC
 
 DEBDEC:	PUSH AF
 	PUSH BC
-
+dirddddddddddddd
 	LD BC,-10000	; 1. Zehnerpotenz: Zehntausender
 	CALL DEBDE1
 	LD BC,-1000	; 2. Zehnerpotenz: Tausender
@@ -1963,7 +1968,7 @@ DEBDE2:	INC A		; Zeichen um 1 erhoehen (ASCII-Code weiterzaehlen)
 
 ;-----------------------------------------------------------------------------
 
-	ENDIF	; DG01
+	ENDIF	; DG01 or FALSE
 
 ;=============================================================================
 

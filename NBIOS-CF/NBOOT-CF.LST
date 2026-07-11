@@ -21,97 +21,98 @@ NBOOT-CFZ80
    18                   ; Version history
    19                   ;
    20                   ; 10.07.2026 *dg* Renamed to NBOOT-CF and reformatted
-   21                   
+   21                   ; 11.07.2026 *dg* Increased number of sectors to read to 63 because of larger BIOS
    22                   
-   23         8100      HSTBUF	EQU	08100H		; will put 256-byte raw sector here
-   24         F02A      IDEREAD	EQU	0F02AH		; Monitor function IDEREAD
-   25         E200      BIOS	EQU	0EA00H-800H	; CP/M cold start entry
-   26         CC00      CPM	EQU	0D400H-800H	; CCP Start
-   27                   
-   28         001F      IDESTAT	EQU	01FH		; Hardwareadresse IDE Statusregister
-   29                   
-   30                   ; sector count (1024 byte sectors)
-   31                   ; on a IDE/CF disk 1 track is reserved: 64 sectors
-   32         0048      SECCNT	EQU (0F000h-CPM)/128
-   33                   
-   34                   ;-----------------------------------------------------------------------------
+   23                   
+   24         8100      HSTBUF	EQU	08100H		; will put 256-byte raw sector here
+   25         F02A      IDEREAD	EQU	0F02AH		; Monitor function IDEREAD
+   26         E200      BIOS	EQU	0EA00H-800H	; CP/M cold start entry
+   27         CC00      CPM	EQU	0D400H-800H	; CCP Start
+   28                   
+   29         001F      IDESTAT	EQU	01FH		; Hardwareadresse IDE Statusregister
+   30                   
+   31                   ; sector count (1024 byte sectors)
+   32                   ; on a IDE/CF disk 1 track is reserved: 64 sectors
+   33                   ;SECCNT	EQU (0F000h-CPM)/128
+   34         003F      SECCNT	EQU 63			; only 64 sectors on one track
    35                   
-   36         8000      	ORG	08000H
+   36                   ;-----------------------------------------------------------------------------
    37                   
-   38                   ; read track 0, sectors 1 to 49
+   38         8000      	ORG	08000H
    39                   
-   40 8000  3E 01       BOOT:	LD A,1			; starting sector -- sector 0 has cpm_loader
-   41 8002  32 8056     	LD (SECTOR),A
-   42 8005  21 CC00     	LD HL,CPM		; memory address to place image
-   43 8008  22 8058     	LD (DMAAD),HL
-   44 800B  3E 00       	LD A,0			; CP/M track
-   45 800D  32 8057     	LD (TRACK),A
-   46                   		
-   47 8010              BOOT1:	; read track 0 loop
-   48 8010  CD 802F     	CALL RDSEC
-   49 8013  3A 8056     	LD A,(SECTOR)
-   50 8016  FE 32       	CP 50
-   51 8018  CA 802C     	JP Z,BOOT2
-   52                   
-   53                   	; inc sector
-   54 801B  3C          	INC A
-   55 801C  32 8056     	LD (SECTOR),A
-   56                   
-   57                   	; (DMAAD) += 128
-   58 801F  2A 8058     	LD HL,(DMAAD)
+   40                   ; read track 0, sectors 1 to 49
+   41                   
+   42 8000  3E 01       BOOT:	LD A,1			; starting sector -- sector 0 has cpm_loader
+   43 8002  32 8056     	LD (SECTOR),A
+   44 8005  21 CC00     	LD HL,CPM		; memory address to place image
+   45 8008  22 8058     	LD (DMAAD),HL
+   46 800B  3E 00       	LD A,0			; CP/M track
+   47 800D  32 8057     	LD (TRACK),A
+   48                   		
+   49 8010              BOOT1:	; read track 0 loop
+   50 8010  CD 802F     	CALL RDSEC
+   51 8013  3A 8056     	LD A,(SECTOR)
+   52 8016  FE 32       	CP 50
+   53 8018  CA 802C     	JP Z,BOOT2
+   54                   
+   55                   	; inc sector
+   56 801B  3C          	INC A
+   57 801C  32 8056     	LD (SECTOR),A
+   58                   
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
 NBOOT-CFZ80
 
-   59 8022  11 0080     	LD DE,128
-   60 8025  19          	ADD HL,DE
-   61 8026  22 8058     	LD (DMAAD),HL
-   62                   	
-   63 8029  C3 8010     	JP BOOT1
-   64                   
-   65 802C  C3 E200     BOOT2:	JP BIOS
+   59                   	; (DMAAD) += 128
+   60 801F  2A 8058     	LD HL,(DMAAD)
+   61 8022  11 0080     	LD DE,128
+   62 8025  19          	ADD HL,DE
+   63 8026  22 8058     	LD (DMAAD),HL
+   64                   	
+   65 8029  C3 8010     	JP BOOT1
    66                   
-   67                   ;-----------------------------------------------------------------------------
-   68                   ; Read one CP/M sector from partition 0 by calling the monitor.
-   69                   ; No drive number needed)
-   70                   ; Track number in (TRACK)
-   71                   ; Sector number in (SECTOR)
-   72                   ; DMA address in (DMAAD), location in memory to place the CP/M sector
-   73                   
-   74 802F  21 8100     RDSEC:	LD HL,HSTBUF	; buffer to place raw disk sector (256 bytes)
-   75 8032  3A 8056     	LD A,(SECTOR)
-   76 8035  CB 27       	SLA A		; shifts to match BIOS CP/M disk read routine
-   77 8037  CB 27       	SLA A		; no parition number (partition = 0)
-   78 8039  4F          	LD C,A		; LBA bits 0 to 7
-   79 803A  3A 8057     	LD A,(TRACK)
-   80 803D  47          	LD B,A		; LBA bits 8 to 15
-   81 803E  1E 00       	LD E,00H	; LBA bits 16 to 23
-   82 8040  CD F02A     	CALL IDEREAD	; ide read routine in Monitor
-   83                   			; Transfer top 128-bytes out of buffer to memory
-   84 8043  2A 8058     	LD HL,(DMAAD)	; memory location to place data read from disk
-   85 8046  11 8100     	LD DE,HSTBUF	; host buffer
-   86                   
-   87 8049  06 80       	LD B,128	; size of CP/M sector
+   67 802C  C3 E200     BOOT2:	JP BIOS
+   68                   
+   69                   ;-----------------------------------------------------------------------------
+   70                   ; Read one CP/M sector from partition 0 by calling the monitor.
+   71                   ; No drive number needed)
+   72                   ; Track number in (TRACK)
+   73                   ; Sector number in (SECTOR)
+   74                   ; DMA address in (DMAAD), location in memory to place the CP/M sector
+   75                   
+   76 802F  21 8100     RDSEC:	LD HL,HSTBUF	; buffer to place raw disk sector (256 bytes)
+   77 8032  3A 8056     	LD A,(SECTOR)
+   78 8035  CB 27       	SLA A		; shifts to match BIOS CP/M disk read routine
+   79 8037  CB 27       	SLA A		; no parition number (partition = 0)
+   80 8039  4F          	LD C,A		; LBA bits 0 to 7
+   81 803A  3A 8057     	LD A,(TRACK)
+   82 803D  47          	LD B,A		; LBA bits 8 to 15
+   83 803E  1E 00       	LD E,00H	; LBA bits 16 to 23
+   84 8040  CD F02A     	CALL IDEREAD	; ide read routine in Monitor
+   85                   			; Transfer top 128-bytes out of buffer to memory
+   86 8043  2A 8058     	LD HL,(DMAAD)	; memory location to place data read from disk
+   87 8046  11 8100     	LD DE,HSTBUF	; host buffer
    88                   
-   89 804B              RDSEC1:	; read sector bytes loop
-   90 804B  1A          	LD A,(DE)	; get byte from host buffer
-   91 804C  77          	LD (HL),A	; put into dmaad
-   92 804D  23          	INC HL
-   93 804E  13          	INC DE
-   94 804F  10 FA       	DJNZ RDSEC1	; put 128 bytes into memory
-   95                   
-   96 8051  DB 1F       	IN A,(IDESTAT)	; get status
-   97 8053  E6 01       	AND 01H		; error bit
-   98 8055  C9          	RET
-   99                   
-  100                   ;-----------------------------------------------------------------------------
+   89 8049  06 80       	LD B,128	; size of CP/M sector
+   90                   
+   91 804B              RDSEC1:	; read sector bytes loop
+   92 804B  1A          	LD A,(DE)	; get byte from host buffer
+   93 804C  77          	LD (HL),A	; put into dmaad
+   94 804D  23          	INC HL
+   95 804E  13          	INC DE
+   96 804F  10 FA       	DJNZ RDSEC1	; put 128 bytes into memory
+   97                   
+   98 8051  DB 1F       	IN A,(IDESTAT)	; get status
+   99 8053  E6 01       	AND 01H		; error bit
+  100 8055  C9          	RET
   101                   
-  102 8056  00          SECTOR:	DB	00H
-  103 8057  00          TRACK:	DB	00H
-  104 8058  0000        DMAAD:	DW	0000H
-  105                   
-  106                   	END
+  102                   ;-----------------------------------------------------------------------------
+  103                   
+  104 8056  00          SECTOR:	DB	00H
+  105 8057  00          TRACK:	DB	00H
+  106 8058  0000        DMAAD:	DW	0000H
+  107                   
+  108                   	END
  0 Error(s) Detected.
  90 Absolute Bytes. 14 Symbols Detected.
- 85 8046  11 8100     	LD DE,HSTBUF	; host buffer
-   86                   
-   87 8049  06 80       	LD B,128	; size of 
+ 87 8046  11 8100     	LD DE,HSTBUF	; host buffer
+   88            

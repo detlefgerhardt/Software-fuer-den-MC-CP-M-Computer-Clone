@@ -30,17 +30,20 @@ CONOUT	EQU 0F009h	; Output a chracter
 IDEWR	EQU 0F02DH	; IDE/CF write routine in Monitor
 MWARM	EQU 0F033H	; goto Monitor
 
+;-----------------------------------------------------------------------------
+
 	ORG 0100H	; start program here
 
 START:	LD HL,BOOTADR
 	LD C,00H
 	LD B,00H
 	LD E,00H
-	CALL IDEWR
+	CALL IDEWR	; write one 128 byte sector
+	
 	LD HL,MSG
 	CALL WRSTR
 	
-	JP MWARM	;ZURUECk zum Monitor
+	JP MWARM	; ZURUECk zum Monitor
 
 ;-----------------------------------------------------------------------------
 ; Used monitor CONOUT to print 0-terminated string

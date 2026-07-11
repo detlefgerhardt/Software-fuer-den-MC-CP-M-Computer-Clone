@@ -1,12 +1,23 @@
-;*****************************************************************
+	.Z80
+;*****************************************************************************
+; NPUT.Z80
+;
 ; PCPUT - Dieses Programm sendet eine Datei von einem CP/M Rechner
 ; zu einem PC über die serielle Schnittstelle. Dabei wird das 
 ; XMODEM-Protokoll verwendet.
 ;
 ; Urheber des Programms ist Ward Christensen.
 ; 2026 Angepasst für MC-Computer SYS-80s U.Haumann
+;
+;*****************************************************************************
+;
+; The program uses direct hardware access to the serial port
+;
+; NPUT Version history
+;
+; 11.07.2026 *dg* Renamed to NPUT and restart version at 1.0
 ; 
-;*****************************************************************
+;-----------------------------------------------------------------------------
 ;
 ; Hardwareadressen und -parameter ( 8152 Kanal A)
 ;
@@ -223,7 +234,7 @@ SEOT:	LD	A,EOT		; Ubertragungsende
 	CP	ACK		;
 	JR	NZ,EOTERR	;
 	CALL	ERXIT		; Fertig!
-	DEFB	13,10,10,'Uebertragung erfolgreich',13,10,'$'
+	DEFB	13,10,10,'Transfer Complete',13,10,'$'
 ;
 ; ACK NOT RECIEVED
 ;
@@ -243,8 +254,10 @@ RDERR:	CALL	ERXIT		;
 ;
 ; Meldungen
 ;
-RCVMSG:	DEFB	'Empfang starten...$'
-HLPMSG:	DEFB	'Kommando: PUTPC Dateiname',CR,LF,LF,'$'
+RCVMSG:	DEFB	'Receive the file now using XMODEM...$'
+
+HLPMSG:	DEFB	CR,LF,'NPUT V1.0 for SYS80/S-CPU',CR,LF,LF
+	DEFB	'Usage: NPUT file.ext',CR,LF,'$'
 ;
 ; Data area
 ;

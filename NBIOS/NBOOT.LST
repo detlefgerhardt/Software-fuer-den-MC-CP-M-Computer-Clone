@@ -27,59 +27,61 @@ NBOOT   Z80
    24                   ; sector count (1024 byte sectors)
    25                   ; on a mini disk 4 tracks are reserved: 5 * 4 - 1 = 19 sectors
    26         0009      SECCNT	EQU (0F000h-CPMB)/1024
-   27                   
-   28                   ; Monitor functions
-   29         F01E      RSTRT	EQU 0F01EH		; restart
-   30         F027      MINI	EQU 0F027H		; Old MINI routine in Monitor
-   31                   
-   32                   ;-----------------------------------------------------------------------------
-   33                   
-   34         0080      	ORG 080H		; load address for boot loader
-   35                   
-   36 0080  31 0100     BOOT:	LD	SP,100H		; start of stack
-   37                   
-   38 0083  21 CC00     	LD	HL,CPMB		; CP/M start address
-   39 0086  06 09       	LD	B,SECCNT
-   40                   	
-   41                   	; start with track 0 and sektor 2 because of 1 boot sector
-   42 0088  16 00       	LD	D,0
-   43 008A  1E 02       	LD	E,2		; physical sector 2..5 on first track
-   44                   
-   45 008C  E5          BOOT1:	PUSH	HL
-   46 008D  D5          	PUSH	DE
-   47 008E  C5          	PUSH	BC
-   48 008F  0E D0       	LD	C,11010000B	; drive 0 double dense mini
-   49 0091  06 01       	LD	B,1		; 1 = read 
-   50 0093  CD F027     	CALL	MINI		; Monitor Einsprung Mini Laufwerk
-   51 0096  C1          	POP	BC
-   52 0097  D1          	POP	DE
-   53 0098  E1          	POP	HL
-   54 0099  DA F01E     	JP	C,RSTRT		; monitor aufrufen bei fehler (Restart)
-   55                   
-   56 009C  D5          	PUSH	DE		; NEXT ADRESSE
-   57 009D  11 0400     	LD	DE,1024		; double dense bloecke
-   58 00A0  19          	ADD	HL,DE
+   27                   ;SECCNT	EQU 7
+   28                   
+   29                   ; Monitor functions
+   30         F01E      RSTRT	EQU 0F01EH		; restart
+   31         F027      MINI	EQU 0F027H		; Old MINI routine in Monitor
+   32                   
+   33                   ;-----------------------------------------------------------------------------
+   34                   
+   35         0080      	ORG 080H		; load address for boot loader
+   36                   
+   37 0080  31 0100     BOOT:	LD	SP,100H		; start of stack
+   38                   
+   39 0083  21 CC00     	LD	HL,CPMB		; CP/M start address
+   40 0086  06 09       	LD	B,SECCNT
+   41                   	
+   42                   	; start with track 0 and sektor 2 because of 1 boot sector
+   43 0088  16 00       	LD	D,0
+   44 008A  1E 02       	LD	E,2		; physical sector 2..5 on first track
+   45                   
+   46 008C  E5          BOOT1:	PUSH	HL
+   47 008D  D5          	PUSH	DE
+   48 008E  C5          	PUSH	BC
+   49 008F  0E D0       	LD	C,11010000B	; drive 0 double dense mini
+   50 0091  06 01       	LD	B,1		; 1 = read 
+   51 0093  CD F027     	CALL	MINI		; Monitor Einsprung Mini Laufwerk
+   52 0096  C1          	POP	BC
+   53 0097  D1          	POP	DE
+   54 0098  E1          	POP	HL
+   55 0099  DA F01E     	JP	C,RSTRT		; monitor aufrufen bei fehler (Restart)
+   56                   
+   57 009C  D5          	PUSH	DE		; NEXT ADRESSE
+   58 009D  11 0400     	LD	DE,1024		; double dense bloecke
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
 NBOOT   Z80
 
-   59 00A1  D1          	POP	DE
-   60 00A2  1C          	INC	E		; SEKTORANZAHL + 1
-   61 00A3  7B          	LD	A,E
-   62 00A4  FE 06       	CP	5+1		; 1..5  erst bei 6 neue Spur (4 max)
-   63 00A6  DA 00AC     	JP	C,BOOT2
-   64                   
-   65                   	; new track
-   66 00A9  1E 01       	LD	E,1		; start again with sector 1
-   67 00AB  14          	INC	D
-   68                   
-   69 00AC  05          BOOT2:	DEC	B
-   70 00AD  C2 008C     	JP	NZ,BOOT1	; solange bis fertig
-   71                   	
-   72 00B0  C3 E200     	JP	BIOS		; start coldbios
-   73                   
-   74                   ;-----------------------------------------------------------------------------
-   75                   
-   76                   	END
+   59 00A0  19          	ADD	HL,DE
+   60 00A1  D1          	POP	DE
+   61 00A2  1C          	INC	E		; SEKTORANZAHL + 1
+   62 00A3  7B          	LD	A,E
+   63 00A4  FE 06       	CP	5+1		; 1..5  erst bei 6 neue Spur (4 max)
+   64 00A6  DA 00AC     	JP	C,BOOT2
+   65                   
+   66                   	; new track
+   67 00A9  1E 01       	LD	E,1		; start again with sector 1
+   68 00AB  14          	INC	D
+   69                   
+   70 00AC  05          BOOT2:	DEC	B
+   71 00AD  C2 008C     	JP	NZ,BOOT1	; solange bis fertig
+   72                   	
+   73 00B0  C3 E200     	JP	BIOS		; start coldbios
+   74                   
+   75                   ;-----------------------------------------------------------------------------
+   76                   
+   77                   	END
  0 Error(s) Detected.
  128 Absolute Bytes. 9 Symbols Detected.
- 009D  11 0400   
+ 009D  11 0400     	LD	DE,1024		; double dense bloecke
+Z80ASM SuperFast Relocating Macro Assembler     

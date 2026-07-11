@@ -1,3 +1,6 @@
+	.Z80
+;*****************************************************************************
+; NGET.Z80
 ;
 ;  PCGET - This CP/M program receives a file from a PC via a serial 
 ;  port and writes it to a file on the CP/M system. The file transfer uses
@@ -13,8 +16,17 @@
 ;			up the start-up of file transfer (four second
 ;			delay otherwise).
 ;	1.3    2026	Angepasst für MC-Computer SYS-80s U.Haumann
-;	
 ;
+;*****************************************************************************
+;
+; The program uses direct hardware access to the serial port
+;
+; NGET Version history
+;
+; 11.07.2026 *dg* Renamed to NGET and restart version at 1.0
+
+;-----------------------------------------------------------------------------
+
 ; *) - hardware dependant
 ;
 ;  Serial Port Equates *)
@@ -23,10 +35,10 @@ SIOACR	EQU	021H		; SIO port A control register
 SIOADR	EQU	020H		; SIO port A data register
 SIOBCR	EQU	021H		; SIO port B control register
 SIOBDR	EQU	020H		; SIO port B data register
-;
-XMTMASK 	EQU	1		; MASK TO ISOLATE XMIT READY BIT
-XMTRDY  	EQU	1		; VALUE WHEN READY
-RCVMASK 	EQU	2		; MASK TO ISOLATE RECEIVE READY BIT
+
+XMTMASK 	EQU	1	; MASK TO ISOLATE XMIT READY BIT
+XMTRDY  	EQU	1	; VALUE WHEN READY
+RCVMASK 	EQU	2	; MASK TO ISOLATE RECEIVE READY BIT
 RCVRDY	EQU	2		; BIT ON WHEN READY
 ;
 ;  Transfer related equates
@@ -366,8 +378,8 @@ INITB:	LD	A,3		;
 ;
 MSENDA:	DEFB	'Send the file now using XMODEM...$'
 MSENDB:	DEFB	'Send the file now using XMODEM on Port B...$'
-MHELP:	DEFB	CR,LF,'GETPC Version SYS-80s',CR,LF,LF
-	DEFB	'Usage: GETPC file.ext ',CR,LF,LF,'$'
+MHELP:	DEFB	CR,LF,'NGET V1.0 for SYS80/S-CPU',CR,LF,LF
+	DEFB	'Usage: NGET file.ext ',CR,LF,'$'
 ;
 ; DONE - CLOSE UP SHOP
 ;
@@ -405,7 +417,9 @@ REIPL	EQU	0		;
 FCB	EQU	5CH		; DEFAULT FCB
 PARAM1	EQU	FCB+1		; COMMAND LINE PARAMETER 1 IN FCB
 PARAM2	EQU	PARAM1+16	; COMMAND LINE PARAMETER 2
-;
-;
-;
+
+;-----------------------------------------------------------------------------
+
 	END
+
+;-----------------------------------------------------------------------------
