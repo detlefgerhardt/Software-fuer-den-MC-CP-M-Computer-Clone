@@ -1,9 +1,11 @@
 	.Z80
 ;**********************************************************************
 ;* NPUTBOOT.Z80
-;
+;*
+;* Write Bootloader from memory location 1000H to Disk.
+;* This program is designated to be started from the Monitor.
+;*
 ;* based on LOAD80.Z80 by U. Haumann 07.05.2026
-;* Write Bootloader from memory location 1000H to Disk
 ;*
 ;**********************************************************************
 ; Der Boot Loader muss sich an Adresse 1000H befinden							
@@ -13,38 +15,51 @@
 ;
 ; Version history
 ;
-; 10.07.2026 *dg* Renamed to NBPUT-CF and reformatted
+; 10.07.2026 *dg* Renamed to NPUTBOOT and reformatted source code
+; 11.07.2026 *dg* Use new floppy routine 0F021h in Monitor
+
+;-----------------------------------------------------------------------------
 
 	ORG	0100H		
 
-OFFSET	EQU 0A000H-800H		; damit BIOS Start bei EA00h
+OFFSET	EQU 0A000H-800H		; damit BIOS Start bei E200h
 CPMB	EQU 03400H+OFFSET	; start CP/M
 BIOS	EQU 04A00H+OFFSET	; start BIOS
 
 ; Monitor functions
-MINI	EQU 0F027H		; Old MINI routine in Monitor
-RSTRT	EQU 0F01EH		; restart rouine in Monitor
+RSTRT	EQU 0F01EH	; Restart routine in Monitor
+FLOP	EQU 0F021H	; Monior Floppy routine
+MINI	EQU 0F027H	; Old MINI routine in Monitor (obsolete)
 
-MEMADDR	EQU 01000H		; address for boot loader in memory
+MEMADDR	EQU 01000H	; address for boot loader in memory
 
-WBOOT:	LD	SP,0FFH		; set stack
+;-----------------------------------------------------------------------------
 
-	LD	HL,MEMADDR	; START ADRESSE Boot Loader
-	LD	B,1		; ANZAHL DER SEKTOREN  A 1024 BYTES
-	LD	D,0		; START BEI TRACK 0 Sektor 1, 1=bootsektor
-	LD	E,1
+WBOOT:	LD SP,0FFH	; set stack
 
-	PUSH	HL
-	PUSH	DE
-	PUSH	BC
-	LD	C,11010000B	; laufwerk 0 double dense mini
-	LD	B,2		; 1=read, 2=write
-	CALL	MINI		; Monitor Einsprung Mini Laufwerk
-	POP	BC
-	POP	DE
-	POP	HL
-	JP	C,RSTRT		; error -> Monitor aufrufen bei fehler (Restart)
+	LD HL,MEMADDR	; START ADRESSE Boot Loader
+	LD D,0		; write to track 0
+	LD E,1		; write to sector 1 (first sector)
+
+	PUSH HL
+	PUSH DE
+	PUSH BC
+	;LD C,11010000B	; laufwerk 0 double dense mini
+	;LD B,2		; 1=read, 2=write
+	;CALL MINI	; Monitor Einsprung Mini Laufwerk
+	; use new floppy routine instead
+	LD C,00100001B	; drive 0, dd, mini
+	LD B,2		; 2 = write
+	CALL FLOP	; -> read sector
+	POP BC
+	POP DE
+	POP HL
+	JP C,RSTRT	; -> error -> call monitor restart
 				
-	JP	BIOS		; no error -> CP/M cold boot
+	JP BIOS		; no error -> CP/M cold boot
+
+;-----------------------------------------------------------------------------
 
 	END
+
+;-----------------------------------------------------------------------------

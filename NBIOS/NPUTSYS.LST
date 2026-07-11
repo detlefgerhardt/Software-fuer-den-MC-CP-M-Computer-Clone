@@ -7,78 +7,85 @@ NPUTSYS Z80
     4                   ; NPUTSYS.Z80
     5                   ;
     6                   ; Writes CP/M + BIOS from memory tp Mini drive
-    7                   ;
-    8                   ; based on putsys U.Haumann 07.05.2
-    9                   ;
-   10                   ;*****************************************************************************
-   11                   ;
-   12                   ; PLEASE NOTE THE CHANGED CPM & BIOS START ADDRESS AND SIZE !!!
-   13                   ;
-   14                   ; Version history
-   15                   ;
-   16                   ; 10.07.2026 *dg* Renamed to NBOOT and reformatted
-   17                   ;                 Changed CP/M and BIOS start address and sector count
-   18                   
-   19         9800      OFFSET	EQU	0A000H-800H	; damit BIOS Start bei E200h
-   20         CC00      CPMB	EQU	03400H+OFFSET	; start cp/m
-   21         E200      BIOS	EQU	04A00H+OFFSET	; start bios
-   22                   
-   23                   ; sector count (1024 byte sectors)
-   24                   ; on a mini disk 4 tracks are reserved: 5 * 4 - 1 = 19 sectors
-   25         0009      SECCNT	EQU (0F000h-CPMB)/1024
-   26                   ;SECCNT	EQU 7
-   27                   
-   28                   ; Monitor functions
-   29         F01E      RSTRT	EQU 0F01EH		; restart
-   30         F027      MINI	EQU 0F027H		; Old MINI routine in Monitor
-   31                   
-   32                   ;-----------------------------------------------------------------------------
-   33                   
-   34         0100      	ORG 0100h		
-   35                   
-   36 0100  31 0200     PUT:	LD SP,200H	;start of stack
-   37                   
-   38 0103  21 CC00     	LD HL,CPMB	; CP/M start address
-   39 0106  06 09       	LD B,SECCNT
-   40                   	
-   41                   	; start with track 0 and sektor 2 because of 1 boot sector
-   42 0108  16 00       	LD D,0
-   43 010A  1E 02       	LD E,2
-   44                   
-   45 010C              PUT1:	; sector loop	
-   46 010C  E5          	PUSH HL
-   47 010D  D5          	PUSH DE
-   48 010E  C5          	PUSH BC
-   49 010F  0E D0       	LD C,11010000B	; drive 0 double dense mini
-   50 0111  06 02       	LD B,2		; 1=read  2=write
-   51 0113  CD F027     	CALL MINI	; Monitor Einsprung Mini Laufwerk
-   52 0116  C1          	POP BC
-   53 0117  D1          	POP DE
-   54 0118  E1          	POP HL
-   55 0119  DA F01E     	JP C,RSTRT	;monitor aufrufen bei fehler (Restart)
-   56                   	
-   57 011C  D5          	PUSH DE		;NEXT ADRESSE
-   58 011D  11 0400     	LD DE,1024	;double dense bloecke
+    7                   ; This program is designated to be started from the Monitor.
+    8                   ;
+    9                   ; based on putsys U.Haumann 07.05.2
+   10                   ;
+   11                   ;*****************************************************************************
+   12                   ;
+   13                   ; PLEASE NOTE THE CHANGED CPM & BIOS START ADDRESS AND SIZE !!!
+   14                   ;
+   15                   ; Version history
+   16                   ;
+   17                   ; 10.07.2026 *dg* Renamed to NBOOT and reformatted source code
+   18                   ;                 Changed CP/M and BIOS start address and sector count
+   19                   ; 11.07.2026 *dg* Use new floppy routine 0F021h in Monitor
+   20                   
+   21         9800      OFFSET	EQU	0A000H-800H	; damit BIOS Start bei E200h
+   22         CC00      CPMB	EQU	03400H+OFFSET	; start CP/M
+   23         E200      BIOS	EQU	04A00H+OFFSET	; start BIOS
+   24                   
+   25                   ; sector count (1024 byte sectors)
+   26                   ; on a mini disk 4 tracks are reserved: 5 * 4 - 1 = 19 sectors
+   27         0009      SECCNT	EQU (0F000h-CPMB)/1024
+   28                   ;SECCNT	EQU 7
+   29                   
+   30                   ; Monitor functions
+   31         F01E      RSTRT	EQU 0F01EH	; restart
+   32         F021      FLOP	EQU 0F021H	; Monior Floppy routine
+   33         F027      MINI	EQU 0F027H	; Old MINI routine in Monitor (obsolete)
+   34                   
+   35                   ;-----------------------------------------------------------------------------
+   36                   
+   37         0100      	ORG 0100h		
+   38                   
+   39 0100  31 0200     PUT:	LD SP,200H	;start of stack
+   40                   
+   41 0103  21 CC00     	LD HL,CPMB	; CP/M start address
+   42 0106  06 09       	LD B,SECCNT
+   43                   	
+   44                   	; start with track 0 and sector 2 (sector 1 is boot sector)
+   45 0108  16 00       	LD D,0		; track
+   46 010A  1E 02       	LD E,2		; sector
+   47                   
+   48 010C              PUT1:	; sector loop	
+   49 010C  E5          	PUSH HL
+   50 010D  D5          	PUSH DE
+   51 010E  C5          	PUSH BC
+   52                   	;LD C,11010000B	; drive 0 double dense mini
+   53                   	;LD B,2		; 1=read  2=write
+   54                   	;CALL MINI	; Monitor Einsprung Mini Laufwerk
+   55                   	; use new floppy routine instead
+   56 010F  0E 21       	LD C,00100001B	; drive 0, dd, mini
+   57 0111  06 02       	LD B,2		; 2 = write
+   58 0113  CD F021     	CALL FLOP	; -> write sector
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
 NPUTSYS Z80
 
-   59 0120  19          	ADD HL,DE
-   60 0121  D1          	POP DE
-   61 0122  1C          	INC E		; inc sector
-   62 0123  7B          	LD A,E
-   63 0124  FE 06       	CP 5+1		; 1..5 erst bei 6 neue Spur (max. 4 tracks)
-   64 0126  DA 012C     	JP C,PUT2
-   65                   	
-   66 0129  1E 01       	LD E,1		; restart with sector 1
-   67 012B  14          	INC D
-   68                   
-   69 012C  05          PUT2:	DEC B
-   70 012D  C2 010C     	JP NZ,PUT1	; -> next sector
-   71 0130  C3 E200     	JP BIOS		; -> CP/M cold boot
-   72                   
-   73                   ;-----------------------------------------------------------------------------
-   74                   		
-   75                   	END
+   59 0116  C1          	POP BC
+   60 0117  D1          	POP DE
+   61 0118  E1          	POP HL
+   62 0119  DA F01E     	JP C,RSTRT	; call Monitor if error (Restart)
+   63                   	
+   64 011C  D5          	PUSH DE		; NEXT ADRESSE
+   65 011D  11 0400     	LD DE,1024	; double dense bloecke
+   66 0120  19          	ADD HL,DE
+   67 0121  D1          	POP DE
+   68 0122  1C          	INC E		; inc sector
+   69 0123  7B          	LD A,E
+   70 0124  FE 06       	CP 5+1		; 1..5 erst bei 6 neue Spur (max. 4 tracks)
+   71 0126  DA 012C     	JP C,PUT2	; -> A<6
+   72                   	
+   73 0129  1E 01       	LD E,1		; restart with sector 1
+   74 012B  14          	INC D
+   75                   
+   76 012C  05          PUT2:	DEC B
+   77 012D  C2 010C     	JP NZ,PUT1	; -> next sector
+   78 0130  C3 E200     	JP BIOS		; -> CP/M cold boot
+   79                   
+   80                   ;-----------------------------------------------------------------------------
+   81                   		
+   82                   	END
  0 Error(s) Detected.
- 51 Absolute Bytes. 9 Symbols Detected.
-        
+ 51 Absolute Bytes. 10 Symbols Detected.
+   62 0119  DA

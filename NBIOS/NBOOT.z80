@@ -15,7 +15,9 @@
 ;
 ; Version history
 ;
-; 10.07.2026 *dg* Renamed to NBOOT and reformatted
+; 10.07.2026 *dg* Renamed to NBOOT and reformatted source code
+; 11.07.2026 *dg* Use new floppy routine 0F021h in Monitor
+
 
 OFFSET	EQU 0A000H-800H		; damit BIOS Start bei E200h
 CPMB	EQU 03400H+OFFSET	; start CP/M
@@ -27,50 +29,55 @@ SECCNT	EQU (0F000h-CPMB)/1024
 ;SECCNT	EQU 7
 
 ; Monitor functions
-RSTRT	EQU 0F01EH		; restart
-MINI	EQU 0F027H		; Old MINI routine in Monitor
+RSTRT	EQU 0F01EH	; restart
+FLOP	EQU 0F021H	; Montior Floppy routine
+MINI	EQU 0F027H	; Old MINI routine in Monitor (obsolete)
 
 ;-----------------------------------------------------------------------------
 
-	ORG 080H		; load address for boot loader
+	ORG 080H	; boot loader is loaded to this address
 
-BOOT:	LD	SP,100H		; start of stack
+BOOT:	LD SP,100H	; start of stack
 
-	LD	HL,CPMB		; CP/M start address
-	LD	B,SECCNT
+	LD HL,CPMB	; CP/M start address
+	LD B,SECCNT
 	
-	; start with track 0 and sektor 2 because of 1 boot sector
-	LD	D,0
-	LD	E,2		; physical sector 2..5 on first track
+	; start with track 0 and sector 2 (sector 1 is boot sector)
+	LD D,0		; track
+	LD E,2		; sector
 
-BOOT1:	PUSH	HL
-	PUSH	DE
-	PUSH	BC
-	LD	C,11010000B	; drive 0 double dense mini
-	LD	B,1		; 1 = read 
-	CALL	MINI		; Monitor Einsprung Mini Laufwerk
-	POP	BC
-	POP	DE
-	POP	HL
-	JP	C,RSTRT		; monitor aufrufen bei fehler (Restart)
+BOOT1:	PUSH HL
+	PUSH DE
+	PUSH BC
+	;LD C,11010000B	; drive 0 double dense mini
+	;LD B,1		; 1 = read 
+	;CALL MINI	; Monitor Einsprung Mini Laufwerk
+	; use new floppy routine instead
+	LD C,00100001B	; drive 0, dd, mini
+	LD B,1		; 1 = read
+	CALL FLOP	; -> read sector
+	POP BC
+	POP DE
+	POP HL
+	JP C,RSTRT	; call Monitor if error (Restart)
 
-	PUSH	DE		; NEXT ADRESSE
-	LD	DE,1024		; double dense bloecke
-	ADD	HL,DE
-	POP	DE
-	INC	E		; SEKTORANZAHL + 1
-	LD	A,E
-	CP	5+1		; 1..5  erst bei 6 neue Spur (4 max)
-	JP	C,BOOT2
+	PUSH DE		; NEXT ADRESSE
+	LD DE,1024	; double dense bloecke
+	ADD HL,DE
+	POP DE
+	INC E		; SEKTORANZAHL + 1
+	LD A,E
+	CP 5+1		; 1..5  erst bei 6 neue Spur (4 max)
+	JP C,BOOT2
 
 	; new track
-	LD	E,1		; start again with sector 1
-	INC	D
+	LD E,1		; start again with sector 1
+	INC D
 
-BOOT2:	DEC	B
-	JP	NZ,BOOT1	; solange bis fertig
+BOOT2:	DEC B
+	JP NZ,BOOT1	; solange bis fertig
 	
-	JP	BIOS		; start coldbios
+	JP BIOS		; start coldbios
 
 ;-----------------------------------------------------------------------------
 

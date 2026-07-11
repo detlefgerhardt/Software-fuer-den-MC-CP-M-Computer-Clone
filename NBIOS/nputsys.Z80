@@ -4,6 +4,7 @@
 ; NPUTSYS.Z80
 ;
 ; Writes CP/M + BIOS from memory tp Mini drive
+; This program is designated to be started from the Monitor.
 ;
 ; based on putsys U.Haumann 07.05.2
 ;
@@ -13,12 +14,13 @@
 ;
 ; Version history
 ;
-; 10.07.2026 *dg* Renamed to NBOOT and reformatted
+; 10.07.2026 *dg* Renamed to NBOOT and reformatted source code
 ;                 Changed CP/M and BIOS start address and sector count
+; 11.07.2026 *dg* Use new floppy routine 0F021h in Monitor
 
 OFFSET	EQU	0A000H-800H	; damit BIOS Start bei E200h
-CPMB	EQU	03400H+OFFSET	; start cp/m
-BIOS	EQU	04A00H+OFFSET	; start bios
+CPMB	EQU	03400H+OFFSET	; start CP/M
+BIOS	EQU	04A00H+OFFSET	; start BIOS
 
 ; sector count (1024 byte sectors)
 ; on a mini disk 4 tracks are reserved: 5 * 4 - 1 = 19 sectors
@@ -26,8 +28,9 @@ SECCNT	EQU (0F000h-CPMB)/1024
 ;SECCNT	EQU 7
 
 ; Monitor functions
-RSTRT	EQU 0F01EH		; restart
-MINI	EQU 0F027H		; Old MINI routine in Monitor
+RSTRT	EQU 0F01EH	; restart
+FLOP	EQU 0F021H	; Monior Floppy routine
+MINI	EQU 0F027H	; Old MINI routine in Monitor (obsolete)
 
 ;-----------------------------------------------------------------------------
 
@@ -38,30 +41,34 @@ PUT:	LD SP,200H	;start of stack
 	LD HL,CPMB	; CP/M start address
 	LD B,SECCNT
 	
-	; start with track 0 and sektor 2 because of 1 boot sector
-	LD D,0
-	LD E,2
+	; start with track 0 and sector 2 (sector 1 is boot sector)
+	LD D,0		; track
+	LD E,2		; sector
 
 PUT1:	; sector loop	
 	PUSH HL
 	PUSH DE
 	PUSH BC
-	LD C,11010000B	; drive 0 double dense mini
-	LD B,2		; 1=read  2=write
-	CALL MINI	; Monitor Einsprung Mini Laufwerk
+	;LD C,11010000B	; drive 0 double dense mini
+	;LD B,2		; 1=read  2=write
+	;CALL MINI	; Monitor Einsprung Mini Laufwerk
+	; use new floppy routine instead
+	LD C,00100001B	; drive 0, dd, mini
+	LD B,2		; 2 = write
+	CALL FLOP	; -> write sector
 	POP BC
 	POP DE
 	POP HL
-	JP C,RSTRT	;monitor aufrufen bei fehler (Restart)
+	JP C,RSTRT	; call Monitor if error (Restart)
 	
-	PUSH DE		;NEXT ADRESSE
-	LD DE,1024	;double dense bloecke
+	PUSH DE		; NEXT ADRESSE
+	LD DE,1024	; double dense bloecke
 	ADD HL,DE
 	POP DE
 	INC E		; inc sector
 	LD A,E
 	CP 5+1		; 1..5 erst bei 6 neue Spur (max. 4 tracks)
-	JP C,PUT2
+	JP C,PUT2	; -> A<6
 	
 	LD E,1		; restart with sector 1
 	INC D

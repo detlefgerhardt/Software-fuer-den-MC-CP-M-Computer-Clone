@@ -18,70 +18,79 @@ NBOOT   Z80
    15                   ;
    16                   ; Version history
    17                   ;
-   18                   ; 10.07.2026 *dg* Renamed to NBOOT and reformatted
-   19                   
-   20         9800      OFFSET	EQU 0A000H-800H		; damit BIOS Start bei E200h
-   21         CC00      CPMB	EQU 03400H+OFFSET	; start CP/M
-   22         E200      BIOS	EQU 04A00H+OFFSET	; start BIOS
-   23                   
-   24                   ; sector count (1024 byte sectors)
-   25                   ; on a mini disk 4 tracks are reserved: 5 * 4 - 1 = 19 sectors
-   26         0009      SECCNT	EQU (0F000h-CPMB)/1024
-   27                   ;SECCNT	EQU 7
-   28                   
-   29                   ; Monitor functions
-   30         F01E      RSTRT	EQU 0F01EH		; restart
-   31         F027      MINI	EQU 0F027H		; Old MINI routine in Monitor
-   32                   
-   33                   ;-----------------------------------------------------------------------------
-   34                   
-   35         0080      	ORG 080H		; load address for boot loader
-   36                   
-   37 0080  31 0100     BOOT:	LD	SP,100H		; start of stack
-   38                   
-   39 0083  21 CC00     	LD	HL,CPMB		; CP/M start address
-   40 0086  06 09       	LD	B,SECCNT
-   41                   	
-   42                   	; start with track 0 and sektor 2 because of 1 boot sector
-   43 0088  16 00       	LD	D,0
-   44 008A  1E 02       	LD	E,2		; physical sector 2..5 on first track
-   45                   
-   46 008C  E5          BOOT1:	PUSH	HL
-   47 008D  D5          	PUSH	DE
-   48 008E  C5          	PUSH	BC
-   49 008F  0E D0       	LD	C,11010000B	; drive 0 double dense mini
-   50 0091  06 01       	LD	B,1		; 1 = read 
-   51 0093  CD F027     	CALL	MINI		; Monitor Einsprung Mini Laufwerk
-   52 0096  C1          	POP	BC
-   53 0097  D1          	POP	DE
-   54 0098  E1          	POP	HL
-   55 0099  DA F01E     	JP	C,RSTRT		; monitor aufrufen bei fehler (Restart)
-   56                   
-   57 009C  D5          	PUSH	DE		; NEXT ADRESSE
-   58 009D  11 0400     	LD	DE,1024		; double dense bloecke
+   18                   ; 10.07.2026 *dg* Renamed to NBOOT and reformatted source code
+   19                   ; 11.07.2026 *dg* Use new floppy routine 0F021h in Monitor
+   20                   
+   21                   
+   22         9800      OFFSET	EQU 0A000H-800H		; damit BIOS Start bei E200h
+   23         CC00      CPMB	EQU 03400H+OFFSET	; start CP/M
+   24         E200      BIOS	EQU 04A00H+OFFSET	; start BIOS
+   25                   
+   26                   ; sector count (1024 byte sectors)
+   27                   ; on a mini disk 4 tracks are reserved: 5 * 4 - 1 = 19 sectors
+   28         0009      SECCNT	EQU (0F000h-CPMB)/1024
+   29                   ;SECCNT	EQU 7
+   30                   
+   31                   ; Monitor functions
+   32         F01E      RSTRT	EQU 0F01EH	; restart
+   33         F021      FLOP	EQU 0F021H	; Montior Floppy routine
+   34         F027      MINI	EQU 0F027H	; Old MINI routine in Monitor (obsolete)
+   35                   
+   36                   ;-----------------------------------------------------------------------------
+   37                   
+   38         0080      	ORG 080H	; boot loader is loaded to this address
+   39                   
+   40 0080  31 0100     BOOT:	LD SP,100H	; start of stack
+   41                   
+   42 0083  21 CC00     	LD HL,CPMB	; CP/M start address
+   43 0086  06 09       	LD B,SECCNT
+   44                   	
+   45                   	; start with track 0 and sector 2 (sector 1 is boot sector)
+   46 0088  16 00       	LD D,0		; track
+   47 008A  1E 02       	LD E,2		; sector
+   48                   
+   49 008C  E5          BOOT1:	PUSH HL
+   50 008D  D5          	PUSH DE
+   51 008E  C5          	PUSH BC
+   52                   	;LD C,11010000B	; drive 0 double dense mini
+   53                   	;LD B,1		; 1 = read 
+   54                   	;CALL MINI	; Monitor Einsprung Mini Laufwerk
+   55                   	; use new floppy routine instead
+   56 008F  0E 21       	LD C,00100001B	; drive 0, dd, mini
+   57 0091  06 01       	LD B,1		; 1 = read
+   58 0093  CD F021     	CALL FLOP	; -> read sector
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
 NBOOT   Z80
 
-   59 00A0  19          	ADD	HL,DE
-   60 00A1  D1          	POP	DE
-   61 00A2  1C          	INC	E		; SEKTORANZAHL + 1
-   62 00A3  7B          	LD	A,E
-   63 00A4  FE 06       	CP	5+1		; 1..5  erst bei 6 neue Spur (4 max)
-   64 00A6  DA 00AC     	JP	C,BOOT2
-   65                   
-   66                   	; new track
-   67 00A9  1E 01       	LD	E,1		; start again with sector 1
-   68 00AB  14          	INC	D
-   69                   
-   70 00AC  05          BOOT2:	DEC	B
-   71 00AD  C2 008C     	JP	NZ,BOOT1	; solange bis fertig
-   72                   	
-   73 00B0  C3 E200     	JP	BIOS		; start coldbios
-   74                   
-   75                   ;-----------------------------------------------------------------------------
+   59 0096  C1          	POP BC
+   60 0097  D1          	POP DE
+   61 0098  E1          	POP HL
+   62 0099  DA F01E     	JP C,RSTRT	; call Monitor if error (Restart)
+   63                   
+   64 009C  D5          	PUSH DE		; NEXT ADRESSE
+   65 009D  11 0400     	LD DE,1024	; double dense bloecke
+   66 00A0  19          	ADD HL,DE
+   67 00A1  D1          	POP DE
+   68 00A2  1C          	INC E		; SEKTORANZAHL + 1
+   69 00A3  7B          	LD A,E
+   70 00A4  FE 06       	CP 5+1		; 1..5  erst bei 6 neue Spur (4 max)
+   71 00A6  DA 00AC     	JP C,BOOT2
+   72                   
+   73                   	; new track
+   74 00A9  1E 01       	LD E,1		; start again with sector 1
+   75 00AB  14          	INC D
    76                   
-   77                   	END
+   77 00AC  05          BOOT2:	DEC B
+   78 00AD  C2 008C     	JP NZ,BOOT1	; solange bis fertig
+   79                   	
+   80 00B0  C3 E200     	JP BIOS		; start coldbios
+   81                   
+   82                   ;-----------------------------------------------------------------------------
+   83                   
+   84                   	END
  0 Error(s) Detected.
- 128 Absolute Bytes. 9 Symbols Detected.
- 009D  11 0400     	LD	DE,1024		; double dense bloecke
-Z80ASM SuperFast Relocating Macro Assembler     
+ 128 Absolute Bytes. 10 Symbols Detected.
+(Restart)
+   63                   
+   64 009C  D5          	PUSH DE		; NEXT ADRESSE
+   65 

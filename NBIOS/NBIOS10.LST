@@ -50,8 +50,8 @@ NBIOS10 Z80
    47                   ; logical drive to boot from
    48         0000      	IF NOT MINI3
    50                   	ELSE
-   51         0004      BTDRV	EQU 4		; drive E: (CF)
-   52                   ;BTDRV	EQU 0		; drive A:
+   51                   ;BTDRV	EQU 4		; drive E: (CF)
+   52         0000      BTDRV	EQU 0		; drive A:
    53                   	ENDIF
    54                   
    55                   ;------------------------------------------------------------------------------
@@ -320,8 +320,8 @@ NBIOS10 Z80
   453 E302  32 2E 32    	DB CPMVERS/10+'0','.',CPMVERS MOD 10+'0'
   454 E305  20 66 6F 72 	DB ' for MC-Computer '
   455 E316  35 38       	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-  456 E318  4B 20 4E 42 	DB 'K NBIOS 260710-01 BOOT='
-  457 E32F  34          	DB BTDRV+'0'
+  456 E318  4B 20 4E 42 	DB 'K NBIOS 260711-03 BOOT='
+  457 E32F  30          	DB BTDRV+'0'
   458 E330  0D 0A 00    	DB CR,LF,0
   459                   	
   460                   	ENDIF
@@ -370,7 +370,7 @@ NBIOS10 Z80
   500                   	; clear / set last used drive
   501         0000      	IF NOT MINI3
   503                   	ELSE
-  504 E345  3E 04       	LD A,BTDRV
+  504 E345  3E 00       	LD A,BTDRV
   505                   	ENDIF
   506 E347  32 0004     	LD (CDISK),A
   507                   	
@@ -423,7 +423,7 @@ NBIOS10 Z80
   554                   	; hier ist noch das Format des Boot-Laufwerks hardkodiert !!!
   555 E377  01 CC00     	LD BC,CPMB	; Boot von MINI-Diskette / Boot drive
   556 E37A  CD E444     	CALL SETDMA	; auf der Startadresse des CP/Ms
-  557 E37D  0E 04       	LD C,BTDRV	; Laufwerk A (or BTDRV)
+  557 E37D  0E 00       	LD C,BTDRV	; Laufwerk A (or BTDRV)
   558 E37F  CD E40D     	CALL SELDSK	; auswaehlen
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   8
 NBIOS10 Z80
@@ -483,7 +483,7 @@ NBIOS10 Z80
   611                   	
   612         FFFF      	IF DG01
   613                   	; clear / set last used drive
-  614 E3DE  3E 04       	LD A,BTDRV
+  614 E3DE  3E 00       	LD A,BTDRV
   615 E3E0  32 0004     	LD (CDISK),A
   616                   	; patch BDOS active drive
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   9
@@ -1400,7 +1400,7 @@ NBIOS10 Z80
  1736                   	; BDOS patch: init BDOS active drive
  1737                   
  1738 E6BE  2A E691     PATACL:	LD HL,(BDACT)
- 1739 E6C1  3E 04       	LD A,BTDRV
+ 1739 E6C1  3E 00       	LD A,BTDRV
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page  24
 NBIOS10 Z80
 

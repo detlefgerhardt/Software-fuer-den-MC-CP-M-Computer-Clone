@@ -48,8 +48,8 @@ MINI3	EQU TRUE
 	IF NOT MINI3
 BTDRV	EQU 0		; drive A:
 	ELSE
-BTDRV	EQU 4		; drive E: (CF)
-;BTDRV	EQU 0		; drive A:
+;BTDRV	EQU 4		; drive E: (CF)
+BTDRV	EQU 0		; drive A:
 	ENDIF
 
 ;------------------------------------------------------------------------------
@@ -453,7 +453,7 @@ SIGNON:
 	DB CPMVERS/10+'0','.',CPMVERS MOD 10+'0'
 	DB ' for MC-Computer '
 	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-	DB 'K NBIOS 260710-01 BOOT='
+	DB 'K NBIOS 260711-03 BOOT='
 	DB BTDRV+'0'
 	DB CR,LF,0
 	
