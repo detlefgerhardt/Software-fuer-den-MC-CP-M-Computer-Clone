@@ -17,11 +17,14 @@
 ;
 ; 10.07.2026 *dg* Renamed to NBOOT and reformatted source code
 ; 11.07.2026 *dg* Use new floppy routine 0F021h in Monitor
+; 25.07.2026 *dg* Added short message output
 
 
 OFFSET	EQU 0A000H-800H		; damit BIOS Start bei E200h
 CPMB	EQU 03400H+OFFSET	; start CP/M
 BIOS	EQU 04A00H+OFFSET	; start BIOS
+
+PHYSEC	EQU 5			; 5 physical sectors
 
 ; sector count (1024 byte sectors)
 ; on a mini disk 4 tracks are reserved: 5 * 4 - 1 = 19 sectors
@@ -29,55 +32,83 @@ SECCNT	EQU (0F000h-CPMB)/1024
 ;SECCNT	EQU 7
 
 ; Monitor functions
+CONOUT	EQU 0F009H	; Console out
 RSTRT	EQU 0F01EH	; restart
-FLOP	EQU 0F021H	; Montior Floppy routine
-MINI	EQU 0F027H	; Old MINI routine in Monitor (obsolete)
+FLOP	EQU 0F021H	; Monitor Floppy routine
+;MINI	EQU 0F027H	; Old MINI routine in Monitor (obsolete)
 
 ;-----------------------------------------------------------------------------
 
 	ORG 080H	; boot loader is loaded to this address
 
-BOOT:	LD SP,100H	; start of stack
+BOOT:	LD SP,1000H	; start of stack
+
+	LD HL,MSG
+	CALL WRSTR
 
 	LD HL,CPMB	; CP/M start address
-	LD B,SECCNT
+	LD B,SECCNT	; number of sectors to read
 	
 	; start with track 0 and sector 2 (sector 1 is boot sector)
-	LD D,0		; track
-	LD E,2		; sector
+	LD D,0		; track 0
+	LD E,2		; start with 2. sector (1. sector is boot sector)
 
 BOOT1:	PUSH HL
 	PUSH DE
 	PUSH BC
+	
 	;LD C,11010000B	; drive 0 double dense mini
 	;LD B,1		; 1 = read 
-	;CALL MINI	; Monitor Einsprung Mini Laufwerk
+	;CALL MINI	; Obsolet Monitor entry for Mini drive
+	
 	; use new floppy routine instead
 	LD C,00100001B	; drive 0, dd, mini
 	LD B,1		; 1 = read
 	CALL FLOP	; -> read sector
+	
 	POP BC
 	POP DE
 	POP HL
-	JP C,RSTRT	; call Monitor if error (Restart)
+	JR C,ERROR	; -> print error msg and restart Monitor
 
-	PUSH DE		; NEXT ADRESSE
+	PUSH DE		; next address
 	LD DE,1024	; double dense bloecke
 	ADD HL,DE
 	POP DE
-	INC E		; SEKTORANZAHL + 1
+	INC E		; sector count + 1
 	LD A,E
-	CP 5+1		; 1..5  erst bei 6 neue Spur (4 max)
-	JP C,BOOT2
+	CP PHYSEC+1	; 1..5, erst bei 6 neue Spur (4 max)
+	JR C,BOOT2
 
 	; new track
-	LD E,1		; start again with sector 1
+	LD E,1		; start again with sector 1 on new track
 	INC D
 
 BOOT2:	DEC B
-	JP NZ,BOOT1	; solange bis fertig
+	JR NZ,BOOT1	; solange bis fertig
 	
 	JP BIOS		; start coldbios
+
+;-----------------------------------------------------------------------------
+
+ERROR:	LD HL,ERRMSG
+	CALL WRSTR
+	JP RSTRT
+
+;-----------------------------------------------------------------------------
+
+WRSTR:	LD A,(HL)	; get char from string
+	AND A		; check if 0
+	RET Z		; -> end of string
+	
+	LD C,A
+	CALL CONOUT
+	INC HL		; next char in string
+	JR WRSTR	; start over
+
+MSG:	DEFM		0Dh,0Ah,0Ah,"BOOT 1.0 NDR/"
+	DEFM		SECCNT/10+'0',SECCNT MOD 10+'0',"S/1024B",0Dh,0Ah,0
+ERRMSG:	DEFM		"READ ERROR",0Dh,0Ah,0
 
 ;-----------------------------------------------------------------------------
 

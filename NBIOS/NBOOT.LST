@@ -20,77 +20,108 @@ NBOOT   Z80
    17                   ;
    18                   ; 10.07.2026 *dg* Renamed to NBOOT and reformatted source code
    19                   ; 11.07.2026 *dg* Use new floppy routine 0F021h in Monitor
-   20                   
+   20                   ; 25.07.2026 *dg* Added short message output
    21                   
-   22         9800      OFFSET	EQU 0A000H-800H		; damit BIOS Start bei E200h
-   23         CC00      CPMB	EQU 03400H+OFFSET	; start CP/M
-   24         E200      BIOS	EQU 04A00H+OFFSET	; start BIOS
-   25                   
-   26                   ; sector count (1024 byte sectors)
-   27                   ; on a mini disk 4 tracks are reserved: 5 * 4 - 1 = 19 sectors
-   28         0009      SECCNT	EQU (0F000h-CPMB)/1024
-   29                   ;SECCNT	EQU 7
-   30                   
-   31                   ; Monitor functions
-   32         F01E      RSTRT	EQU 0F01EH	; restart
-   33         F021      FLOP	EQU 0F021H	; Montior Floppy routine
-   34         F027      MINI	EQU 0F027H	; Old MINI routine in Monitor (obsolete)
-   35                   
-   36                   ;-----------------------------------------------------------------------------
-   37                   
-   38         0080      	ORG 080H	; boot loader is loaded to this address
+   22                   
+   23         9800      OFFSET	EQU 0A000H-800H		; damit BIOS Start bei E200h
+   24         CC00      CPMB	EQU 03400H+OFFSET	; start CP/M
+   25         E200      BIOS	EQU 04A00H+OFFSET	; start BIOS
+   26                   
+   27         0005      PHYSEC	EQU 5			; 5 physical sectors
+   28                   
+   29                   ; sector count (1024 byte sectors)
+   30                   ; on a mini disk 4 tracks are reserved: 5 * 4 - 1 = 19 sectors
+   31         0009      SECCNT	EQU (0F000h-CPMB)/1024
+   32                   ;SECCNT	EQU 7
+   33                   
+   34                   ; Monitor functions
+   35         F009      CONOUT	EQU 0F009H	; Console out
+   36         F01E      RSTRT	EQU 0F01EH	; restart
+   37         F021      FLOP	EQU 0F021H	; Monitor Floppy routine
+   38                   ;MINI	EQU 0F027H	; Old MINI routine in Monitor (obsolete)
    39                   
-   40 0080  31 0100     BOOT:	LD SP,100H	; start of stack
+   40                   ;-----------------------------------------------------------------------------
    41                   
-   42 0083  21 CC00     	LD HL,CPMB	; CP/M start address
-   43 0086  06 09       	LD B,SECCNT
-   44                   	
-   45                   	; start with track 0 and sector 2 (sector 1 is boot sector)
-   46 0088  16 00       	LD D,0		; track
-   47 008A  1E 02       	LD E,2		; sector
+   42         0080      	ORG 080H	; boot loader is loaded to this address
+   43                   
+   44 0080  31 1000     BOOT:	LD SP,1000H	; start of stack
+   45                   
+   46 0083  21 00C9     	LD HL,MSG
+   47 0086  CD 00BF     	CALL WRSTR
    48                   
-   49 008C  E5          BOOT1:	PUSH HL
-   50 008D  D5          	PUSH DE
-   51 008E  C5          	PUSH BC
-   52                   	;LD C,11010000B	; drive 0 double dense mini
-   53                   	;LD B,1		; 1 = read 
-   54                   	;CALL MINI	; Monitor Einsprung Mini Laufwerk
-   55                   	; use new floppy routine instead
-   56 008F  0E 21       	LD C,00100001B	; drive 0, dd, mini
-   57 0091  06 01       	LD B,1		; 1 = read
-   58 0093  CD F021     	CALL FLOP	; -> read sector
+   49 0089  21 CC00     	LD HL,CPMB	; CP/M start address
+   50 008C  06 09       	LD B,SECCNT	; number of sectors to read
+   51                   	
+   52                   	; start with track 0 and sector 2 (sector 1 is boot sector)
+   53 008E  16 00       	LD D,0		; track 0
+   54 0090  1E 02       	LD E,2		; start with 2. sector (1. sector is boot sector)
+   55                   
+   56 0092  E5          BOOT1:	PUSH HL
+   57 0093  D5          	PUSH DE
+   58 0094  C5          	PUSH BC
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
 NBOOT   Z80
 
-   59 0096  C1          	POP BC
-   60 0097  D1          	POP DE
-   61 0098  E1          	POP HL
-   62 0099  DA F01E     	JP C,RSTRT	; call Monitor if error (Restart)
-   63                   
-   64 009C  D5          	PUSH DE		; NEXT ADRESSE
-   65 009D  11 0400     	LD DE,1024	; double dense bloecke
-   66 00A0  19          	ADD HL,DE
-   67 00A1  D1          	POP DE
-   68 00A2  1C          	INC E		; SEKTORANZAHL + 1
-   69 00A3  7B          	LD A,E
-   70 00A4  FE 06       	CP 5+1		; 1..5  erst bei 6 neue Spur (4 max)
-   71 00A6  DA 00AC     	JP C,BOOT2
-   72                   
-   73                   	; new track
-   74 00A9  1E 01       	LD E,1		; start again with sector 1
-   75 00AB  14          	INC D
-   76                   
-   77 00AC  05          BOOT2:	DEC B
-   78 00AD  C2 008C     	JP NZ,BOOT1	; solange bis fertig
-   79                   	
-   80 00B0  C3 E200     	JP BIOS		; start coldbios
-   81                   
-   82                   ;-----------------------------------------------------------------------------
-   83                   
-   84                   	END
+   59                   	
+   60                   	;LD C,11010000B	; drive 0 double dense mini
+   61                   	;LD B,1		; 1 = read 
+   62                   	;CALL MINI	; Obsolet Monitor entry for Mini drive
+   63                   	
+   64                   	; use new floppy routine instead
+   65 0095  0E 21       	LD C,00100001B	; drive 0, dd, mini
+   66 0097  06 01       	LD B,1		; 1 = read
+   67 0099  CD F021     	CALL FLOP	; -> read sector
+   68                   	
+   69 009C  C1          	POP BC
+   70 009D  D1          	POP DE
+   71 009E  E1          	POP HL
+   72 009F  38 15       	JR C,ERROR	; -> print error msg and restart Monitor
+   73                   
+   74 00A1  D5          	PUSH DE		; next address
+   75 00A2  11 0400     	LD DE,1024	; double dense bloecke
+   76 00A5  19          	ADD HL,DE
+   77 00A6  D1          	POP DE
+   78 00A7  1C          	INC E		; sector count + 1
+   79 00A8  7B          	LD A,E
+   80 00A9  FE 06       	CP PHYSEC+1	; 1..5, erst bei 6 neue Spur (4 max)
+   81 00AB  38 03       	JR C,BOOT2
+   82                   
+   83                   	; new track
+   84 00AD  1E 01       	LD E,1		; start again with sector 1 on new track
+   85 00AF  14          	INC D
+   86                   
+   87 00B0  05          BOOT2:	DEC B
+   88 00B1  20 DF       	JR NZ,BOOT1	; solange bis fertig
+   89                   	
+   90 00B3  C3 E200     	JP BIOS		; start coldbios
+   91                   
+   92                   ;-----------------------------------------------------------------------------
+   93                   
+   94 00B6  21 00E5     ERROR:	LD HL,ERRMSG
+   95 00B9  CD 00BF     	CALL WRSTR
+   96 00BC  C3 F01E     	JP RSTRT
+   97                   
+   98                   ;-----------------------------------------------------------------------------
+   99                   
+  100 00BF  7E          WRSTR:	LD A,(HL)	; get char from string
+  101 00C0  A7          	AND A		; check if 0
+  102 00C1  C8          	RET Z		; -> end of string
+  103                   	
+  104 00C2  4F          	LD C,A
+  105 00C3  CD F009     	CALL CONOUT
+  106 00C6  23          	INC HL		; next char in string
+  107 00C7  18 F6       	JR WRSTR	; start over
+  108                   
+  109 00C9  0D 0A 0A 42 MSG:	DEFM		0Dh,0Ah,0Ah,"BOOT 1.0 NDR/"
+  110 00D9  30 39 53 2F 	DEFM		SECCNT/10+'0',SECCNT MOD 10+'0',"S/1024B",0Dh,0Ah,0
+  111 00E5  52 45 41 44 ERRMSG:	DEFM		"READ ERROR",0Dh,0Ah,0
+  112                   
+  113                   ;-----------------------------------------------------------------------------
+  114                   
+  115                   	END
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   3
+
+
  0 Error(s) Detected.
- 128 Absolute Bytes. 10 Symbols Detected.
-(Restart)
-   63                   
-   64 009C  D5          	PUSH DE		; NEXT ADRESSE
-   65 
+ 128 Absolute Bytes. 15 Symbols Detected.
+----------------------
