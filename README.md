@@ -1,7 +1,7 @@
 # Software-fuer-den-MC-CP-M-Computer-Clone
 Software fuer den MC CP/M-Computer Clone
 
-**Diese Repository befindet sich noch im Aufbau. Die Programme sind teilweise noch unvollständig und ungetestet!**
+**Dieses Repository befindet sich noch im Aufbau. Die Programme sind teilweise noch unvollständig und ungetestet!**
 
 Dieses Repository enthält Software für den MC CP/M Copmuter Clone von Ulrich Haumann. Die Software basiert sowohl auf der Originalsoftware von Rolf-Dieter Klein als auch auf Änderungen und neuen Programmen von Ulrich Haumann.
 
