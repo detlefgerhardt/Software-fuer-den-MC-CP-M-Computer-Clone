@@ -473,11 +473,11 @@ main(argc, argv)
 	
 	if (error)
 	{
-		PutStr("usage: NFORM <d>: -F:<f> -I:<i> -V\r\n");
-		PutStr("  d: = drive A:..D:\r\n");
-		PutStr("  f: = Format 1=NDR 800K, 2=IBM SS/SD (default=1)\r\n");
-		PutStr("  i: = Interleave/Skew (default=1)\r\n");
-		PutStr("  V: = Verify\r\n");
+		PutStr("usage: NFORM <d>: -F<f> -I<i> -V\r\n");
+		PutStr("  d = drive A:..D:\r\n");
+		PutStr("  f = Format 1=NDR 800K, 2=IBM SS/SD (default=1)\r\n");
+		PutStr("  i = Interleave/Skew (default=1)\r\n");
+		PutStr("  V = Verify\r\n");
 		return;
 	}
 

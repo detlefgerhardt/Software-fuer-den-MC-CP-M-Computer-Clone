@@ -73,33 +73,35 @@ INIT:
 	LD H,(IX+7)
 	PUSH HL
 	POP IX
+
+	; IX+0,IX+1 = Name
 	
-	LD A,(IX+0)	; SecCnt
+	LD A,(IX+2)	; SecCnt
 	LD (SECCNT),A
 	
-	LD L,(IX+1)	; BytCnt
-	LD H,(IX+2)
+	LD L,(IX+3)	; BytCnt
+	LD H,(IX+4)
 	LD (BYTCNT),HL
 	
-	LD A,(IX+3)	; TrkCnt
+	LD A,(IX+5)	; TrkCnt
 	LD (TRKCNT),A
 	
-	LD A,(IX+4)	; Density
+	LD A,(IX+6)	; Density
 	LD (DENSITY),A
 	
-	LD A,(IX+5)	; SSDD
+	LD A,(IX+7)	; SSDD
 	LD (SSDS),A
 	
-	LD A,(IX+6)	; MinMax
+	LD A,(IX+8)	; MinMax
 	LD (MINMAX),A
 
-	LD A,(IX+7)	; UseSSO
+	LD A,(IX+9)	; UseSSO
 	LD (USESSO),A
 
-	LD A,(IX+8)	; GapLen
+	LD A,(IX+10)	; GapLen
 	LD (GAPLEN),A
 
-	LD A,(IX+9)	; Filler
+	LD A,(IX+11)	; Filler
 	LD (FILLER),A
 
 	; convert drive to binary drive code
