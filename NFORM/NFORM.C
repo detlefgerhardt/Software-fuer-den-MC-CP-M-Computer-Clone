@@ -35,8 +35,9 @@ extern int FRMTRK();
 extern int VFYTRK();
 extern HOME();
 
-struct format
+typedef struct
 {
+	char *Name;
 	char SecCnt;	/* sectors per track (1..n) */
 	int BytCnt;		/* sector byte count 128, 256, 512, 1024 */
 	char TrkCnt;	/* track cnt (0..n-1) */
@@ -46,20 +47,43 @@ struct format
 	char UseSSO;	/* 1 = use SSO */
 	char GapLen;	/* 54 = 3 ? */
 	char Filler;	/* 0xE5 */
-};
+} format;
 
-struct format FRMNDR =
+/* Format NDR Mini-Disk 800K */
+format FMTNDR =
 {
+	"NDR",
 	5,				/* 5 sectors */
 	1024,			/* 1024 bytes per sector */
 	80,				/* 80 tracks */
 	1,				/* DD */
 	1,				/* DS */
-	0,				/* Mini */
+	0,				/* Mini (3.5/5.25 Zoll) */
 	1,				/* UseSSO */
 	54,				/* gap length */
 	0xE5			/* filler */
 };
+
+/* Format IBM 8" SD */
+format FMTISD =
+{
+	"IBM SS/SD",
+	26,				/* 26 sectors */
+	128,			/* 128 bytes per sector */
+	77,				/* 77 tracks */
+	0,				/* DD */
+	0,				/* DS */
+	1,				/* Maxi (8 Zoll) */
+	0,				/* no UseSSO */
+	27,				/* gap length */
+	0xE5			/* filler */
+};
+
+#define FMTCNT 2
+format *fmtlist[] = {FMTNDR, FMTISD};
+
+int list[] = { 1, 2, 3, 4};
+
 
 /****************************************************************************/
 
@@ -336,22 +360,29 @@ ChkErr(err, track)
 
 /****************************************************************************/
 
-ShowFmt(drive, fmt, skew)
-	int drive, skew;
-	struct format *fmt;
+ShowFmt(drive, fmt, skew, verify)
+	int drive, skew, verify;
+	format *fmt;
 {
-	sprintf(outbuf, "Format drive %c: T=%d S=%d B=%d I=%d ",
-		drive+'A', fmt->TrkCnt, fmt->SecCnt, fmt->BytCnt, skew);
+	char *str;
+	
+	str = "Format drive %c: %s [T=%d S=%d B=%d %s %s/%s I=%d %s]\r\n"; 
+	sprintf(outbuf, "Format drive %c: %s [T=%d S=%d B=%d ",
+		drive+'A', fmt->Name, fmt->TrkCnt, fmt->SecCnt, fmt->BytCnt);
 	PutStr(outbuf);
 
-	PutStr(fmt->MinMax == 0 ? "Mini" : "Maxi"); 
-	PutChr(' ');
-	
-	PutStr(fmt->Density == 0 ? "SD" : "DD"); 
+	PutStr(fmt->MinMax == 0 ? "Mini" : "Maxi");
 	PutChr(' ');
 
-	PutStr(fmt->SSDS == 0 ? "SS" : "DS"); 
-	PutStr("\r\n");
+	PutStr(fmt->SSDS == 0 ? "SS" : "DS");
+	PutChr('/');
+	
+	PutStr(fmt->Density == 0 ? "SD" : "DD");
+
+	sprintf(outbuf, "] I=%d %s\r\n",
+		skew, verify ? "verify" : ""
+	);
+	PutStr(outbuf);
 }
 
 /****************************************************************************/
@@ -378,23 +409,79 @@ main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	int drive, track, skew, trkcnt, stat, ch;
-	struct format *fmt;
-	BOOL error;
+	int p, track, trkcnt, stat, ch;
+	int drive, skew, fmtidx;
+	format *fmt;
+	BOOL error, verify;
 	
 	ChkRunCpm();
 
-	PutStr("NFORM 1.0 *dg* Juli 2026\r\n");
+	PutStr("\r\nNFORM 1.0 *dg* Juli 2026\r\n");
 	PutStr("Formatter for MC CP/M computer (FLO2)\r\n\n");
-	/*
-	printf("size=%d\r\n", sizeof(struct format));
-	return;
-	*/
 
-	/* drive, format */
-	drive = 1;
+	/* ----- parameter ----- */
+
+	fmtidx = 0;
+	fmt = fmtlist[fmtidx];
 	skew = 1;
-	fmt = FRMNDR;
+	verify = FALSE;
+
+	error = FALSE;
+	if (argc < 2)
+		error = TRUE;
+	
+	/*printf("%d %c %c %d\r\n", strlen(argv[1]), argv[1][0], argv[1][1], error);*/
+	if (!error && strlen(argv[1]) == 2 && argv[1][1] == ':')
+	{
+		drive = toupper(argv[1][0]) - 'A';
+		if (drive < 0 || drive > 3)
+			error = TRUE;
+	}
+	else
+		error = TRUE;
+
+	/*printf("drive=%d %d\r\n", drive, error);*/
+
+	if (!error)
+	{
+		for (p = 2; p < argc; p++)
+		{
+			if (argv[p][0] != '-' && argv[p][0] != '/') continue;
+			if (toupper(argv[p][1]) == 'F' && strlen(argv[p]) >= 2)
+			{
+				fmtidx = atoi(argv[p] + 2);
+				if (fmtidx < 1 || fmtidx > FMTCNT)
+					error= TRUE;
+				fmtidx--;
+				fmt = fmtlist[fmtidx];
+				/*
+				printf("fmtidx = %d\r\n", fmtidx);
+				printf("fmt = %s\r\n", fmt->Name);
+				*/
+			}
+			if (toupper(argv[p][1]) == 'I' && strlen(argv[p]) >= 2 && fmt != NULL )
+			{
+				skew = atoi(argv[p] + 2);
+				if (skew < 1 || skew > fmt->SecCnt)
+					error= TRUE;
+				/*printf("skew = %d\r\n", skew);*/
+			}
+			if (toupper(argv[p][1]) == 'V' && strlen(argv[p]) == 2)
+				verify = TRUE;
+		}
+	}
+	
+	if (error)
+	{
+		PutStr("usage: NFORM <d>: -F:<f> -I:<i> -V\r\n");
+		PutStr("  d: = drive A:..D:\r\n");
+		PutStr("  f: = Format 1=NDR 800K, 2=IBM SS/SD (default=1)\r\n");
+		PutStr("  i: = Interleave/Skew (default=1)\r\n");
+		PutStr("  V: = Verify\r\n");
+		return;
+	}
+
+	/* ----- parameter ----- */
 
 	skewbuf = calloc(fmt->SecCnt, 1);
 	buffer = calloc(BUFFER_SIZE, 1);
@@ -405,7 +492,7 @@ main(argc, argv)
 	}
 
 	CalcSkew(skewbuf, fmt->SecCnt, skew);
-	ShowFmt(drive, fmt, skew);
+	ShowFmt(drive, fmt, skew, verify);
 	if (skew != 1)
 		ShowSkew(skewbuf, fmt->SecCnt);
 	
@@ -428,9 +515,9 @@ main(argc, argv)
 		}
 		
 		stat = FRMTRK(track);
-		sprintf(outbuf, "Format track %02d (%02x)\r", track + 1);
+		sprintf(outbuf, "Format track %02d (%02x)\r", track + 1, stat);
 		PutStr(outbuf);
-		if (stat !=0 )
+		if (stat != 0)
 		{
 			ChkErr(stat, track);
 			error = TRUE;
@@ -442,34 +529,36 @@ main(argc, argv)
 	}
 	PutStr("\r\n");
 
-	HOME();
-	error = FALSE;
-	for (track = 0; track < trkcnt; track++)
+	if (verify && !error)
 	{
-		ch = GetChr();
-		if (ch == CTRLC)
+		HOME();
+		error = FALSE;
+		for (track = 0; track < trkcnt; track++)
 		{
-			PutStr("\r\nAborted\r\n");
-			return;
-		}
-		
-		stat = VFYTRK(track);
-		sprintf(outbuf, "Verify track %02d (%02x)\r", track + 1, stat);
-		PutStr(outbuf);
-		if (stat !=0 )
-		{
-			ChkErr(stat, track);
-			error = TRUE;
-			break;
-		}
+			ch = GetChr();
+			if (ch == CTRLC)
+			{
+				PutStr("\r\nAborted\r\n");
+				return;
+			}
+			
+			stat = VFYTRK(track);
+			sprintf(outbuf, "Verify track %02d (%02x)\r", track + 1, stat);
+			PutStr(outbuf);
+			if (stat !=0 )
+			{
+				ChkErr(stat, track);
+				error = TRUE;
+				break;
+			}
 
-		if (track < trkcnt - 1)
-			STEPIN();
+			if (track < trkcnt - 1)
+				STEPIN();
+		}
 	}
 
 	if (!error)
-		PutStr("\r\nfinished");
-	PutStr("\r\n");
+		PutStr("\r\nfinished\r\n");
 }
 
 /****************************************************************************/
