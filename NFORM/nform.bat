@@ -1,0 +1,7 @@
+CPM CCZ /SX NFORM
+CPM M801 =NFORM/Z/L
+CPM M801 =NFORMLL/Z/L
+CPM L80 NFORM/N,XXXMAIN,NFORM,NFORMLL,LIB/S/E/Y
+echo off > null
+del nform.hex > null
+IntelHex bh NFORM.COM > null

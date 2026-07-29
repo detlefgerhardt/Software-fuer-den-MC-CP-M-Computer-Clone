@@ -1,11 +1,11 @@
 	.z80
 
 ;*****************************************************************************
-; NFORM.Z80  Universal Formatierer fuer Mini/Maxi
+; UFORM122.Z80  Universal Formatierer fuer Mini/Maxi
 ;
-; Boot loader for MC CP/M-Computer Mini drive with FLO2 contoller
+; Boot loader for MC CP/M-Computer Mini drive with FLO1/FLO2 contoller
 ;
-; based on UFORMAT Rev 1.22 (C) 1984 Rolf-Dieter Klein / JS
+; (C) 1984 Rolf-Dieter Klein / JS
 ;
 ;*****************************************************************************
 ; works directly on Monitor and FLO2 hardware, does not need CP/M or BIOS
@@ -18,7 +18,7 @@
 ; Version history
 ;
 ; 31.05.2026 *dg* Source code of version 1.22 retrieved from binary
-; 10.07.2026 *dg* Renamed to NFORM and reformatted
+; 10.07.2026 *dg* Reformatted
 
 ; IO ADDESSES FLO1/FLO2 Mini/Maxi
 FLO0	EQU 0C0H	; Status/Command
