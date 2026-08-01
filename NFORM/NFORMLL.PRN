@@ -1,0 +1,1239 @@
+	MACRO-80 3.44	09-Dec-81	PAGE	1
+
+
+                                ; NFORMLL.MAC *dg* 01.08.2026
+                                ;
+                                ; low-level assembly routines for NFORM.C
+                                ;
+                                ; still contains some test, debug and sample code
+                                ; tested with NKC 800KB, 1440 KB and IBM 240 KB formats
+                                ; with skew/interleave support
+                                ; only supports FLO2 card with controller at address C0h and non-inverted
+                                ; special control lines
+                                ;
+                                
+  0000                          FALSE	EQU 0
+  FFFF                          TRUE	EQU NOT FALSE
+                                
+                                
+  00C0                          FLO	EQU 0C0h	; controller base address
+                                
+  0000'   00                    DRIVE:	DB 0
+  0001'   00                    DENSIT:	DB 0	; 0 = SD, 1 = DD
+  0002'   00                    MINMAX:	DB 0	; 0 = Mini, 1 = Maxi
+  0003'   0000                  BYTCNT:	DW 0
+  0005'   00                    GAPLEN:	DB 0
+  0006'   00                    SECCNT:	DB 0
+  0007'   00                    SSDS:	DB 0	; 0 = SS, 1 = DS
+  0008'   00                    USESSO:	DB 0
+  0009'   00                    TRKCNT:	DB 0
+  000A'   00                    FILLER: DB 0	; for sector data
+                                
+  000B'   0000                  TRKBUF:	DW 0	; pointer to buffer that can hold a complete track (more than 10.000 kb)
+  000D'   0000                  SKEWTB:	DW 0	; pointer to skew translation table, length = sector count
+                                
+  000F'   00                    CURTRK:	DB 0
+  0010'   00                    CURSEC:	DB 0
+  0011'   01                    SIDSEL:	DB 1
+                                
+                                ;-----------------------------------------------------------------------------
+                                
+                                	IF FALSE
+                                
+                                ; Test(ch)
+                                ;	int ch;
+                                
+                                	GLOBAL TEST
+                                
+                                TEST:
+                                	POP BC
+                                	POP HL
+                                	PUSH HL
+                                	PUSH BC
+                                	LD C,L
+                                	CALL 0F009H		; Monitor console out, character in C
+                                	LD H,0
+                                	RET
+                                
+                                	ENDIF
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-1
+
+
+                                ;-----------------------------------------------------------------------------
+                                ; Init(buffer, drive, skewtb, frm)
+                                ;	unsigned buffer;
+                                ;	int drive;
+                                ;	char *skewtb
+                                ;	struct format *frm;
+                                
+                                	GLOBAL INIT
+                                
+  0012'   DD 21 0002            INIT:	LD IX,2		; RET
+  0016'   DD 39                 	ADD IX,SP
+                                
+  0018'   DD 7E 00              	LD A,(IX+0)	; buffer low
+  001B'   32 000B'              	LD (TRKBUF),A
+  001E'   DD 7E 01              	LD A,(IX+1)	; buffer high
+  0021'   32 000C'              	LD (TRKBUF+1),A
+                                
+  0024'   DD 7E 02              	LD A,(IX+2)	; drive 0..n-1
+  0027'   32 0000'              	LD (DRIVE),A
+                                
+  002A'   DD 6E 04              	LD L,(IX+4)	; skew tab
+  002D'   DD 66 05              	LD H,(IX+5)
+  0030'   22 000D'              	LD (SKEWTB),HL
+                                	
+  0033'   DD 6E 06              	LD L,(IX+6)	; struct format *
+  0036'   DD 66 07              	LD H,(IX+7)
+  0039'   E5                    	PUSH HL
+  003A'   DD E1                 	POP IX
+                                
+                                	; IX+0,IX+1 = Name
+                                	
+  003C'   DD 7E 02              	LD A,(IX+2)	; SecCnt
+  003F'   32 0006'              	LD (SECCNT),A
+                                	
+  0042'   DD 6E 03              	LD L,(IX+3)	; BytCnt
+  0045'   DD 66 04              	LD H,(IX+4)
+  0048'   22 0003'              	LD (BYTCNT),HL
+                                	
+  004B'   DD 7E 05              	LD A,(IX+5)	; TrkCnt
+  004E'   32 0009'              	LD (TRKCNT),A
+                                	
+  0051'   DD 7E 06              	LD A,(IX+6)	; density
+  0054'   32 0001'              	LD (DENSIT),A
+                                	
+  0057'   DD 7E 07              	LD A,(IX+7)	; SSDD
+  005A'   32 0007'              	LD (SSDS),A
+                                	
+  005D'   DD 7E 08              	LD A,(IX+8)	; MinMax
+  0060'   32 0002'              	LD (MINMAX),A
+                                
+  0063'   DD 7E 09              	LD A,(IX+9)	; UseSSO
+  0066'   32 0008'              	LD (USESSO),A
+                                
+  0069'   DD 7E 0A              	LD A,(IX+10)	; GapLen
+  006C'   32 0005'              	LD (GAPLEN),A
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-2
+
+
+  006F'   DD 7E 0B              	LD A,(IX+11)	; Filler
+  0072'   32 000A'              	LD (FILLER),A
+                                
+                                	; convert drive to binary drive code
+                                	; (0 -> 0001, 1 -> 0010, 2 -> 0100, 3 -> 1000)
+  0075'   3A 0000'              	LD A,(DRIVE)
+  0078'   3C                    	INC A	; drive-1..0 -> drive..1, because of DJNZ
+  0079'   47                    	LD B,A
+  007A'   3E 01                 	LD A,00000001B
+  007C'                         INIT1:
+  007C'   CB 27                 	SLA A
+  007E'   10 FC                 	DJNZ INIT1
+  0080'   CB 3F                 	SRL	A	; we shifted once to many, shift back
+  0082'   32 0000'              	LD (DRIVE),A
+                                
+                                	IF FALSE
+                                
+                                	; set track buffer
+                                	POP BC
+                                	POP HL	; form buffer address
+                                	PUSH HL
+                                	PUSH BC
+                                	LD (TRKBUF),HL
+                                
+                                	LD A,00000010B	; drive 1 (B)
+                                	LD (DRIVE),A
+                                	LD A,0		; Mini
+                                	LD (MINMAX),A
+                                	LD A,1		; double density
+                                	LD (DENSIT),A
+                                	LD HL,1024 	; 1024 bytes per sector
+                                	LD (BYTCNT),HL
+                                	LD A,54 	; gap length 3
+                                	LD (GAPLEN),A
+                                	LD A,5		; 5 sectors
+                                	LD (SECCNT),A
+                                	LD A,1 		; double-sided
+                                	LD (SSDS),A
+                                	LD A,1		; use controller side bit
+                                	LD (USESSO),A
+                                	LD A,80 	; 80 tracks (0..79)
+                                	LD (TRKCNT),A
+                                	LD A,0E5H	; filler
+                                	LD (FILLER),A
+                                
+                                	ENDIF
+                                
+                                	; reset interrupts
+  0085'   DB C0                 	IN A,(FLO+0) 	; clear all interrupts
+                                
+  0087'   ED 56                 	IM 1  		; use MODE 1, RST-7
+  0089'   3E C3                 	LD A,0C3H 	; set jump vector
+  008B'   32 0038               	LD (38H),A
+  008E'   21 00A3'              	LD HL,INTR
+  0091'   22 0039               	LD (39H),HL
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-3
+
+
+                                	;CALL HOME 	; set head to track 0, status -> HL (0=ok)
+                                	
+  0094'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                
+  0095'   ED 46                 DEINIT:	IM 0
+  0097'   26 00                 	LD H,0
+  0099'   2E 00                 	LD L,0
+  009B'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; int getsec()
+                                
+                                	GLOBAL GETSEC
+                                	
+  009C'                         GETSEC:
+  009C'   3A 0010'              	LD A,(CURSEC)
+  009F'   6F                    	LD L,A
+  00A0'   26 00                 	LD H,0
+  00A2'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Interrupt routine
+                                
+  00A3'                         INTR:
+  00A3'   F1                    	POP AF
+                                	; reset interrupts
+  00A4'   DB C0                 	IN A,(FLO+0)
+  00A6'   FB                    	EI
+  00A7'   ED 4D                 	RETI
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Set head to track 0
+                                
+                                	GLOBAL HOME
+                                
+  00A9'   21 00FA               HOME:	LD HL,250 	; max retries
+                                	
+  00AC'                         HOME1:	; retry loop
+  00AC'   E5                    	PUSH  HL
+  00AD'   DB C0                 	IN A,(FLO+0)	; read status
+  00AF'   CD 0363'              	CALL DELAY
+  00B2'   FB                    	EI  		; enable interrupts
+  00B3'   CD 00CB'              	CALL RSTEX	; execute Restore
+  00B6'   F3                    	DI
+  00B7'   E1                    	POP HL
+  00B8'   DB C0                 	IN A,(FLO+0)	; read status
+  00BA'   E6 80                 	AND 80H 	; <>0 dann nicht ready
+  00BC'   28 09                 	JR Z,HOME2	; -> ok
+                                	
+  00BE'   2B                    	DEC HL
+  00BF'   7C                    	LD A,H
+  00C0'   B5                    	OR L  		
+  00C1'   20 E9                 	JR NZ,HOME1	; -> retry
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-4
+
+
+                                	; error
+  00C3'   21 0001               	LD HL,1
+  00C6'   C9                    	RET
+                                	
+  00C7'                         HOME2:	; ok
+  00C7'   21 0000               	LD HL,0
+  00CA'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Execute Restore FLO2
+                                
+  00CB'   CD 036F'              RSTEX:	CALL SETSR	; setup special register
+  00CE'   3E 0B                 	LD A,00001011B 	; 0000=Restore, Headload=1, Verify=0, Stepping rate=11
+  00D0'   D3 C0                 	OUT (FLO+0),A	; write command
+  00D2'   76                    	HALT  		; wait for INT
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; format whole disk
+                                
+                                	IF FALSE
+                                
+                                	GLOBAL FORMAT
+                                
+                                FORMAT:	XOR A
+                                	LD (CURTRK),A	; start with track 0
+                                
+                                	LD A,(TRKCNT) 	; number of tracks
+                                	LD B,A
+                                
+                                FORM1:	; format loop (tracks)
+                                
+                                	; --- format side 0 ---
+                                	
+                                	PUSH BC
+                                	;CALL ECMACHK 	; check if track 0 and ECMA70
+                                	CALL GENTRK 	; create track
+                                	CALL FMT 	; format track
+                                	RET NZ	; -> error code in A
+                                	
+                                	LD A,(SSDS)
+                                	CP 1
+                                	JP NZ,FORM3	; -> single sided
+                                
+                                	; --- double-sided,. format side 1 ---
+                                	
+                                	LD A,(DRIVE)	; Rueckseite setzen
+                                	OR 80H  	; aber kein Side-sel
+                                	LD (DRIVE),A
+                                
+                                	LD A,(USESSO)
+                                	OR A
+                                	JP Z,FORM2	; -> no SSO
+                                	
+                                	; SSO
+                                	LD A,80H 
+                                	LD (SIDSEL),A 	; setzen
+	MACRO-80 3.44	09-Dec-81	PAGE	1-5
+
+
+                                
+                                FORM2:	CALL GENTRK
+                                	CALL FMT
+                                	RET NZ	; -> error
+                                	
+                                	; set side 0
+                                	LD A,(DRIVE)
+                                	AND 7FH
+                                	LD (DRIVE),A   
+                                	XOR A
+                                	LD (SIDSEL),A
+                                
+                                FORM3:	LD A,(CURTRK)
+                                	INC A
+                                	LD (CURTRK),A
+                                	LD B,A
+                                	LD A,(TRKCNT)
+                                	CP B
+                                	JP Z,FORM4	; AKTRK = TRKCNT
+                                	
+                                	CALL STEPIN
+                                	
+                                FORM4:	LD C,'F'
+                                	LD B,0
+                                	;CALL CONOUT 	; Meldung FFFFF ausgeben bei jeder Spur ein F
+                                	PUSH BC
+                                	CALL PUTCHR
+                                	POP BC
+                                	
+                                	POP BC
+                                	DJNZ FORM1	; -> format loop (tracks)	
+                                
+                                	RET
+                                
+                                	ENDIF
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; format one track
+                                ;
+                                ; frmtrk(track)
+                                ;	int track
+                                
+                                	GLOBAL FRMTRK
+                                
+  00D3'   C1                    FRMTRK:	POP BC
+  00D4'   E1                    	POP HL
+  00D5'   7D                    	LD A,L	; track
+  00D6'   E5                    	PUSH HL
+  00D7'   C5                    	PUSH BC
+                                	
+  00D8'   32 000F'              	LD (CURTRK),A	; track
+                                
+  00DB'                         FRMTR1:	; format loop (tracks)
+                                
+                                	; --- format side 0 ---
+                                	
+	MACRO-80 3.44	09-Dec-81	PAGE	1-6
+
+
+                                	;CALL ECMACHK 	; check if track 0 and ECMA70
+  00DB'   CD 0116'              	CALL GENTRK 	; create track
+  00DE'   CD 028C'              	CALL FMT 	; format track
+  00E1'   20 2F                 	JR NZ,FRMTR9
+                                	
+  00E3'   3A 0007'              	LD A,(SSDS)
+  00E6'   FE 01                 	CP 1
+  00E8'   20 27                 	JR NZ,FRMTR3	; -> single sided
+                                
+                                	; --- double-sided,. format side 1 ---
+                                	
+  00EA'   3A 0000'              	LD A,(DRIVE)	; Rueckseite setzen
+  00ED'   F6 80                 	OR 80H  	; aber kein Side-sel
+  00EF'   32 0000'              	LD (DRIVE),A
+                                
+  00F2'   3A 0008'              	LD A,(USESSO)
+  00F5'   B7                    	OR A
+  00F6'   28 05                 	JR Z,FRMTR2	; -> no SSO
+                                
+                                	; SSO
+  00F8'   3E 80                 	LD A,80H 
+  00FA'   32 0011'              	LD (SIDSEL),A 	; setzen
+                                
+  00FD'                         FRMTR2:
+  00FD'   CD 0116'              	CALL GENTRK
+  0100'   CD 028C'              	CALL FMT
+  0103'   20 0D                 	JR NZ,FRMTR9
+                                	
+                                	; set side 0
+  0105'   3A 0000'              	LD A,(DRIVE)
+  0108'   E6 7F                 	AND 7FH
+  010A'   32 0000'              	LD (DRIVE),A   
+  010D'   AF                    	XOR A
+  010E'   32 0011'              	LD (SIDSEL),A
+                                
+  0111'                         FRMTR3:
+                                	; return without error
+  0111'   AF                    	XOR A
+                                
+  0112'                         FRMTR9:
+  0112'   6F                    	LD L,A
+  0113'   26 00                 	LD H,0
+  0115'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Create new track
+                                	
+                                	GLOBAL GENTRK
+                                	
+  0116'   DD 2A 000B'           GENTRK:	LD IX,(TRKBUF) 	; start of format table
+                                
+                                	; header
+  011A'   3A 0001'              	LD A,(DENSIT)
+  011D'   B7                    	OR A
+  011E'   20 06                 	JR NZ,GENT1	; -> double-density
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-7
+
+
+                                	; single-density
+  0120'   06 10                 	LD B,16
+  0122'   0E FF                 	LD C,0FFH 	; fuellbyte 
+  0124'   18 04                 	JR GENT2
+                                
+  0126'                         GENT1:	; double density
+  0126'   06 20                 	LD B,32
+  0128'   0E 4E                 	LD C,04EH
+                                	
+  012A'                         GENT2:
+  012A'   DD 71 00              GENT3:	LD (IX+0),C
+  012D'   DD 23                 	INC IX
+  012F'   05                    	DEC B
+  0130'   20 F8                 	JR NZ,GENT3
+                                
+                                	; create sectors
+                                	
+  0132'   3E 01                 	LD A,1		; start with sector 1 (1..n)
+  0134'   32 0010'              	LD (CURSEC),A 	; current sector
+  0137'   3A 0006'              	LD A,(SECCNT)
+  013A'   47                    	LD B,A
+                                
+  013B'                         GENT4:	; sector loop
+  013B'   C5                    	PUSH BC
+                                	
+                                	; ID field
+  013C'   3A 0001'              	LD A,(DENSIT)
+  013F'   B7                    	OR A
+  0140'   20 6C                 	JR NZ,GENT11	; -> double density
+                                
+                                	; --- single density ---
+                                	
+  0142'   06 06                 	LD B,6
+                                
+  0144'   DD 36 00 00           GENT5:	LD (IX+0),0
+  0148'   DD 23                 	INC IX
+  014A'   05                    	DEC B
+  014B'   20 F7                 	JR NZ,GENT5
+                                	
+  014D'   DD 36 00 FE           	LD (IX+0),0FEH 	; generate ID address mark
+  0151'   DD 23                 	INC IX
+                                	
+  0153'   3A 000F'              	LD A,(CURTRK)	; track number 0..n
+  0156'   DD 77 00              	LD (IX+0),A
+  0159'   DD 23                 	INC IX
+                                
+  015B'   3A 0011'              	LD A,(SIDSEL) 	; side
+  015E'   E6 80                 	AND 80H  	;
+  0160'   B7                    	OR A
+  0161'   20 06                 	JR NZ,GENT6	; -> side 1
+                                
+                                	; side 0
+  0163'   DD 36 00 00           	LD (IX+0),0  	; Seite 0
+  0167'   18 04                 	JR GENT7
+                                
+  0169'                         GENT6:	; side 1
+	MACRO-80 3.44	09-Dec-81	PAGE	1-8
+
+
+  0169'   DD 36 00 01           	LD (IX+0),1  	; Seite 1
+                                
+  016D'   DD 23                 GENT7:	INC IX
+  016F'   3A 0010'              	LD A,(CURSEC)
+  0172'   CD 0282'              	CALL SKEW
+  0175'   DD 77 00              	LD (IX+0),A  	; Sector 1..n
+  0178'   DD 23                 	INC IX
+  017A'   2A 0003'              	LD HL,(BYTCNT)	; sector size (128,256,512,1024)
+  017D'   7C                    	LD A,H  	; 0,1,2,4 da 80h,100h,200h,400h
+  017E'   FE 04                 	CP 4		; = 400H
+  0180'   20 02                 	JR NZ,GENT8	; -> not 400H
+                                	
+                                	; 400H -> 3
+  0182'   3E 03                 	LD A,3
+                                
+  0184'   DD 77 00              GENT8:	LD (IX+0),A  	; Laengenkennung (00h, 01h, 02h, 03h)
+  0187'   DD 23                 	INC IX
+                                	
+  0189'   DD 36 00 F7           	LD (IX+0),0F7H 	; generate CRC here
+  018D'   DD 23                 	INC IX
+                                
+  018F'   06 0B                 	LD B,11
+  0191'   DD 36 00 FF           GENT9:	LD (IX+0),0FFH
+  0195'   DD 23                 	INC IX
+  0197'   05                    	DEC B
+  0198'   20 F7                 	JR NZ,GENT9
+                                	
+  019A'   06 06                 	LD B,6
+  019C'   DD 36 00 00           GENT10:	LD (IX+0),0
+  01A0'   DD 23                 	INC IX
+  01A2'   05                    	DEC B
+  01A3'   20 F7                 	JR NZ,GENT10
+                                	
+  01A5'   DD 36 00 FB           	LD (IX+0),0FBH 	; generate data mark
+  01A9'   DD 23                 	INC IX
+  01AB'   C3 022D'              	JP GENT20
+                                
+                                	; --- double density ---
+                                
+  01AE'   06 0C                 GENT11:	LD B,12
+  01B0'   DD 36 00 00           GENT12:	LD (IX+0),0
+  01B4'   DD 23                 	INC IX
+  01B6'   05                    	DEC B
+  01B7'   20 F7                 	JR NZ,GENT12
+                                	
+  01B9'   06 03                 	LD B,3
+  01BB'   DD 36 00 F5           GENT13:	LD (IX+0),0F5H	; generate 0A1h without clock-bits
+  01BF'   DD 23                 	INC IX
+  01C1'   05                    	DEC B
+  01C2'   20 F7                 	JR NZ,GENT13
+                                	
+  01C4'   DD 36 00 FE           	LD (IX+0),0FEH 	; generate ID address mark
+  01C8'   DD 23                 	INC IX
+                                	
+  01CA'   3A 000F'              	LD A,(CURTRK)
+  01CD'   DD 77 00              	LD (IX+0),A  	; track 0..n
+	MACRO-80 3.44	09-Dec-81	PAGE	1-9
+
+
+  01D0'   DD 23                 	INC IX
+                                	
+  01D2'   3A 0011'              	LD A,(SIDSEL) 	; for side-sel SSO
+  01D5'   E6 80                 	AND 80H
+  01D7'   B7                    	OR A
+  01D8'   20 06                 	JR NZ,GENT14	; -> side 1
+                                
+                                	; side 0
+  01DA'   DD 36 00 00           	LD (IX+0),0  	; side 0
+  01DE'   18 04                 	JR GENT15
+                                	
+  01E0'   DD 36 00 01           GENT14:	LD (IX+0),1  	; side 1
+                                
+  01E4'   DD 23                 GENT15:	INC IX
+                                
+  01E6'   3A 0010'              	LD A,(CURSEC)
+  01E9'   CD 0282'              	CALL SKEW
+  01EC'   DD 77 00              	LD (IX+0),A  	; sector 1..n
+  01EF'   DD 23                 	INC IX
+  01F1'   2A 0003'              	LD HL,(BYTCNT)	; sector size (128,256,512,1024)
+  01F4'   7C                    	LD A,H  	; 0,1,2,4 da 80h,100h,200h,400h
+  01F5'   FE 04                 	CP 4
+  01F7'   20 02                 	JR NZ,GENT16
+                                	
+                                	; A=4
+  01F9'   3E 03                 	LD A,3
+                                
+  01FB'   DD 77 00              GENT16:	LD (IX+0),A  	; 0,1,2,3 Laengenkennung
+  01FE'   DD 23                 	INC IX
+  0200'   DD 36 00 F7           	LD (IX+0),0F7H 	; generate CRC here
+  0204'   DD 23                 	INC IX
+                                	
+  0206'   06 16                 	LD B,22
+  0208'   DD 36 00 4E           GENT17:	LD (IX+0),04EH
+  020C'   DD 23                 	INC IX
+  020E'   05                    	DEC B
+  020F'   20 F7                 	JR NZ,GENT17
+                                
+  0211'   06 0C                 	LD B,12
+  0213'   DD 36 00 00           GENT18:	LD (IX+0),0
+  0217'   DD 23                 	INC IX
+  0219'   05                    	DEC B
+  021A'   20 F7                 	JR NZ,GENT18
+                                	
+  021C'   06 03                 	LD B,3
+  021E'   DD 36 00 F5           GENT19:	LD (IX+0),0F5H	; generate 0A1h without clock-bits
+  0222'   DD 23                 	INC IX
+  0224'   05                    	DEC B
+  0225'   20 F7                 	JR NZ,GENT19
+                                	
+  0227'   DD 36 00 FB           	LD (IX+0),0FBH 	; generate data mark
+  022B'   DD 23                 	INC IX
+                                
+                                	; write data block
+                                
+  022D'   3A 000A'              GENT20:	LD A,(FILLER) 	; data byte
+	MACRO-80 3.44	09-Dec-81	PAGE	1-10
+
+
+  0230'   4F                    	LD C,A
+  0231'   2A 0003'              	LD HL,(BYTCNT) ; 128,256,512,1024
+                                
+  0234'   DD 71 00              GENT21:	LD (IX+0),C
+  0237'   DD 23                 	INC IX
+  0239'   2B                    	DEC HL
+  023A'   7C                    	LD A,H
+  023B'   B5                    	OR L
+  023C'   20 F6                 	JR NZ,GENT21
+                                	
+  023E'   DD 36 00 F7           	LD (IX+0),0F7H 	; generate CRC here
+  0242'   DD 23                 	INC IX
+  0244'   3A 0001'              	LD A,(DENSIT)
+  0247'   B7                    	OR A
+  0248'   20 04                 	JR NZ,GENT22	; -> double density
+                                	
+                                	; single density
+  024A'   0E FF                 	LD C,0FFH  	; Datenbyte SD
+  024C'   18 02                 	JR GENT23
+                                
+  024E'                         GENT22:	; double density
+  024E'   0E 4E                 	LD C,04EH  	; Datenbyte DD
+                                
+  0250'   3A 0005'              GENT23:	LD A,(GAPLEN)
+  0253'   47                    	LD B,A  	; store gap 3
+                                
+  0254'   DD 71 00              GENT24:	LD (IX+0),C
+  0257'   DD 23                 	INC IX
+  0259'   05                    	DEC B
+  025A'   20 F8                 	JR NZ,GENT24
+                                	
+                                	; next sector
+  025C'   3A 0010'              	LD A,(CURSEC)
+  025F'   3C                    	INC A
+  0260'   32 0010'              	LD (CURSEC),A 	; neue Sektorennummer
+  0263'   C1                    	POP BC
+  0264'   05                    	DEC B
+  0265'   C2 013B'              	JP NZ,GENT4	; -> sector loop
+                                	
+                                	; fill to the end
+  0268'   3A 0001'              	LD A,(DENSIT)
+  026B'   B7                    	OR A
+  026C'   20 04                 	JR NZ,GENT25	; -> double-sided
+                                
+                                	; single-sided
+  026E'   0E FF                 	LD C,0FFH 	; store gap 4
+  0270'   18 02                 	JR GENT26
+                                
+  0272'                         GENT25:	; double-sided
+  0272'   0E 4E                 	LD C,04EH
+                                
+  0274'   21 03E8               GENT26:	LD HL,1000	; use big number to make shure there are no
+                                			; unwanted bytes till the index puls
+  0277'   DD 71 00              GENT27:	LD (IX+0),C
+  027A'   DD 23                 	INC IX
+  027C'   2B                    	DEC HL
+	MACRO-80 3.44	09-Dec-81	PAGE	1-11
+
+
+  027D'   7C                    	LD A,H
+  027E'   B5                    	OR L
+  027F'   20 F6                 	JR NZ,GENT27
+                                	
+  0281'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Create new track for 1,44 MB
+                                
+                                	IF FALSE
+                                	
+                                	GLOBAL GEATRK
+                                	
+                                GEATRK:	LD IX,(TRKBUF) 	; start of format table
+                                
+                                	; ----- create track header -----
+                                	
+                                	LD B,80
+                                	LD C,04EH
+                                GEAT1:	LD (IX+0),C
+                                	INC IX
+                                	DEC B
+                                	JR NZ,GEAT1
+                                
+                                	LD B,12
+                                	LD C,00H
+                                GEAT2:	LD (IX+0),C
+                                	INC IX
+                                	DEC B
+                                	JR NZ,GEAT2
+                                
+                                	LD B,3
+                                GEAT3:	LD (IX+0),0F6H	; -> C2 witout clock-bits
+                                	INC IX
+                                	DEC B
+                                	JR NZ,GEAT3
+                                
+                                	LD (IX+0),0FCH	; generate index mark (IAM)
+                                	INC IX
+                                
+                                	LD B,50
+                                GEAT4:
+                                	LD (IX+0),04EH	; Gap 1 (Post-Indedx Gap)
+                                	INC IX
+                                	DEC B
+                                	JR NZ,GEAT4
+                                
+                                	; ----- create sectors -----
+                                	
+                                	LD A,1		; start with sector 1 (1..n)
+                                	LD (CURSEC),A 	; current sector
+                                	LD A,(SECCNT)
+                                	LD B,A
+                                
+                                GEAT5:	; ----- sector loop -----
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-12
+
+
+                                	PUSH BC
+                                
+                                	; 12 * 00H
+                                	LD B,12
+                                GEAT6:	LD (IX+0),00H
+                                	INC IX
+                                	DEC B
+                                	JR NZ,GEAT6
+                                	
+                                	; 3 * 0F5
+                                	LD B,3
+                                GEAT7:	LD (IX+0),0F5H	; generate 0A1h without clock-bits
+                                	INC IX
+                                	DEC B
+                                	JR NZ,GEAT7
+                                
+                                	; 1 * FEH
+                                	LD (IX+0),0FEH 	; generate ID address mark
+                                	INC IX
+                                	
+                                	LD A,(CURTRK)
+                                	LD (IX+0),A  	; track 0..n-1
+                                	INC IX
+                                	
+                                	LD A,(SIDSEL) 	; for side-sel SSO
+                                	AND 80H
+                                	OR A
+                                	JR NZ,GEAT8	; -> side 1
+                                	; side 0
+                                	LD (IX+0),0  	; side 0
+                                	JR GEAT9
+                                GEAT8:	LD (IX+0),1  	; side 1
+                                GEAT9:	INC IX
+                                	
+                                	LD A,(CURSEC)
+                                	CALL SKEW
+                                	LD (IX+0),A  	; sector 1..n
+                                	INC IX
+                                	
+                                	LD HL,(BYTCNT)	; sector size (128,256,512,1024)
+                                	LD A,H  	; 0,1,2,4 da 80h,100h,200h,400h
+                                	CP 4		; 400h
+                                	JR NZ,GEAT10
+                                	; 0400h -> 03h
+                                	LD A,3
+                                GEAT10:	LD (IX+0),A
+                                	INC IX
+                                	LD (IX+0),0F7H 	; generate CRC here
+                                	INC IX
+                                	
+                                	LD B,22
+                                GEAT11:	LD (IX+0),04EH
+                                	INC IX
+                                	DEC B
+                                	JR NZ,GEAT11
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-13
+
+
+                                	LD B,12
+                                GEAT12:	LD (IX+0),00H
+                                	INC IX
+                                	DEC B
+                                	JR NZ,GEAT12
+                                	
+                                	LD B,3
+                                GEAT13:	LD (IX+0),0F5H	; generate 0A1h without clock-bits
+                                	INC IX
+                                	DEC B
+                                	JR NZ,GEAT13
+                                	
+                                	LD (IX+0),0FBH 	; generate data mark
+                                	INC IX
+                                
+                                	; write data block
+                                	LD HL,(BYTCNT) ; 128,256,512,1024
+                                GEAT14:	LD (IX+0),0E5H
+                                	INC IX
+                                	DEC HL
+                                	LD A,H
+                                	OR L
+                                	JR NZ,GEAT14
+                                
+                                	; CRC
+                                	LD (IX+0),0F7H 	; generate CRC here
+                                	INC IX
+                                
+                                	; GAP 3, 84 * 04EH
+                                	LD A,(GAPLEN)	; 84
+                                	LD B,A
+                                GEAT15:	LD (IX+0),04EH
+                                	INC IX
+                                	DEC B
+                                	JR NZ,GEAT15
+                                
+                                	; ----- end of sector -----
+                                	
+                                	LD A,(CURSEC)
+                                	INC A
+                                	LD (CURSEC),A 	; neue Sektorennummer
+                                	
+                                	POP BC
+                                	DEC B
+                                	JP NZ,GEAT5	; -> sector loop
+                                
+                                	; fill to the end, 1000 * 04EH
+                                	LD HL,1000	; use big number to make shure there are no
+                                			; unwanted bytes till the index puls
+                                	LD C,04EH
+                                GEAT16:	LD (IX+0),C
+                                	INC IX
+                                	DEC HL
+                                	LD A,H
+                                	OR L
+                                	JR NZ,GEAT16
+	MACRO-80 3.44	09-Dec-81	PAGE	1-14
+
+
+                                	
+                                	RET
+                                
+                                	ENDIF
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; skew/interleave translation
+                                ; sector in A -> (1..n)
+                                
+  0282'   3D                    SKEW:	DEC A	; sector 0..n-1
+  0283'   16 00                 	LD D,0
+  0285'   5F                    	LD E,A
+  0286'   2A 000D'              	LD HL,(SKEWTB)
+  0289'   19                    	ADD HL,DE
+  028A'   7E                    	LD A,(HL)
+  028B'   C9                    	RET
+                                	
+                                ;-----------------------------------------------------------------------------
+                                ; Format track
+                                
+  028C'   CD 0363'              FMT:	CALL DELAY
+  028F'   FB                    	EI
+  0290'   CD 0299'              	CALL FMTA
+  0293'   F3                    	DI
+                                	
+                                	; check for lost data and write protection
+  0294'   DB C0                 	IN A,(FLO+0) 	; read status
+  0296'   E6 44                 	AND 01000100B	; Bit 2=Lost Data, Bit 6=Write Protect
+  0298'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                
+  0299'   CD 036F'              FMTA:	CALL SETSR 	; setup special register
+                                
+                                	; FLO1/FLO2 (C0h)
+  029C'   2A 000B'              	LD HL,(TRKBUF) 	; track buffer address
+  029F'   0E C3                 	LD C,FLO+3 	; Datenport
+  02A1'   3A 0011'              	LD A,(SIDSEL) 	; Side-Flag setzen, fuer SSO-Ausgang
+  02A4'   E6 80                 	AND 80H 	; wenn USESSO auf 80h gesetzt wird
+  02A6'   07                    	RLCA  		; BIT 0
+  02A7'   07                    	RLCA  		; BIT 1
+  02A8'   E6 02                 	AND 00000010B 	; Side select for FD1797 (SSO)
+  02AA'   F6 F4                 	OR 0F4H 	; 1111x1xx=Write track, Formatier-Befehl+nicht documentiertert
+  02AC'   D3 C0                 	OUT (FLO+0),A 	; Side-Select-Befehl fuer SSO
+                                
+  02AE'                         FMTA1:	; format loop
+  02AE'   DB C4                 	IN A,(FLO+4) 	; DRQ int head
+  02B0'   07                    	RLCA  		; DRQ -> carry
+  02B1'   30 FB                 	JR NC,FMTA1 	; -> wait
+                                	
+                                	; ready
+  02B3'   ED A3                 	OUTI		; (HL) -> Port (C), length in B
+  02B5'   C3 02AE'              	JP FMTA1 	; durch INT wird die Routine gestoppt.
+  02B8'   18 00                 	JR FMTA6
+                                
+  02BA'   C9                    FMTA6:	RET
+	MACRO-80 3.44	09-Dec-81	PAGE	1-15
+
+
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; verify one track, both sides
+                                ;
+                                ; vertrk(track)
+                                ;	int track
+                                
+                                	GLOBAL VFYTRK
+                                
+  02BB'   C1                    VFYTRK:	POP BC
+  02BC'   E1                    	POP HL
+  02BD'   7D                    	LD A,L	; track
+  02BE'   E5                    	PUSH HL
+  02BF'   C5                    	PUSH BC
+                                	
+  02C0'   32 000F'              	LD (CURTRK),A
+                                
+                                	; --- verify side 0 ---
+  02C3'   3A 0000'              	LD A,(DRIVE)
+  02C6'   E6 7F                 	AND 7FH
+  02C8'   32 0000'              	LD (DRIVE),A 
+  02CB'   AF                    	XOR A
+  02CC'   32 0011'              	LD (SIDSEL),A
+                                
+                                	;CALL ECMACHK
+  02CF'   CD 02F6'              	CALL VFY
+  02D2'   47                    	LD B,A
+                                	
+  02D3'   3A 0007'              	LD A,(SSDS)
+  02D6'   FE 01                 	CP 1
+  02D8'   20 18                 	JR NZ,VERTR9	; -> single-sided
+                                
+                                	; --- double-sided, verify side 1 ---
+  02DA'   3A 0000'              	LD A,(DRIVE)
+  02DD'   F6 80                 	OR 80H
+  02DF'   32 0000'              	LD (DRIVE),A
+  02E2'   3A 0008'              	LD A,(USESSO)
+  02E5'   B7                    	OR A
+  02E6'   CA 02EE'              	JP Z,VERTR1	; -> no SSO
+                                	
+                                	; SSO
+  02E9'   3E 80                 	LD A,80H
+  02EB'   32 0011'              	LD (SIDSEL),A
+                                
+  02EE'   CD 02F6'              VERTR1:	CALL VFY
+  02F1'   47                    	LD B,A
+                                
+  02F2'   68                    VERTR9:	LD L,B
+  02F3'   26 00                 	LD H,0
+  02F5'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Verify a track, one side
+                                	
+  02F6'                         VFY:
+  02F6'   CD 0363'              	CALL DELAY  	; head settle time
+	MACRO-80 3.44	09-Dec-81	PAGE	1-16
+
+
+                                
+  02F9'   3E 01                 	LD A,1
+  02FB'   32 0010'              	LD (CURSEC),A
+  02FE'   3A 0006'              	LD A,(SECCNT)
+  0301'   47                    	LD B,A		; seccnt
+                                	
+  0302'                         VFY1:	; sector loop (1..n)
+  0302'   C5                    	PUSH BC
+  0303'   CD 0315'              	CALL READ  	; simply read
+                                	;CALL ERRCHK  	; 0=ok, otherwise message
+  0306'   C1                    	POP BC
+  0307'   C0                    	RET NZ	; -> error
+                                	
+  0308'   3A 0010'              	LD A,(CURSEC)
+  030B'   3C                    	INC A
+  030C'   32 0010'              	LD (CURSEC),A
+                                	
+  030F'   05                    	DEC B
+  0310'   C2 0302'              	JP NZ,VFY1
+                                
+                                	; no error
+  0313'   AF                    	XOR A
+  0314'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Read on sector
+                                
+  0315'   06 02                 READ:	LD B,2	; 2 retries
+                                
+  0317'                         READ1: ; retry loop
+  0317'   C5                    	PUSH BC
+  0318'   FB                    	EI
+  0319'   CD 0326'              	CALL READEX
+  031C'   F3                    	DI
+  031D'   C1                    	POP BC
+                                	
+  031E'   DB C0                 	IN A,(FLO+0) 	; read status
+  0320'   E6 3C                 	AND 00111100B
+  0322'   C8                    	RET Z		; -> ok
+                                	
+  0323'   10 F2                 	DJNZ READ1 	; -> retry
+                                	
+  0325'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Read on sector
+                                
+  0326'   CD 036F'              READEX:	CALL SETSR 	; setup special register
+                                
+  0329'   3A 0010'              	LD A,(CURSEC)
+  032C'   D3 C2                 	OUT (FLO+2),A 	; Sektor definieren
+  032E'   2A 000B'              	LD HL,(TRKBUF) 	; dorthin Daten legen 
+  0331'   0E C3                 	LD C,FLO+3 	; Datenport
+  0333'   3A 0011'              	LD A,(SIDSEL) 	; fuer Side-Control
+  0336'   E6 80                 	AND 80H
+  0338'   07                    	RLCA  		; BIT 0
+	MACRO-80 3.44	09-Dec-81	PAGE	1-17
+
+
+  0339'   07                    	RLCA  		; BIT 1
+  033A'   E6 02                 	AND 00000010B 	; 1=Seite 1
+  033C'   C6 88                 	ADD A,88H 	; kein Delay abwarten, head ist down
+  033E'   D3 C0                 	OUT (FLO+0),A 	; und Befehl geben
+                                
+                                	;XOR A
+                                	;RET
+                                
+  0340'                         READX1:	; wait for DRQ
+  0340'   DB C4                 	IN A,(FLO+4)
+  0342'   07                    	RLCA		; DRQ -> Carry
+  0343'   D2 0340'              	JP NC,READX1	; -> wait
+                                
+  0346'   ED A2                 	INI  		; DATEN ablegen
+  0348'   C3 0340'              	JP READX1 	; bis alle Daten gelesen, dann Interrupt 
+  034B'   C3 034E'              	JP READX2
+                                
+  034E'   C9                    READX2:	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; General error check routine
+                                
+                                ; error code in A
+                                ;   bit 2 = CPU to slow
+                                ;   bit 3 = CRC error
+                                ;   bit 4 = record not found
+                                ;   bit 5 = wrong record type
+                                ;   bit 6 = write protected
+                                
+  034F'   B7                    ERRCHK:	OR A
+  0350'   C8                    	RET Z  	; =0? -> Status ok
+                                
+  0351'   C9                    	RET
+                                
+                                
+                                	IF FALSE
+                                	
+                                	; TRACK, Spur ausgeben
+                                	PUSH AF 	; save error code
+                                	LD HL,TKMSG
+                                	CALL PRNMSG
+                                	LD A,(CURTRK)
+                                	LD L,A
+                                	LD H,0 
+                                	CALL PRNTHL
+                                	LD HL,SKMSG
+                                	CALL PRNMSG
+                                	LD A,(CURSEC)
+                                	LD L,A
+                                	LD H,0
+                                	CALL PRNTHL
+                                	CALL CRLF
+                                	POP AF  	; restore error code
+                                	
+                                	; check bit 2
+                                	BIT 2,A
+	MACRO-80 3.44	09-Dec-81	PAGE	1-18
+
+
+                                	LD HL,F0MSG 	; error message
+                                	JP Z,ERRC1	; -> bit 2 not set
+                                	
+                                	; bit 2, CPU too slow
+                                	LD HL,F2MSG
+                                
+                                ERRC1:	; check bit 3
+                                	BIT 3,A
+                                	JP Z,ERRC2	; -> bit 3 not set
+                                
+                                	; bit 3, CRC errror
+                                	LD HL,F3MSG
+                                
+                                ERRC2:	; check bit 4
+                                	BIT 4,A
+                                	JP Z,ERRC3	; -> bit 4 not set
+                                	
+                                	; bit 4, record not found
+                                	LD HL,F4MSG
+                                	
+                                ERRC3:	; check bit 5
+                                	BIT 5,A
+                                	JP Z,ERRC4	; -> bit 5 not set
+                                
+                                	; bit 5, wrong record type
+                                	LD HL,F5MSG
+                                
+                                ERRC4:	; check bit 6
+                                	BIT 6,A
+                                	JP Z,ERRC5	; -> bit 6 not set
+                                
+                                	; bit 6, write protected
+                                	LD HL,F6MSG
+                                	
+                                ERRC5:	; check bit 7
+                                	JP Z,ERRC6
+                                	
+                                	; bit 7, write protected
+                                	LD HL,F6MSG 	; dominant is write proteced error
+                                
+                                ERRC6:	CALL PRNMSG
+                                
+                                ERRC7:	; wait for 'W' or 'w'
+                                	CALL CONIN
+                                	CP 'W'
+                                	JP Z,ERRC8
+                                	CP 'w'
+                                	JP NZ,ERRC7
+                                
+                                ERRC8:	JP START 	; no stack adjust needed
+                                	
+                                	ENDIF
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Step ausfuehren
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-19
+
+
+                                	GLOBAL STEPIN
+                                
+  0352'   CD 0363'              STEPIN:	CALL DELAY 	; settle head
+  0355'   FB                    	EI
+  0356'   CD 035B'              	CALL STPEX
+  0359'   F3                    	DI
+  035A'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Execute drive step
+                                
+  035B'                         STPEX:
+                                 	; Laufwerk und Dichte
+  035B'   CD 036F'              	CALL SETSR	; setup special register
+                                
+                                	; FLO2 (C0h)
+  035E'   3E 5B                 	LD A,01011011B	; 010=Step In, update=1, headload=1, verify=0, stepping rate=11
+  0360'   D3 C0                 	OUT (FLO+0),A	; write command
+  0362'   76                    	HALT
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Delay loop 40ms..10ms (???)
+                                
+  0363'   C5                    DELAY:	PUSH BC
+  0364'   01 0D05               	LD BC,0D05H
+                                
+  0367'   0B                    DELAY1:	DEC BC
+  0368'   79                    	LD A,C
+  0369'   B0                    	OR B
+  036A'   C2 0367'              	JP NZ,DELAY1
+                                	
+  036D'   C1                    	POP BC
+  036E'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Setup special register (Register 4)
+                                
+                                	GLOBAL SETSR
+                                
+  036F'   C5                    SETSR:	PUSH BC
+  0370'   3A 0000'              	LD A,(DRIVE) 	; Laufwerkscode
+  0373'   47                    	LD B,A
+  0374'   3A 0001'              	LD A,(DENSIT)
+  0377'   B7                    	OR A
+  0378'   20 04                 	JR NZ,SETCT1	; -> DD
+                                
+                                	; SD
+  037A'   78                    	LD A,B
+  037B'   F6 10                 	OR 10H		; set FD179x and FDC9293 density signal
+  037D'   47                    	LD B,A
+                                
+  037E'   3A 0002'              SETCT1:	LD A,(MINMAX)
+  0381'   B7                    	OR A
+  0382'   20 04                 	JR NZ,SETCT2
+                                
+                                	; Mini
+	MACRO-80 3.44	09-Dec-81	PAGE	1-20
+
+
+  0384'   78                    	LD A,B
+  0385'   F6 20                 	OR 20H		; set FDC9293 Mini signal
+  0387'   47                    	LD B,A
+                                	
+  0388'   78                    SETCT2:	LD A,B
+  0389'   D3 C4                 	OUT (FLO+4),A
+                                
+  038B'   C1                    	POP BC
+  038C'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                
+                                	END
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+0003'	BYTCNT          0010'	CURSEC          000F'	CURTRK          
+0095'	DEINIT          0363'	DELAY           0367'	DELAY1          
+0001'	DENSIT          0000'	DRIVE           034F'	ERRCHK          
+0000 	FALSE           000A'	FILLER          00C0 	FLO             
+028C'	FMT             0299'	FMTA            02AE'	FMTA1           
+02BA'	FMTA6           00DB'	FRMTR1          00FD'	FRMTR2          
+0111'	FRMTR3          0112'	FRMTR9          00D3I'	FRMTRK          
+0005'	GAPLEN          0126'	GENT1           019C'	GENT10          
+01AE'	GENT11          01B0'	GENT12          01BB'	GENT13          
+01E0'	GENT14          01E4'	GENT15          01FB'	GENT16          
+0208'	GENT17          0213'	GENT18          021E'	GENT19          
+012A'	GENT2           022D'	GENT20          0234'	GENT21          
+024E'	GENT22          0250'	GENT23          0254'	GENT24          
+0272'	GENT25          0274'	GENT26          0277'	GENT27          
+012A'	GENT3           013B'	GENT4           0144'	GENT5           
+0169'	GENT6           016D'	GENT7           0184'	GENT8           
+0191'	GENT9           0116I'	GENTRK          009CI'	GETSEC          
+00A9I'	HOME            00AC'	HOME1           00C7'	HOME2           
+0012I'	INIT            007C'	INIT1           00A3'	INTR            
+0002'	MINMAX          0315'	READ            0317'	READ1           
+0326'	READEX          0340'	READX1          034E'	READX2          
+00CB'	RSTEX           0006'	SECCNT          037E'	SETCT1          
+0388'	SETCT2          036FI'	SETSR           0011'	SIDSEL          
+0282'	SKEW            000D'	SKEWTB          0007'	SSDS            
+0352I'	STEPIN          035B'	STPEX           000B'	TRKBUF          
+0009'	TRKCNT          FFFF 	TRUE            0008'	USESSO          
+02EE'	VERTR1          02F2'	VERTR9          02F6'	VFY             
+0302'	VFY1            02BBI'	VFYTRK          
+
+
+
+No Fatal error(s)
+
+
+ 034E'	READX2          
+00CB'	RSTEX           0006'	SECCNT          037E'	SETCT1          
+0388

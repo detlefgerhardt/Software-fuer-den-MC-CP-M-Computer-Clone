@@ -10,7 +10,8 @@
 /* NFORM version history
 
  28.07.2026 *dg* First version in C
- 11.08.2026 *dg* added 1,44 MB format (1024 Byte/9 sectors/80 tracks)
+ 01.08.2026 *dg* added 1,44 MB format (1024 Byte/9 sectors/80 tracks)
+			     renamed NDR format to NKC format
  
 */
 
@@ -55,10 +56,10 @@ typedef struct
 	char Filler;	/* 0xE5 */
 } format;
 
-/* Format NDR Mini-Disk 800K */
-format FMNDR =
+/* Format NKC Mini-Disk 800K */
+format FMNKC =
 {
-	"NDR",
+	"NKC800",
 	5,				/* 5 sectors */
 	1024,				/* 1024 bytes per sector */
 	80,				/* 80 tracks */
@@ -119,7 +120,7 @@ format FMIBMS =
 };
 
 #define FMTCNT 3
-format *fmtlist[] = {FMNDR, FM144, FMIBMS};
+format *fmtlist[] = {FMNKC, FM144, FMIBMS};
 
 /****************************************************************************/
 
@@ -522,7 +523,7 @@ main(argc, argv)
 	{
 		PutStr("usage: NFORM <d>: -F<f> -I<i> -V\r\n");
 		PutStr("  d = Drive A..D\r\n");
-		PutStr("  f = Format 1=NDR 800K, 2=1,44MB, 3=IBM SS/SD (default=1)\r\n");
+		PutStr("  f = Format 1=NKC 800KB, 2=1,44MB, 3=IBM SS/SD (default=1)\r\n");
 		PutStr("  i = Interleave/Skew (default=1)\r\n");
 		PutStr("  V = Verify\r\n");
 		return;

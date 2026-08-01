@@ -3,7 +3,8 @@
 ; low-level assembly routines for NFORM.C
 ;
 ; still contains some test, debug and sample code
-; tested with 800 KB, 1440 KB and 240 KB formats with skew/interleave
+; tested with NKC 800KB, 1440 KB and IBM 240 KB formats
+; with skew/interleave support
 ; only supports FLO2 card with controller at address C0h and non-inverted
 ; special control lines
 ;
