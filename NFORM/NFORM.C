@@ -382,8 +382,9 @@ ChkErr(err, track)
 {
 	if (err == 0) return;
 
-	sprintf(outbuf, "\r\ntrack %d code %02X:\r\n", track + 1, err);
-	PutStr(outbuf);
+	/*sprintf(outbuf, "\r\ntrack %d code %02X:\r\n", track + 1, err);*/
+	/*PutStr(outbuf);*/
+	PutStr("\r\n");
 
 	if (err & 0x04)
 		PutStr("CPU to slow error\r\n");
@@ -425,9 +426,7 @@ ShowFmt(drive, fmt, skew, verify)
 	
 	PutStr(fmt->Density == 0 ? "SD" : "DD");
 
-	sprintf(outbuf, "] I=%d %s\r\n",
-		skew, verify ? "verify" : ""
-	);
+	sprintf(outbuf, "I=%d]\r\n", skew);
 	PutStr(outbuf);
 }
 
@@ -462,7 +461,7 @@ main(argc, argv)
 	
 	ChkRunCpm();
 
-	PutStr("\r\nNFORM 1.1b *dg* 08-2026\r\n");
+	PutStr("\r\nNFORM 1.2 *dg* 08-2026\r\n");
 	PutStr("Formatter for MC CP/M computer (FLO2)\r\n\n");
 
 #if DDTZ == 0
@@ -472,7 +471,7 @@ main(argc, argv)
 	fmtidx = 0;
 	fmt = fmtlist[fmtidx];
 	skew = 1;
-	verify = FALSE;
+	verify = TRUE;
 
 	error = FALSE;
 	if (argc < 2)
@@ -514,8 +513,10 @@ main(argc, argv)
 					error= TRUE;
 				/*printf("skew = %d\r\n", skew);*/
 			}
+			/*
 			if (toupper(argv[p][1]) == 'V' && strlen(argv[p]) == 2)
 				verify = TRUE;
+			*/
 		}
 	}
 	
@@ -525,7 +526,7 @@ main(argc, argv)
 		PutStr("  d = Drive A..D\r\n");
 		PutStr("  f = Format 1=NKC 800KB, 2=1,44MB, 3=IBM SS/SD (default=1)\r\n");
 		PutStr("  i = Interleave/Skew (default=1)\r\n");
-		PutStr("  V = Verify\r\n");
+		/*PutStr("  V = Verify\r\n");*/
 		return;
 	}
 
@@ -553,7 +554,9 @@ main(argc, argv)
 	if (skew > 1)
 		ShowSkew(skewbuf, fmt->SecCnt);
 	
-	PutStr("\r\nInsert disk an press ENTER\r\n");
+	sprintf(outbuf, "\r\nInsert disk in drive %c: an press ENTER\r\n\r\n", drive + 'A');
+	PutStr(outbuf);
+	
 	ch = WaitCr();
 	if (ch == 3) return;
 
@@ -572,8 +575,8 @@ main(argc, argv)
 		}
 		
 		stat = FRMTRK(track);
-		sprintf(outbuf, "Format track %02d (%02x)\r", track + 1, stat);
-		PutStr(outbuf);
+		sprintf(outbuf, "Track %02d Format (%02x)\r", track + 1, stat);
+		PutStr(outbuf); 
 		if (stat != 0)
 		{
 			ChkErr(stat, track);
@@ -581,26 +584,11 @@ main(argc, argv)
 			break;
 		}
 
-		if (track < trkcnt - 1)
-			STEPIN();
-	}
-	PutStr("\r\n");
-
-	if (verify && !error)
-	{
-		HOME();
-		error = FALSE;
-		for (track = 0; track < trkcnt; track++)
+		if (verify)
 		{
-			ch = GetChr();
-			if (ch == CTRLC)
-			{
-				PutStr("\r\nAborted\r\n");
-				return;
-			}
 			
 			stat = VFYTRK(track);
-			sprintf(outbuf, "Verify track %02d (%02x)\r", track + 1, stat);
+			sprintf(outbuf, "Track %02d Verify (%02x)\r", track + 1, stat);
 			PutStr(outbuf);
 			if (stat !=0 )
 			{
@@ -608,10 +596,9 @@ main(argc, argv)
 				error = TRUE;
 				break;
 			}
-
-			if (track < trkcnt - 1)
-				STEPIN();
 		}
+		if (track < trkcnt - 1)
+			STEPIN();
 	}
 
 	if (!error)

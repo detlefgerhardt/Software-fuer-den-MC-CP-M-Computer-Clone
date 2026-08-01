@@ -38,29 +38,6 @@
                                 
                                 ;-----------------------------------------------------------------------------
                                 
-                                	IF FALSE
-                                
-                                ; Test(ch)
-                                ;	int ch;
-                                
-                                	GLOBAL TEST
-                                
-                                TEST:
-                                	POP BC
-                                	POP HL
-                                	PUSH HL
-                                	PUSH BC
-                                	LD C,L
-                                	CALL 0F009H		; Monitor console out, character in C
-                                	LD H,0
-                                	RET
-                                
-                                	ENDIF
-                                
-	MACRO-80 3.44	09-Dec-81	PAGE	1-1
-
-
-                                ;-----------------------------------------------------------------------------
                                 ; Init(buffer, drive, skewtb, frm)
                                 ;	unsigned buffer;
                                 ;	int drive;
@@ -86,6 +63,9 @@
                                 	
   0033'   DD 6E 06              	LD L,(IX+6)	; struct format *
   0036'   DD 66 07              	LD H,(IX+7)
+	MACRO-80 3.44	09-Dec-81	PAGE	1-1
+
+
   0039'   E5                    	PUSH HL
   003A'   DD E1                 	POP IX
                                 
@@ -116,9 +96,6 @@
   0069'   DD 7E 0A              	LD A,(IX+10)	; GapLen
   006C'   32 0005'              	LD (GAPLEN),A
                                 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-2
-
-
   006F'   DD 7E 0B              	LD A,(IX+11)	; Filler
   0072'   32 000A'              	LD (FILLER),A
                                 
@@ -134,38 +111,6 @@
   0080'   CB 3F                 	SRL	A	; we shifted once to many, shift back
   0082'   32 0000'              	LD (DRIVE),A
                                 
-                                	IF FALSE
-                                
-                                	; set track buffer
-                                	POP BC
-                                	POP HL	; form buffer address
-                                	PUSH HL
-                                	PUSH BC
-                                	LD (TRKBUF),HL
-                                
-                                	LD A,00000010B	; drive 1 (B)
-                                	LD (DRIVE),A
-                                	LD A,0		; Mini
-                                	LD (MINMAX),A
-                                	LD A,1		; double density
-                                	LD (DENSIT),A
-                                	LD HL,1024 	; 1024 bytes per sector
-                                	LD (BYTCNT),HL
-                                	LD A,54 	; gap length 3
-                                	LD (GAPLEN),A
-                                	LD A,5		; 5 sectors
-                                	LD (SECCNT),A
-                                	LD A,1 		; double-sided
-                                	LD (SSDS),A
-                                	LD A,1		; use controller side bit
-                                	LD (USESSO),A
-                                	LD A,80 	; 80 tracks (0..79)
-                                	LD (TRKCNT),A
-                                	LD A,0E5H	; filler
-                                	LD (FILLER),A
-                                
-                                	ENDIF
-                                
                                 	; reset interrupts
   0085'   DB C0                 	IN A,(FLO+0) 	; clear all interrupts
                                 
@@ -175,9 +120,6 @@
   008E'   21 00A3'              	LD HL,INTR
   0091'   22 0039               	LD (39H),HL
                                 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-3
-
-
                                 	;CALL HOME 	; set head to track 0, status -> HL (0=ok)
                                 	
   0094'   C9                    	RET
@@ -186,6 +128,9 @@
                                 
   0095'   ED 46                 DEINIT:	IM 0
   0097'   26 00                 	LD H,0
+	MACRO-80 3.44	09-Dec-81	PAGE	1-2
+
+
   0099'   2E 00                 	LD L,0
   009B'   C9                    	RET
                                 
@@ -234,9 +179,6 @@
   00C0'   B5                    	OR L  		
   00C1'   20 E9                 	JR NZ,HOME1	; -> retry
                                 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-4
-
-
                                 	; error
   00C3'   21 0001               	LD HL,1
   00C6'   C9                    	RET
@@ -251,86 +193,10 @@
   00CB'   CD 036F'              RSTEX:	CALL SETSR	; setup special register
   00CE'   3E 0B                 	LD A,00001011B 	; 0000=Restore, Headload=1, Verify=0, Stepping rate=11
   00D0'   D3 C0                 	OUT (FLO+0),A	; write command
+	MACRO-80 3.44	09-Dec-81	PAGE	1-3
+
+
   00D2'   76                    	HALT  		; wait for INT
-                                
-                                ;-----------------------------------------------------------------------------
-                                ; format whole disk
-                                
-                                	IF FALSE
-                                
-                                	GLOBAL FORMAT
-                                
-                                FORMAT:	XOR A
-                                	LD (CURTRK),A	; start with track 0
-                                
-                                	LD A,(TRKCNT) 	; number of tracks
-                                	LD B,A
-                                
-                                FORM1:	; format loop (tracks)
-                                
-                                	; --- format side 0 ---
-                                	
-                                	PUSH BC
-                                	;CALL ECMACHK 	; check if track 0 and ECMA70
-                                	CALL GENTRK 	; create track
-                                	CALL FMT 	; format track
-                                	RET NZ	; -> error code in A
-                                	
-                                	LD A,(SSDS)
-                                	CP 1
-                                	JP NZ,FORM3	; -> single sided
-                                
-                                	; --- double-sided,. format side 1 ---
-                                	
-                                	LD A,(DRIVE)	; Rueckseite setzen
-                                	OR 80H  	; aber kein Side-sel
-                                	LD (DRIVE),A
-                                
-                                	LD A,(USESSO)
-                                	OR A
-                                	JP Z,FORM2	; -> no SSO
-                                	
-                                	; SSO
-                                	LD A,80H 
-                                	LD (SIDSEL),A 	; setzen
-	MACRO-80 3.44	09-Dec-81	PAGE	1-5
-
-
-                                
-                                FORM2:	CALL GENTRK
-                                	CALL FMT
-                                	RET NZ	; -> error
-                                	
-                                	; set side 0
-                                	LD A,(DRIVE)
-                                	AND 7FH
-                                	LD (DRIVE),A   
-                                	XOR A
-                                	LD (SIDSEL),A
-                                
-                                FORM3:	LD A,(CURTRK)
-                                	INC A
-                                	LD (CURTRK),A
-                                	LD B,A
-                                	LD A,(TRKCNT)
-                                	CP B
-                                	JP Z,FORM4	; AKTRK = TRKCNT
-                                	
-                                	CALL STEPIN
-                                	
-                                FORM4:	LD C,'F'
-                                	LD B,0
-                                	;CALL CONOUT 	; Meldung FFFFF ausgeben bei jeder Spur ein F
-                                	PUSH BC
-                                	CALL PUTCHR
-                                	POP BC
-                                	
-                                	POP BC
-                                	DJNZ FORM1	; -> format loop (tracks)	
-                                
-                                	RET
-                                
-                                	ENDIF
                                 
                                 ;-----------------------------------------------------------------------------
                                 ; format one track
@@ -352,9 +218,6 @@
                                 
                                 	; --- format side 0 ---
                                 	
-	MACRO-80 3.44	09-Dec-81	PAGE	1-6
-
-
                                 	;CALL ECMACHK 	; check if track 0 and ECMA70
   00DB'   CD 0116'              	CALL GENTRK 	; create track
   00DE'   CD 028C'              	CALL FMT 	; format track
@@ -395,6 +258,9 @@
   0111'   AF                    	XOR A
                                 
   0112'                         FRMTR9:
+	MACRO-80 3.44	09-Dec-81	PAGE	1-4
+
+
   0112'   6F                    	LD L,A
   0113'   26 00                 	LD H,0
   0115'   C9                    	RET
@@ -411,9 +277,6 @@
   011D'   B7                    	OR A
   011E'   20 06                 	JR NZ,GENT1	; -> double-density
                                 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-7
-
-
                                 	; single-density
   0120'   06 10                 	LD B,16
   0122'   0E FF                 	LD C,0FFH 	; fuellbyte 
@@ -460,6 +323,9 @@
   0156'   DD 77 00              	LD (IX+0),A
   0159'   DD 23                 	INC IX
                                 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-5
+
+
   015B'   3A 0011'              	LD A,(SIDSEL) 	; side
   015E'   E6 80                 	AND 80H  	;
   0160'   B7                    	OR A
@@ -470,9 +336,6 @@
   0167'   18 04                 	JR GENT7
                                 
   0169'                         GENT6:	; side 1
-	MACRO-80 3.44	09-Dec-81	PAGE	1-8
-
-
   0169'   DD 36 00 01           	LD (IX+0),1  	; Seite 1
                                 
   016D'   DD 23                 GENT7:	INC IX
@@ -525,13 +388,13 @@
   01C2'   20 F7                 	JR NZ,GENT13
                                 	
   01C4'   DD 36 00 FE           	LD (IX+0),0FEH 	; generate ID address mark
+	MACRO-80 3.44	09-Dec-81	PAGE	1-6
+
+
   01C8'   DD 23                 	INC IX
                                 	
   01CA'   3A 000F'              	LD A,(CURTRK)
   01CD'   DD 77 00              	LD (IX+0),A  	; track 0..n
-	MACRO-80 3.44	09-Dec-81	PAGE	1-9
-
-
   01D0'   DD 23                 	INC IX
                                 	
   01D2'   3A 0011'              	LD A,(SIDSEL) 	; for side-sel SSO
@@ -588,11 +451,11 @@
                                 	; write data block
                                 
   022D'   3A 000A'              GENT20:	LD A,(FILLER) 	; data byte
-	MACRO-80 3.44	09-Dec-81	PAGE	1-10
-
-
   0230'   4F                    	LD C,A
   0231'   2A 0003'              	LD HL,(BYTCNT) ; 128,256,512,1024
+	MACRO-80 3.44	09-Dec-81	PAGE	1-7
+
+
                                 
   0234'   DD 71 00              GENT21:	LD (IX+0),C
   0237'   DD 23                 	INC IX
@@ -647,9 +510,6 @@
   0277'   DD 71 00              GENT27:	LD (IX+0),C
   027A'   DD 23                 	INC IX
   027C'   2B                    	DEC HL
-	MACRO-80 3.44	09-Dec-81	PAGE	1-11
-
-
   027D'   7C                    	LD A,H
   027E'   B5                    	OR L
   027F'   20 F6                 	JR NZ,GENT27
@@ -658,6 +518,9 @@
                                 
                                 ;-----------------------------------------------------------------------------
                                 ; Create new track for 1,44 MB
+	MACRO-80 3.44	09-Dec-81	PAGE	1-8
+
+
                                 
                                 	IF FALSE
                                 	
@@ -706,9 +569,6 @@
                                 
                                 GEAT5:	; ----- sector loop -----
                                 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-12
-
-
                                 	PUSH BC
                                 
                                 	; 12 * 00H
@@ -723,6 +583,9 @@
                                 GEAT7:	LD (IX+0),0F5H	; generate 0A1h without clock-bits
                                 	INC IX
                                 	DEC B
+	MACRO-80 3.44	09-Dec-81	PAGE	1-9
+
+
                                 	JR NZ,GEAT7
                                 
                                 	; 1 * FEH
@@ -765,9 +628,6 @@
                                 	DEC B
                                 	JR NZ,GEAT11
                                 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-13
-
-
                                 	LD B,12
                                 GEAT12:	LD (IX+0),00H
                                 	INC IX
@@ -788,6 +648,9 @@
                                 GEAT14:	LD (IX+0),0E5H
                                 	INC IX
                                 	DEC HL
+	MACRO-80 3.44	09-Dec-81	PAGE	1-10
+
+
                                 	LD A,H
                                 	OR L
                                 	JR NZ,GEAT14
@@ -824,9 +687,6 @@
                                 	LD A,H
                                 	OR L
                                 	JR NZ,GEAT16
-	MACRO-80 3.44	09-Dec-81	PAGE	1-14
-
-
                                 	
                                 	RET
                                 
@@ -853,6 +713,9 @@
   0293'   F3                    	DI
                                 	
                                 	; check for lost data and write protection
+	MACRO-80 3.44	09-Dec-81	PAGE	1-11
+
+
   0294'   DB C0                 	IN A,(FLO+0) 	; read status
   0296'   E6 44                 	AND 01000100B	; Bit 2=Lost Data, Bit 6=Write Protect
   0298'   C9                    	RET
@@ -862,15 +725,16 @@
   0299'   CD 036F'              FMTA:	CALL SETSR 	; setup special register
                                 
                                 	; FLO1/FLO2 (C0h)
-  029C'   2A 000B'              	LD HL,(TRKBUF) 	; track buffer address
-  029F'   0E C3                 	LD C,FLO+3 	; Datenport
-  02A1'   3A 0011'              	LD A,(SIDSEL) 	; Side-Flag setzen, fuer SSO-Ausgang
-  02A4'   E6 80                 	AND 80H 	; wenn USESSO auf 80h gesetzt wird
-  02A6'   07                    	RLCA  		; BIT 0
-  02A7'   07                    	RLCA  		; BIT 1
-  02A8'   E6 02                 	AND 00000010B 	; Side select for FD1797 (SSO)
-  02AA'   F6 F4                 	OR 0F4H 	; 1111x1xx=Write track, Formatier-Befehl+nicht documentiertert
-  02AC'   D3 C0                 	OUT (FLO+0),A 	; Side-Select-Befehl fuer SSO
+  029C'   3A 0011'              	LD A,(SIDSEL) 	; Side-Flag setzen, fuer SSO-Ausgang
+  029F'   E6 80                 	AND 80H 	; wenn USESSO auf 80h gesetzt wird
+  02A1'   07                    	RLCA  		; BIT 0
+  02A2'   07                    	RLCA  		; BIT 1
+  02A3'   E6 02                 	AND 00000010B 	; Side select for FD1797 (SSO)
+  02A5'   F6 F4                 	OR 0F4H 	; 1111x1xx=Write track, Formatier-Befehl+nicht documentiertert
+  02A7'   D3 C0                 	OUT (FLO+0),A 	; Side-Select-Befehl fuer SSO
+                                
+  02A9'   2A 000B'              	LD HL,(TRKBUF) 	; track buffer address
+  02AC'   0E C3                 	LD C,FLO+3 	; Datenport
                                 
   02AE'                         FMTA1:	; format loop
   02AE'   DB C4                 	IN A,(FLO+4) 	; DRQ int head
@@ -883,9 +747,6 @@
   02B8'   18 00                 	JR FMTA6
                                 
   02BA'   C9                    FMTA6:	RET
-	MACRO-80 3.44	09-Dec-81	PAGE	1-15
-
-
                                 
                                 ;-----------------------------------------------------------------------------
                                 ; verify one track, both sides
@@ -917,6 +778,9 @@
   02D3'   3A 0007'              	LD A,(SSDS)
   02D6'   FE 01                 	CP 1
   02D8'   20 18                 	JR NZ,VERTR9	; -> single-sided
+	MACRO-80 3.44	09-Dec-81	PAGE	1-12
+
+
                                 
                                 	; --- double-sided, verify side 1 ---
   02DA'   3A 0000'              	LD A,(DRIVE)
@@ -942,9 +806,6 @@
                                 	
   02F6'                         VFY:
   02F6'   CD 0363'              	CALL DELAY  	; head settle time
-	MACRO-80 3.44	09-Dec-81	PAGE	1-16
-
-
                                 
   02F9'   3E 01                 	LD A,1
   02FB'   32 0010'              	LD (CURSEC),A
@@ -982,6 +843,9 @@
   031D'   C1                    	POP BC
                                 	
   031E'   DB C0                 	IN A,(FLO+0) 	; read status
+	MACRO-80 3.44	09-Dec-81	PAGE	1-13
+
+
   0320'   E6 3C                 	AND 00111100B
   0322'   C8                    	RET Z		; -> ok
                                 	
@@ -996,21 +860,16 @@
                                 
   0329'   3A 0010'              	LD A,(CURSEC)
   032C'   D3 C2                 	OUT (FLO+2),A 	; Sektor definieren
-  032E'   2A 000B'              	LD HL,(TRKBUF) 	; dorthin Daten legen 
-  0331'   0E C3                 	LD C,FLO+3 	; Datenport
-  0333'   3A 0011'              	LD A,(SIDSEL) 	; fuer Side-Control
-  0336'   E6 80                 	AND 80H
-  0338'   07                    	RLCA  		; BIT 0
-	MACRO-80 3.44	09-Dec-81	PAGE	1-17
-
-
-  0339'   07                    	RLCA  		; BIT 1
-  033A'   E6 02                 	AND 00000010B 	; 1=Seite 1
-  033C'   C6 88                 	ADD A,88H 	; kein Delay abwarten, head ist down
-  033E'   D3 C0                 	OUT (FLO+0),A 	; und Befehl geben
+  032E'   3A 0011'              	LD A,(SIDSEL) 	; fuer Side-Control
+  0331'   E6 80                 	AND 80H
+  0333'   07                    	RLCA  		; BIT 0
+  0334'   07                    	RLCA  		; BIT 1
+  0335'   E6 02                 	AND 00000010B 	; 1=Seite 1
+  0337'   C6 88                 	ADD A,88H 	; kein Delay abwarten, head ist down
+  0339'   D3 C0                 	OUT (FLO+0),A 	; und Befehl geben
                                 
-                                	;XOR A
-                                	;RET
+  033B'   2A 000B'              	LD HL,(TRKBUF) 	; dorthin Daten legen 
+  033E'   0E C3                 	LD C,FLO+3 	; Datenport
                                 
   0340'                         READX1:	; wait for DRQ
   0340'   DB C4                 	IN A,(FLO+4)
@@ -1049,6 +908,9 @@
                                 	LD L,A
                                 	LD H,0 
                                 	CALL PRNTHL
+	MACRO-80 3.44	09-Dec-81	PAGE	1-14
+
+
                                 	LD HL,SKMSG
                                 	CALL PRNMSG
                                 	LD A,(CURSEC)
@@ -1060,9 +922,6 @@
                                 	
                                 	; check bit 2
                                 	BIT 2,A
-	MACRO-80 3.44	09-Dec-81	PAGE	1-18
-
-
                                 	LD HL,F0MSG 	; error message
                                 	JP Z,ERRC1	; -> bit 2 not set
                                 	
@@ -1114,14 +973,14 @@
                                 
                                 ERRC8:	JP START 	; no stack adjust needed
                                 	
+	MACRO-80 3.44	09-Dec-81	PAGE	1-15
+
+
                                 	ENDIF
                                 
                                 ;-----------------------------------------------------------------------------
                                 ; Step ausfuehren
                                 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-19
-
-
                                 	GLOBAL STEPIN
                                 
   0352'   CD 0363'              STEPIN:	CALL DELAY 	; settle head
@@ -1178,10 +1037,10 @@
   0382'   20 04                 	JR NZ,SETCT2
                                 
                                 	; Mini
-	MACRO-80 3.44	09-Dec-81	PAGE	1-20
-
-
   0384'   78                    	LD A,B
+	MACRO-80 3.44	09-Dec-81	PAGE	1-16
+
+
   0385'   F6 20                 	OR 20H		; set FDC9293 Mini signal
   0387'   47                    	LD B,A
                                 	
@@ -1234,6 +1093,4 @@ Symbols:
 No Fatal error(s)
 
 
- 034E'	READX2          
-00CB'	RSTEX           0006'	SECCNT          037E'	SETCT1          
-0388
+ 034E'	READX2 
