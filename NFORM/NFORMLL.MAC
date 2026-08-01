@@ -1,34 +1,41 @@
-; NFORMLL.MAC *dg* 28.07.2026
+; NFORMLL.MAC *dg* 01.08.2026
 ;
+; low-level assembly routines for NFORM.C
 ;
-	EXTERNAL PUTCHR
+; still contains some test, debug and sample code
+; tested with 800 KB, 1440 KB and 240 KB formats with skew/interleave
+; only supports FLO2 card with controller at address C0h and non-inverted
+; special control lines
+;
 
 FALSE	EQU 0
 TRUE	EQU NOT FALSE
 
 
-FLO	EQU	0C0h
+FLO	EQU 0C0h	; controller base address
 
-DRIVE:	DB	1
-DENSITY:	DB 1	; 0 = SD, 1 = DD
-MINMAX:	DB 1	; 0 = Mini, 1 = Maxi
+DRIVE:	DB 0
+DENSIT:	DB 0	; 0 = SD, 1 = DD
+MINMAX:	DB 0	; 0 = Mini, 1 = Maxi
 BYTCNT:	DW 0
 GAPLEN:	DB 0
 SECCNT:	DB 0
 SSDS:	DB 0	; 0 = SS, 1 = DS
 USESSO:	DB 0
 TRKCNT:	DB 0
-FILLER: DB 0
+FILLER: DB 0	; for sector data
 
-FORMTAB:	DW 0
-SKEWTAB:	DW 0
+TRKBUF:	DW 0	; pointer to buffer that can hold a complete track (more than 10.000 kb)
+SKEWTB:	DW 0	; pointer to skew translation table, length = sector count
+
 CURTRK:	DB 0
 CURSEC:	DB 0
-SIDESEL:	DB 1
-
-BUFEND:	DW 0
+SIDSEL:	DB 1
 
 ;-----------------------------------------------------------------------------
+
+	IF FALSE
+
 ; Test(ch)
 ;	int ch;
 
@@ -44,30 +51,31 @@ TEST:
 	LD H,0
 	RET
 
+	ENDIF
+
 ;-----------------------------------------------------------------------------
-; Init(buffer, drive, skewtab, frm)
+; Init(buffer, drive, skewtb, frm)
 ;	unsigned buffer;
 ;	int drive;
-;	char *skewtab
+;	char *skewtb
 ;	struct format *frm;
 
 	GLOBAL INIT
 
-INIT:
-	LD IX,2		; RET
+INIT:	LD IX,2		; RET
 	ADD IX,SP
 
 	LD A,(IX+0)	; buffer low
-	LD (FORMTAB),A
+	LD (TRKBUF),A
 	LD A,(IX+1)	; buffer high
-	LD (FORMTAB+1),A
+	LD (TRKBUF+1),A
 
 	LD A,(IX+2)	; drive 0..n-1
 	LD (DRIVE),A
 
 	LD L,(IX+4)	; skew tab
 	LD H,(IX+5)
-	LD (SKEWTAB),HL
+	LD (SKEWTB),HL
 	
 	LD L,(IX+6)	; struct format *
 	LD H,(IX+7)
@@ -86,8 +94,8 @@ INIT:
 	LD A,(IX+5)	; TrkCnt
 	LD (TRKCNT),A
 	
-	LD A,(IX+6)	; Density
-	LD (DENSITY),A
+	LD A,(IX+6)	; density
+	LD (DENSIT),A
 	
 	LD A,(IX+7)	; SSDD
 	LD (SSDS),A
@@ -123,14 +131,14 @@ INIT1:
 	POP HL	; form buffer address
 	PUSH HL
 	PUSH BC
-	LD (FORMTAB),HL
+	LD (TRKBUF),HL
 
 	LD A,00000010B	; drive 1 (B)
 	LD (DRIVE),A
 	LD A,0		; Mini
 	LD (MINMAX),A
 	LD A,1		; double density
-	LD (DENSITY),A
+	LD (DENSIT),A
 	LD HL,1024 	; 1024 bytes per sector
 	LD (BYTCNT),HL
 	LD A,54 	; gap length 3
@@ -163,8 +171,7 @@ INIT1:
 
 ;-----------------------------------------------------------------------------
 
-DEINIT:
-	IM 0
+DEINIT:	IM 0
 	LD H,0
 	LD L,0
 	RET
@@ -195,8 +202,7 @@ INTR:
 
 	GLOBAL HOME
 
-HOME:
-	LD HL,250 	; max retries
+HOME:	LD HL,250 	; max retries
 	
 HOME1:	; retry loop
 	PUSH  HL
@@ -219,8 +225,7 @@ HOME1:	; retry loop
 	LD HL,1
 	RET
 	
-HOME2:
-	; ok
+HOME2:	; ok
 	LD HL,0
 	RET
 
@@ -239,8 +244,7 @@ RSTEX:	CALL SETSR	; setup special register
 
 	GLOBAL FORMAT
 
-FORMAT:
-	XOR A
+FORMAT:	XOR A
 	LD (CURTRK),A	; start with track 0
 
 	LD A,(TRKCNT) 	; number of tracks
@@ -272,7 +276,7 @@ FORM1:	; format loop (tracks)
 	
 	; SSO
 	LD A,80H 
-	LD (SIDESEL),A 	; setzen
+	LD (SIDSEL),A 	; setzen
 
 FORM2:	CALL GENTRK
 	CALL FMT
@@ -283,7 +287,7 @@ FORM2:	CALL GENTRK
 	AND 7FH
 	LD (DRIVE),A   
 	XOR A
-	LD (SIDESEL),A
+	LD (SIDSEL),A
 
 FORM3:	LD A,(CURTRK)
 	INC A
@@ -317,8 +321,7 @@ FORM4:	LD C,'F'
 
 	GLOBAL FRMTRK
 
-FRMTRK:
-	POP BC
+FRMTRK:	POP BC
 	POP HL
 	LD A,L	; track
 	PUSH HL
@@ -351,7 +354,7 @@ FRMTR1:	; format loop (tracks)
 
 	; SSO
 	LD A,80H 
-	LD (SIDESEL),A 	; setzen
+	LD (SIDSEL),A 	; setzen
 
 FRMTR2:
 	CALL GENTRK
@@ -363,7 +366,7 @@ FRMTR2:
 	AND 7FH
 	LD (DRIVE),A   
 	XOR A
-	LD (SIDESEL),A
+	LD (SIDSEL),A
 
 FRMTR3:
 	; return without error
@@ -379,10 +382,10 @@ FRMTR9:
 	
 	GLOBAL GENTRK
 	
-GENTRK:	LD IX,(FORMTAB) 	; start of format table
+GENTRK:	LD IX,(TRKBUF) 	; start of format table
 
 	; header
-	LD A,(DENSITY)
+	LD A,(DENSIT)
 	OR A
 	JR NZ,GENT1	; -> double-density
 
@@ -412,7 +415,7 @@ GENT4:	; sector loop
 	PUSH BC
 	
 	; ID field
-	LD A,(DENSITY)
+	LD A,(DENSIT)
 	OR A
 	JR NZ,GENT11	; -> double density
 
@@ -425,13 +428,14 @@ GENT5:	LD (IX+0),0
 	DEC B
 	JR NZ,GENT5
 	
-	LD (IX+0),0FEH 	; ID address marc
+	LD (IX+0),0FEH 	; generate ID address mark
 	INC IX
+	
 	LD A,(CURTRK)	; track number 0..n
 	LD (IX+0),A
 	INC IX
 
-	LD A,(SIDESEL) 	; side
+	LD A,(SIDSEL) 	; side
 	AND 80H  	;
 	OR A
 	JR NZ,GENT6	; -> side 1
@@ -450,15 +454,16 @@ GENT7:	INC IX
 	INC IX
 	LD HL,(BYTCNT)	; sector size (128,256,512,1024)
 	LD A,H  	; 0,1,2,4 da 80h,100h,200h,400h
-	CP 4
-	JR NZ,GENT8	; -> not 4
+	CP 4		; = 400H
+	JR NZ,GENT8	; -> not 400H
 	
-	; A=4
+	; 400H -> 3
 	LD A,3
 
-GENT8:	LD (IX+0),A  	; Laengenkennung (0,1,2,3)
+GENT8:	LD (IX+0),A  	; Laengenkennung (00h, 01h, 02h, 03h)
 	INC IX
-	LD (IX+0),0F7H 	; create CRC
+	
+	LD (IX+0),0F7H 	; generate CRC here
 	INC IX
 
 	LD B,11
@@ -473,7 +478,7 @@ GENT10:	LD (IX+0),0
 	DEC B
 	JR NZ,GENT10
 	
-	LD (IX+0),0FBH 	; data mark
+	LD (IX+0),0FBH 	; generate data mark
 	INC IX
 	JP GENT20
 
@@ -486,17 +491,19 @@ GENT12:	LD (IX+0),0
 	JR NZ,GENT12
 	
 	LD B,3
-GENT13:	LD (IX+0),0F5H
+GENT13:	LD (IX+0),0F5H	; generate 0A1h without clock-bits
 	INC IX
 	DEC B
 	JR NZ,GENT13
 	
-	LD (IX+0),0FEH 	; ID address mark
+	LD (IX+0),0FEH 	; generate ID address mark
 	INC IX
+	
 	LD A,(CURTRK)
 	LD (IX+0),A  	; track 0..n
 	INC IX
-	LD A,(SIDESEL) 	; for side-sel SSO
+	
+	LD A,(SIDSEL) 	; for side-sel SSO
 	AND 80H
 	OR A
 	JR NZ,GENT14	; -> side 1
@@ -507,9 +514,8 @@ GENT13:	LD (IX+0),0F5H
 	
 GENT14:	LD (IX+0),1  	; side 1
 
-	GLOBAL GENT15
-
 GENT15:	INC IX
+
 	LD A,(CURSEC)
 	CALL SKEW
 	LD (IX+0),A  	; sector 1..n
@@ -524,7 +530,7 @@ GENT15:	INC IX
 
 GENT16:	LD (IX+0),A  	; 0,1,2,3 Laengenkennung
 	INC IX
-	LD (IX+0),0F7H 	; create CRC
+	LD (IX+0),0F7H 	; generate CRC here
 	INC IX
 	
 	LD B,22
@@ -540,12 +546,12 @@ GENT18:	LD (IX+0),0
 	JR NZ,GENT18
 	
 	LD B,3
-GENT19:	LD (IX+0),0F5H
+GENT19:	LD (IX+0),0F5H	; generate 0A1h without clock-bits
 	INC IX
 	DEC B
 	JR NZ,GENT19
 	
-	LD (IX+0),0FBH 	; data mark
+	LD (IX+0),0FBH 	; generate data mark
 	INC IX
 
 	; write data block
@@ -561,9 +567,9 @@ GENT21:	LD (IX+0),C
 	OR L
 	JR NZ,GENT21
 	
-	LD (IX+0),0F7H 	; write CRC
+	LD (IX+0),0F7H 	; generate CRC here
 	INC IX
-	LD A,(DENSITY)
+	LD A,(DENSIT)
 	OR A
 	JR NZ,GENT22	; -> double density
 	
@@ -591,7 +597,7 @@ GENT24:	LD (IX+0),C
 	JP NZ,GENT4	; -> sector loop
 	
 	; fill to the end
-	LD A,(DENSITY)
+	LD A,(DENSIT)
 	OR A
 	JR NZ,GENT25	; -> double-sided
 
@@ -614,14 +620,180 @@ GENT27:	LD (IX+0),C
 	RET
 
 ;-----------------------------------------------------------------------------
+; Create new track for 1,44 MB
+
+	IF FALSE
+	
+	GLOBAL GEATRK
+	
+GEATRK:	LD IX,(TRKBUF) 	; start of format table
+
+	; ----- create track header -----
+	
+	LD B,80
+	LD C,04EH
+GEAT1:	LD (IX+0),C
+	INC IX
+	DEC B
+	JR NZ,GEAT1
+
+	LD B,12
+	LD C,00H
+GEAT2:	LD (IX+0),C
+	INC IX
+	DEC B
+	JR NZ,GEAT2
+
+	LD B,3
+GEAT3:	LD (IX+0),0F6H	; -> C2 witout clock-bits
+	INC IX
+	DEC B
+	JR NZ,GEAT3
+
+	LD (IX+0),0FCH	; generate index mark (IAM)
+	INC IX
+
+	LD B,50
+GEAT4:
+	LD (IX+0),04EH	; Gap 1 (Post-Indedx Gap)
+	INC IX
+	DEC B
+	JR NZ,GEAT4
+
+	; ----- create sectors -----
+	
+	LD A,1		; start with sector 1 (1..n)
+	LD (CURSEC),A 	; current sector
+	LD A,(SECCNT)
+	LD B,A
+
+GEAT5:	; ----- sector loop -----
+
+	PUSH BC
+
+	; 12 * 00H
+	LD B,12
+GEAT6:	LD (IX+0),00H
+	INC IX
+	DEC B
+	JR NZ,GEAT6
+	
+	; 3 * 0F5
+	LD B,3
+GEAT7:	LD (IX+0),0F5H	; generate 0A1h without clock-bits
+	INC IX
+	DEC B
+	JR NZ,GEAT7
+
+	; 1 * FEH
+	LD (IX+0),0FEH 	; generate ID address mark
+	INC IX
+	
+	LD A,(CURTRK)
+	LD (IX+0),A  	; track 0..n-1
+	INC IX
+	
+	LD A,(SIDSEL) 	; for side-sel SSO
+	AND 80H
+	OR A
+	JR NZ,GEAT8	; -> side 1
+	; side 0
+	LD (IX+0),0  	; side 0
+	JR GEAT9
+GEAT8:	LD (IX+0),1  	; side 1
+GEAT9:	INC IX
+	
+	LD A,(CURSEC)
+	CALL SKEW
+	LD (IX+0),A  	; sector 1..n
+	INC IX
+	
+	LD HL,(BYTCNT)	; sector size (128,256,512,1024)
+	LD A,H  	; 0,1,2,4 da 80h,100h,200h,400h
+	CP 4		; 400h
+	JR NZ,GEAT10
+	; 0400h -> 03h
+	LD A,3
+GEAT10:	LD (IX+0),A
+	INC IX
+	LD (IX+0),0F7H 	; generate CRC here
+	INC IX
+	
+	LD B,22
+GEAT11:	LD (IX+0),04EH
+	INC IX
+	DEC B
+	JR NZ,GEAT11
+
+	LD B,12
+GEAT12:	LD (IX+0),00H
+	INC IX
+	DEC B
+	JR NZ,GEAT12
+	
+	LD B,3
+GEAT13:	LD (IX+0),0F5H	; generate 0A1h without clock-bits
+	INC IX
+	DEC B
+	JR NZ,GEAT13
+	
+	LD (IX+0),0FBH 	; generate data mark
+	INC IX
+
+	; write data block
+	LD HL,(BYTCNT) ; 128,256,512,1024
+GEAT14:	LD (IX+0),0E5H
+	INC IX
+	DEC HL
+	LD A,H
+	OR L
+	JR NZ,GEAT14
+
+	; CRC
+	LD (IX+0),0F7H 	; generate CRC here
+	INC IX
+
+	; GAP 3, 84 * 04EH
+	LD A,(GAPLEN)	; 84
+	LD B,A
+GEAT15:	LD (IX+0),04EH
+	INC IX
+	DEC B
+	JR NZ,GEAT15
+
+	; ----- end of sector -----
+	
+	LD A,(CURSEC)
+	INC A
+	LD (CURSEC),A 	; neue Sektorennummer
+	
+	POP BC
+	DEC B
+	JP NZ,GEAT5	; -> sector loop
+
+	; fill to the end, 1000 * 04EH
+	LD HL,1000	; use big number to make shure there are no
+			; unwanted bytes till the index puls
+	LD C,04EH
+GEAT16:	LD (IX+0),C
+	INC IX
+	DEC HL
+	LD A,H
+	OR L
+	JR NZ,GEAT16
+	
+	RET
+
+	ENDIF
+
+;-----------------------------------------------------------------------------
 ; skew/interleave translation
 ; sector in A -> (1..n)
 
-SKEW:
-	DEC A	; sector 0..n-1
+SKEW:	DEC A	; sector 0..n-1
 	LD D,0
 	LD E,A
-	LD HL,(SKEWTAB)
+	LD HL,(SKEWTB)
 	ADD HL,DE
 	LD A,(HL)
 	RET
@@ -629,8 +801,7 @@ SKEW:
 ;-----------------------------------------------------------------------------
 ; Format track
 
-FMT:
-	CALL DELAY
+FMT:	CALL DELAY
 	EI
 	CALL FMTA
 	DI
@@ -642,13 +813,12 @@ FMT:
 
 ;-----------------------------------------------------------------------------
 
-FMTA:
-	CALL SETSR 	; setup special register
+FMTA:	CALL SETSR 	; setup special register
 
 	; FLO1/FLO2 (C0h)
-	LD HL,(FORMTAB) 	; track buffer address
+	LD HL,(TRKBUF) 	; track buffer address
 	LD C,FLO+3 	; Datenport
-	LD A,(SIDESEL) 	; Side-Flag setzen, fuer SSO-Ausgang
+	LD A,(SIDSEL) 	; Side-Flag setzen, fuer SSO-Ausgang
 	AND 80H 	; wenn USESSO auf 80h gesetzt wird
 	RLCA  		; BIT 0
 	RLCA  		; BIT 1
@@ -666,8 +836,7 @@ FMTA1:	; format loop
 	JP FMTA1 	; durch INT wird die Routine gestoppt.
 	JR FMTA6
 
-FMTA6:
-	RET
+FMTA6:	RET
 
 ;-----------------------------------------------------------------------------
 ; verify one track, both sides
@@ -677,8 +846,7 @@ FMTA6:
 
 	GLOBAL VFYTRK
 
-VFYTRK:
-	POP BC
+VFYTRK:	POP BC
 	POP HL
 	LD A,L	; track
 	PUSH HL
@@ -691,7 +859,7 @@ VFYTRK:
 	AND 7FH
 	LD (DRIVE),A 
 	XOR A
-	LD (SIDESEL),A
+	LD (SIDSEL),A
 
 	;CALL ECMACHK
 	CALL VFY
@@ -711,14 +879,12 @@ VFYTRK:
 	
 	; SSO
 	LD A,80H
-	LD (SIDESEL),A
+	LD (SIDSEL),A
 
-VERTR1:
-	CALL VFY
+VERTR1:	CALL VFY
 	LD B,A
 
-VERTR9:
-	LD L,B
+VERTR9:	LD L,B
 	LD H,0
 	RET
 
@@ -752,9 +918,9 @@ VFY1:	; sector loop (1..n)
 	RET
 
 ;-----------------------------------------------------------------------------
+; Read on sector
 
-READ:
-	LD B,2	; 2 retries
+READ:	LD B,2	; 2 retries
 
 READ1: ; retry loop
 	PUSH BC
@@ -772,15 +938,15 @@ READ1: ; retry loop
 	RET
 
 ;-----------------------------------------------------------------------------
+; Read on sector
 
-READEX:
-	CALL SETSR 	; setup special register
+READEX:	CALL SETSR 	; setup special register
 
 	LD A,(CURSEC)
 	OUT (FLO+2),A 	; Sektor definieren
-	LD HL,(FORMTAB) 	; dorthin Daten legen 
+	LD HL,(TRKBUF) 	; dorthin Daten legen 
 	LD C,FLO+3 	; Datenport
-	LD A,(SIDESEL) 	; fuer Side-Control
+	LD A,(SIDSEL) 	; fuer Side-Control
 	AND 80H
 	RLCA  		; BIT 0
 	RLCA  		; BIT 1
@@ -800,8 +966,7 @@ READX1:	; wait for DRQ
 	JP READX1 	; bis alle Daten gelesen, dann Interrupt 
 	JP READX2
 
-READX2:
-	RET 
+READX2:	RET
 
 ;-----------------------------------------------------------------------------
 ; General error check routine
@@ -813,8 +978,7 @@ READX2:
 ;   bit 5 = wrong record type
 ;   bit 6 = write protected
 
-ERRCHK:
-	OR A
+ERRCHK:	OR A
 	RET Z  	; =0? -> Status ok
 
 	RET
@@ -899,8 +1063,7 @@ ERRC8:	JP START 	; no stack adjust needed
 
 	GLOBAL STEPIN
 
-STEPIN:
-	CALL DELAY 	; settle head
+STEPIN:	CALL DELAY 	; settle head
 	EI
 	CALL STPEX
 	DI
@@ -921,12 +1084,10 @@ STPEX:
 ;-----------------------------------------------------------------------------
 ; Delay loop 40ms..10ms (???)
 
-DELAY:
-	PUSH BC
+DELAY:	PUSH BC
 	LD BC,0D05H
 
-DELAY1:
-	DEC BC
+DELAY1:	DEC BC
 	LD A,C
 	OR B
 	JP NZ,DELAY1
@@ -937,11 +1098,12 @@ DELAY1:
 ;-----------------------------------------------------------------------------
 ; Setup special register (Register 4)
 
-SETSR:
-	PUSH BC
+	GLOBAL SETSR
+
+SETSR:	PUSH BC
 	LD A,(DRIVE) 	; Laufwerkscode
 	LD B,A
-	LD A,(DENSITY)
+	LD A,(DENSIT)
 	OR A
 	JR NZ,SETCT1	; -> DD
 
@@ -950,8 +1112,7 @@ SETSR:
 	OR 10H		; set FD179x and FDC9293 density signal
 	LD B,A
 
-SETCT1:
-	LD A,(MINMAX)
+SETCT1:	LD A,(MINMAX)
 	OR A
 	JR NZ,SETCT2
 
@@ -960,8 +1121,7 @@ SETCT1:
 	OR 20H		; set FDC9293 Mini signal
 	LD B,A
 	
-SETCT2:
-	LD A,B
+SETCT2:	LD A,B
 	OUT (FLO+4),A
 
 	POP BC

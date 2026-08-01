@@ -97,7 +97,7 @@ NBOOT   Z80
    91                   
    92                   ;-----------------------------------------------------------------------------
    93                   
-   94 00B6  21 00E5     ERROR:	LD HL,ERRMSG
+   94 00B6  21 00E6     ERROR:	LD HL,ERRMSG
    95 00B9  CD 00BF     	CALL WRSTR
    96 00BC  C3 F01E     	JP RSTRT
    97                   
@@ -112,9 +112,9 @@ NBOOT   Z80
   106 00C6  23          	INC HL		; next char in string
   107 00C7  18 F6       	JR WRSTR	; start over
   108                   
-  109 00C9  0D 0A 0A 42 MSG:	DEFM		0Dh,0Ah,0Ah,"BOOT 1.0 NDR/"
-  110 00D9  30 39 53 2F 	DEFM		SECCNT/10+'0',SECCNT MOD 10+'0',"S/1024B",0Dh,0Ah,0
-  111 00E5  52 45 41 44 ERRMSG:	DEFM		"READ ERROR",0Dh,0Ah,0
+  109 00C9  0D 0A 0A 4E MSG:	DEFM		0Dh,0Ah,0Ah,"NBOOT 1.0 NDR/"
+  110 00DA  30 39 53 2F 	DEFM		SECCNT/10+'0',SECCNT MOD 10+'0',"S/1024B",0Dh,0Ah,0
+  111 00E6  52 45 41 44 ERRMSG:	DEFM		"READ ERROR",0Dh,0Ah,0
   112                   
   113                   ;-----------------------------------------------------------------------------
   114                   
@@ -124,4 +124,4 @@ NBOOT   Z80
 
  0 Error(s) Detected.
  128 Absolute Bytes. 15 Symbols Detected.
-----------------------
+---------------------

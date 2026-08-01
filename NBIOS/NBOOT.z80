@@ -106,7 +106,7 @@ WRSTR:	LD A,(HL)	; get char from string
 	INC HL		; next char in string
 	JR WRSTR	; start over
 
-MSG:	DEFM		0Dh,0Ah,0Ah,"BOOT 1.0 NDR/"
+MSG:	DEFM		0Dh,0Ah,0Ah,"NBOOT 1.0 NDR/"
 	DEFM		SECCNT/10+'0',SECCNT MOD 10+'0',"S/1024B",0Dh,0Ah,0
 ERRMSG:	DEFM		"READ ERROR",0Dh,0Ah,0
 

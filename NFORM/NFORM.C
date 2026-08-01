@@ -9,9 +9,10 @@
 /****************************************************************************/
 /* NFORM version history
 
- 28.07.2026 *dg* First version
+ 28.07.2026 *dg* First version in C
+ 11.08.2026 *dg* added 1,44 MB format (1024 Byte/9 sectors/80 tracks)
  
- */
+*/
 
 #include "stdio.h"
 
@@ -20,13 +21,18 @@
 #define WORD unsigned int
 #define BOOL int
 
+#define DDTZ FALSE
+
 #define CTRLC 3
 #define CR 13
 
+/* for debuggung in old RunCPM CP/M 3.0 emulator */
 BOOL isruncpm;
 
-/* 1125 *  sectors/track */
-#define BUFFER_SIZE 1024*10
+/* buffer for one track.
+   one sector needs (sector-size + GAP3 + 62) bytes
+   max. format is 1,44 MB with 9 sectors * 1024 bytes */
+#define BUFFER_SIZE 1200 * 9
 char *buffer;
 char *skewbuf;
 char outbuf[80];
@@ -50,22 +56,55 @@ typedef struct
 } format;
 
 /* Format NDR Mini-Disk 800K */
-format FMTNDR =
+format FMNDR =
 {
 	"NDR",
 	5,				/* 5 sectors */
-	1024,			/* 1024 bytes per sector */
+	1024,				/* 1024 bytes per sector */
 	80,				/* 80 tracks */
 	1,				/* DD */
 	1,				/* DS */
 	0,				/* Mini (3.5/5.25 Zoll) */
 	1,				/* UseSSO */
 	54,				/* gap length */
-	0xE5			/* filler */
+	0xE5				/* filler */
 };
 
+#if FALSE
+/* Format 1,44 MB 3,5 Zoll HD/DS 512/18 */
+format FM144 =
+{
+	"1.44MB",
+	18,				/* 26 sectors */
+	512,				/* 128 bytes per sector */
+	80,				/* 77 tracks */
+	1,				/* DD */
+	1,				/* DS */
+	1,				/* Maxi (3.5 Zoll) */
+	1,				/* UseSSO */
+	84,				/* gap length */
+	0xE5				/* filler */
+};
+#endif
+
+/* Format 1,44 MB 3,5 Zoll HD/DS 1024/9 */
+format FM144 =
+{
+	"1.44MB",
+	9,				/* 26 sectors */
+	1024,				/* 128 bytes per sector */
+	80,				/* 77 tracks */
+	1,				/* DD */
+	1,				/* DS */
+	1,				/* Maxi (3.5 Zoll) */
+	1,				/* UseSSO */
+	40,				/* gap 3 length */
+	0xE5				/* filler */
+};
+
+
 /* Format IBM 8" SD */
-format FMTISD =
+format FMIBMS =
 {
 	"IBM SS/SD",
 	26,				/* 26 sectors */
@@ -79,11 +118,8 @@ format FMTISD =
 	0xE5			/* filler */
 };
 
-#define FMTCNT 2
-format *fmtlist[] = {FMTNDR, FMTISD};
-
-int list[] = { 1, 2, 3, 4};
-
+#define FMTCNT 3
+format *fmtlist[] = {FMNDR, FM144, FMIBMS};
 
 /****************************************************************************/
 
@@ -301,6 +337,15 @@ BOOL CalcSkew(buf, seccnt, skew)
 {
 	int s, i, pos, sec;
 	char *used;
+
+	if (skew == 0 || skew == 1)
+	{
+		for (s = 0; s < seccnt; s++)
+		{
+			buf[s] = s + STSEC;
+		}
+		return TRUE;
+	}
 	
 	used = calloc(seccnt, 1);
 	if (used == NULL) return FALSE;
@@ -416,8 +461,10 @@ main(argc, argv)
 	
 	ChkRunCpm();
 
-	PutStr("\r\nNFORM 1.0 *dg* Juli 2026\r\n");
+	PutStr("\r\nNFORM 1.1b *dg* 08-2026\r\n");
 	PutStr("Formatter for MC CP/M computer (FLO2)\r\n\n");
+
+#if DDTZ == 0
 
 	/* ----- parameter ----- */
 
@@ -474,12 +521,21 @@ main(argc, argv)
 	if (error)
 	{
 		PutStr("usage: NFORM <d>: -F<f> -I<i> -V\r\n");
-		PutStr("  d = drive A:..D:\r\n");
-		PutStr("  f = Format 1=NDR 800K, 2=IBM SS/SD (default=1)\r\n");
+		PutStr("  d = Drive A..D\r\n");
+		PutStr("  f = Format 1=NDR 800K, 2=1,44MB, 3=IBM SS/SD (default=1)\r\n");
 		PutStr("  i = Interleave/Skew (default=1)\r\n");
 		PutStr("  V = Verify\r\n");
 		return;
 	}
+
+#else
+	drive = 2;
+	fmtidx = 0;
+	fmt = fmtlist[fmtidx];
+	skew = 1;
+	verify = TRUE;
+#endif
+
 
 	/* ----- parameter ----- */
 
@@ -493,7 +549,7 @@ main(argc, argv)
 
 	CalcSkew(skewbuf, fmt->SecCnt, skew);
 	ShowFmt(drive, fmt, skew, verify);
-	if (skew != 1)
+	if (skew > 1)
 		ShowSkew(skewbuf, fmt->SecCnt);
 	
 	PutStr("\r\nInsert disk an press ENTER\r\n");

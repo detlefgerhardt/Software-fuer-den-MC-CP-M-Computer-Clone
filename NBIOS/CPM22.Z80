@@ -8,6 +8,14 @@
 ;*                by Clark A. Calkins
 ;*
 ;**************************************************************
+;
+; 26.07.26 *dg*	BDOSDRV corrected that causes a BDOS offset
+;		of 2 bytes.
+;		Replaced empty BIOS jump table EQU for BIOS
+;		functions. The CPM file has now the correct
+;               length.
+;
+;**************************************************************
 
 FALSE	EQU 0
 TRUE	EQU NOT FALSE
@@ -42,11 +50,39 @@ CNTRLU:	EQU	15H		;control-u
 CNTRLX:	EQU	18H		;control-x
 CNTRLZ:	EQU	1AH		;control-z (end-of-file mark)
 DEL:	EQU	7FH		;rubout
+
 ;
 ;   Set origin for CP/M
 ;
-	ORG	0D400H-800H
-;
+;CPM	EQU 	0D400H
+CPM	EQU 	0CC00H
+BIOS	EQU	CPM + 1600H
+
+; ------------------------------------------------
+; BIOS entry points
+
+BOOT	EQU	BIOS + 00h
+WBOOT	EQU	BIOS + 03h
+CONST	EQU	BIOS + 06h
+CONIN	EQU	BIOS + 09h
+CONOUT	EQU	BIOS + 0Ch
+LIST	EQU	BIOS + 0Fh
+PUNCH	EQU	BIOS + 12h
+READER	EQU	BIOS + 15h
+HOME	EQU	BIOS + 18h
+SELDSK	EQU	BIOS + 1Bh
+SETTRK	EQU	BIOS + 1Eh
+SETSEC	EQU	BIOS + 21h
+SETDMA	EQU	BIOS + 24h
+READ	EQU	BIOS + 27h
+WRITE	EQU	BIOS + 2Ah
+PRSTAT	EQU	BIOS + 2Dh
+SECTRN	EQU	BIOS + 30h
+ 
+; ------------------------------------------------
+
+	ORG CPM
+
 CBASE:	JP	COMMAND		;execute command processor (ccp).
 	JP	CLEARBUF	;entry to empty input buffer before starting ccp.
 
@@ -1247,9 +1283,21 @@ NBYTES:	DW	0		;byte counter used by TYPE.
 ;
 	DB	0,0,0,0,0,0,0,0,0,0,0,0,0
 ;
-;   Note that the following six bytes must match those at
-; (PATTRN1) or cp/m will HALT. Why?
+;**************************************************************
 ;
+;  B D O S   starts here, serial number is part of BDOS
+;
+;  BIOS and other programs that use the BDOS refer to BDOS + 6
+;
+;**************************************************************
+
+		;ORG 0
+
+BDOS:
+
+; Note that the following six bytes must match those at
+; (PATTRN1) or cp/m will HALT. Why?
+
 PATTRN2:DB	0,22,0,0,0,0	;(* serial number bytes *).
 ;
 ;**************************************************************
@@ -1260,7 +1308,7 @@ PATTRN2:DB	0,22,0,0,0,0	;(* serial number bytes *).
 ;
 FBASE:	JP	FBASE1
 ;
-;   Bdos error table.
+;   BDOS error table.
 ;
 BADSCTR:DW	ERROR1		;bad sector on read or write.
 BADSLCT:DW	ERROR2		;bad disk select.
@@ -1332,7 +1380,11 @@ ERROR5:	CALL	PRTERR
 	JP	0		;always reboot on these errors.
 ;
 BDOSERR:DEFM	"Bdos Err On "
-BDOSDRV:DEFM	022h,020h,03Ah,020h,024h,022h	;" : $"
+
+	; error fixed by *dg* 260726, additional " removed
+;BDOSDRV:DEFM	022h,020h,03Ah,020h,024h,022h	;" : $"
+BDOSDRV:DEFM	020h,03Ah,020h,024h		;" : $"
+
 BADSEC:	DEFM	"Bad Sector$"
 BADSEL:	DEFM	"Select$"
 FILERO:	DEFM	"File "
@@ -3725,7 +3777,12 @@ FILEPOS:DW	0		;files position within directory (0 to max entries -1).
 ; 16 possible drives.
 ;
 CKSUMTBL: DB	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-	DEFB	0,0		;Adjust to make BOOT at EA00h for 60K system
+
+	DEFB	0,0,0,0		;Adjust to make BOOT at EA00h for 60K system
+
+CPMEND:
+
+	IF FALSE
 ;
 ;**************************************************************
 ;*
@@ -3750,6 +3807,8 @@ READ:	JP	0
 WRITE:	JP	0
 PRSTAT:	JP	0
 SECTRN:	JP	0
+
+	ENDIF
 ;
 ;*
 ;******************   E N D   O F   C P / M   *****************
