@@ -723,7 +723,7 @@ main(argc, argv)
 	
 	if (argerr)
 	{
-		printf("Usage: copydisk src: dst: (src,dst = A to %c)\r\n", DRV_CNT - 1 + 'A');
+		printf("Usage: diskcopy src: dst: (src,dst = A to %c)\r\n", DRV_CNT - 1 + 'A');
 		return;
 	}
 #else	

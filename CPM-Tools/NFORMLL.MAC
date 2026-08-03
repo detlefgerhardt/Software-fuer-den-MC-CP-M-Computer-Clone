@@ -1,0 +1,1003 @@
+; NFORMLL.MAC *dg* 01.08.2026
+;
+; low-level assembly routines for NFORM.C
+;
+; still contains some test, debug and sample code
+; tested with NKC 800KB, 1440 KB and IBM 240 KB formats
+; with skew/interleave support
+; only supports FLO2 card with controller at address C0h and non-inverted
+; special control lines
+;
+
+FALSE	EQU 0
+TRUE	EQU NOT FALSE
+
+
+FLO	EQU 0C0h	; controller base address
+
+DRIVE:	DB 0
+DENSIT:	DB 0	; 0 = SD, 1 = DD
+MINMAX:	DB 0	; 0 = Mini, 1 = Maxi
+BYTCNT:	DW 0
+GAPLEN:	DB 0
+SECCNT:	DB 0
+SSDS:	DB 0	; 0 = SS, 1 = DS
+USESSO:	DB 0
+TRKCNT:	DB 0
+FILLER: DB 0	; for sector data
+
+TRKBUF:	DW 0	; pointer to buffer that can hold a complete track (more than 10.000 kb)
+SKEWTB:	DW 0	; pointer to skew translation table, length = sector count
+
+CURTRK:	DB 0
+CURSEC:	DB 0
+SIDSEL:	DB 1
+
+;-----------------------------------------------------------------------------
+
+; Init(buffer, drive, skewtb, frm)
+;	unsigned buffer;
+;	int drive;
+;	char *skewtb
+;	struct format *frm;
+
+	GLOBAL INIT
+
+INIT:	LD IX,2		; RET
+	ADD IX,SP
+
+	LD A,(IX+0)	; buffer low
+	LD (TRKBUF),A
+	LD A,(IX+1)	; buffer high
+	LD (TRKBUF+1),A
+
+	LD A,(IX+2)	; drive 0..n-1
+	LD (DRIVE),A
+
+	LD L,(IX+4)	; skew tab
+	LD H,(IX+5)
+	LD (SKEWTB),HL
+	
+	LD L,(IX+6)	; struct format *
+	LD H,(IX+7)
+	PUSH HL
+	POP IX
+
+	; IX+0,IX+1 = Name
+	
+	LD A,(IX+2)	; SecCnt
+	LD (SECCNT),A
+	
+	LD L,(IX+3)	; BytCnt
+	LD H,(IX+4)
+	LD (BYTCNT),HL
+	
+	LD A,(IX+5)	; TrkCnt
+	LD (TRKCNT),A
+	
+	LD A,(IX+6)	; Density
+	LD (DENSIT),A
+	
+	LD A,(IX+7)	; SS/DD
+	LD (SSDS),A
+	
+	LD A,(IX+8)	; Mini/Maxi
+	LD (MINMAX),A
+
+	LD A,(IX+9)	; UseSSO
+	LD (USESSO),A
+
+	LD A,(IX+10)	; GapLen
+	LD (GAPLEN),A
+
+	LD A,(IX+11)	; Data filler
+	LD (FILLER),A
+
+	; convert drive to binary drive code
+	; (0 -> 0001, 1 -> 0010, 2 -> 0100, 3 -> 1000)
+	LD A,(DRIVE)
+	INC A	; drive-1..0 -> drive..1, because of DJNZ
+	LD B,A
+	LD A,00000001B
+INIT1:
+	SLA A
+	DJNZ INIT1
+	SRL	A	; we shifted once to many, shift back
+	LD (DRIVE),A
+
+	; reset interrupts
+	IN A,(FLO+0) 	; clear all interrupts
+
+	IM 1  		; use MODE 1, RST-7
+	LD A,0C3H 	; set jump vector
+	LD (38H),A
+	LD HL,INTR
+	LD (39H),HL
+
+	;CALL HOME 	; set head to track 0, status -> HL (0=ok)
+	
+	RET
+
+;-----------------------------------------------------------------------------
+
+DEINIT:	IM 0
+	LD H,0
+	LD L,0
+	RET
+
+;-----------------------------------------------------------------------------
+; int getsec()
+
+	GLOBAL GETSEC
+	
+GETSEC:
+	LD A,(CURSEC)
+	LD L,A
+	LD H,0
+	RET
+
+;-----------------------------------------------------------------------------
+; Interrupt routine
+
+INTR:
+	POP AF
+	; reset interrupts
+	IN A,(FLO+0)
+	EI
+	RETI
+
+;-----------------------------------------------------------------------------
+; Set head to track 0
+
+	GLOBAL HOME
+
+HOME:	LD HL,250 	; max retries
+	
+HOME1:	; retry loop
+	PUSH  HL
+	IN A,(FLO+0)	; read status
+	CALL DELAY
+	EI  		; enable interrupts
+	CALL RSTEX	; execute Restore
+	DI
+	POP HL
+	IN A,(FLO+0)	; read status
+	AND 80H 	; <>0 dann nicht ready
+	JR Z,HOME2	; -> ok
+	
+	DEC HL
+	LD A,H
+	OR L  		
+	JR NZ,HOME1	; -> retry
+
+	; error
+	LD HL,1
+	RET
+	
+HOME2:	; ok
+	LD HL,0
+	RET
+
+;-----------------------------------------------------------------------------
+; Execute Restore FLO2
+
+RSTEX:	CALL SETSR	; setup special register
+	LD A,00001011B 	; 0000=Restore, Headload=1, Verify=0, Stepping rate=11
+	OUT (FLO+0),A	; write command
+	HALT  		; wait for INT
+
+;-----------------------------------------------------------------------------
+; format one track
+;
+; frmtrk(track)
+;	int track
+
+	GLOBAL FRMTRK
+
+FRMTRK:	POP BC
+	POP HL
+	LD A,L	; track
+	PUSH HL
+	PUSH BC
+	
+	LD (CURTRK),A	; track
+
+FRMTR1:	; format loop (tracks)
+
+	; --- format side 0 ---
+	
+	;CALL ECMACHK 	; check if track 0 and ECMA70
+	CALL GENTRK 	; create track
+	CALL FMT 	; format track
+	JR NZ,FRMTR9
+	
+	LD A,(SSDS)
+	CP 1
+	JR NZ,FRMTR3	; -> single sided
+
+	; --- double-sided,. format side 1 ---
+	
+	LD A,(DRIVE)	; Rueckseite setzen
+	OR 80H  	; aber kein Side-sel
+	LD (DRIVE),A
+
+	LD A,(USESSO)
+	OR A
+	JR Z,FRMTR2	; -> no SSO
+
+	; SSO
+	LD A,80H 
+	LD (SIDSEL),A 	; setzen
+
+FRMTR2:
+	CALL GENTRK
+	CALL FMT
+	JR NZ,FRMTR9
+	
+	; set side 0
+	LD A,(DRIVE)
+	AND 7FH
+	LD (DRIVE),A   
+	XOR A
+	LD (SIDSEL),A
+
+FRMTR3:
+	; return without error
+	XOR A
+
+FRMTR9:
+	LD L,A
+	LD H,0
+	RET
+
+;-----------------------------------------------------------------------------
+; Create new track
+	
+	GLOBAL GENTRK
+	
+GENTRK:	LD IX,(TRKBUF) 	; start of format table
+
+	; header
+	LD A,(DENSIT)
+	OR A
+	JR NZ,GENT1	; -> double-density
+
+	; single-density
+	LD B,16
+	LD C,0FFH 	; fuellbyte 
+	JR GENT2
+
+GENT1:	; double density
+	LD B,32
+	LD C,04EH
+	
+GENT2:
+GENT3:	LD (IX+0),C
+	INC IX
+	DEC B
+	JR NZ,GENT3
+
+	; create sectors
+	
+	LD A,1		; start with sector 1 (1..n)
+	LD (CURSEC),A 	; current sector
+	LD A,(SECCNT)
+	LD B,A
+
+GENT4:	; sector loop
+	PUSH BC
+	
+	; ID field
+	LD A,(DENSIT)
+	OR A
+	JR NZ,GENT11	; -> double density
+
+	; --- single density ---
+	
+	LD B,6
+
+GENT5:	LD (IX+0),0
+	INC IX
+	DEC B
+	JR NZ,GENT5
+	
+	LD (IX+0),0FEH 	; generate ID address mark
+	INC IX
+	
+	LD A,(CURTRK)	; track number 0..n
+	LD (IX+0),A
+	INC IX
+
+	LD A,(SIDSEL) 	; side
+	AND 80H  	;
+	OR A
+	JR NZ,GENT6	; -> side 1
+
+	; side 0
+	LD (IX+0),0  	; Seite 0
+	JR GENT7
+
+GENT6:	; side 1
+	LD (IX+0),1  	; Seite 1
+
+GENT7:	INC IX
+	LD A,(CURSEC)
+	CALL SKEW
+	LD (IX+0),A  	; Sector 1..n
+	INC IX
+	LD HL,(BYTCNT)	; sector size (128,256,512,1024)
+	LD A,H  	; 0,1,2,4 da 80h,100h,200h,400h
+	CP 4		; = 400H
+	JR NZ,GENT8	; -> not 400H
+	
+	; 400H -> 3
+	LD A,3
+
+GENT8:	LD (IX+0),A  	; Laengenkennung (00h, 01h, 02h, 03h)
+	INC IX
+	
+	LD (IX+0),0F7H 	; generate CRC here
+	INC IX
+
+	LD B,11
+GENT9:	LD (IX+0),0FFH
+	INC IX
+	DEC B
+	JR NZ,GENT9
+	
+	LD B,6
+GENT10:	LD (IX+0),0
+	INC IX
+	DEC B
+	JR NZ,GENT10
+	
+	LD (IX+0),0FBH 	; generate data mark
+	INC IX
+	JP GENT20
+
+	; --- double density ---
+
+GENT11:	LD B,12
+GENT12:	LD (IX+0),0
+	INC IX
+	DEC B
+	JR NZ,GENT12
+	
+	LD B,3
+GENT13:	LD (IX+0),0F5H	; generate 0A1h without clock-bits
+	INC IX
+	DEC B
+	JR NZ,GENT13
+	
+	LD (IX+0),0FEH 	; generate ID address mark
+	INC IX
+	
+	LD A,(CURTRK)
+	LD (IX+0),A  	; track 0..n
+	INC IX
+	
+	LD A,(SIDSEL) 	; for side-sel SSO
+	AND 80H
+	OR A
+	JR NZ,GENT14	; -> side 1
+
+	; side 0
+	LD (IX+0),0  	; side 0
+	JR GENT15
+	
+GENT14:	LD (IX+0),1  	; side 1
+
+GENT15:	INC IX
+
+	LD A,(CURSEC)
+	CALL SKEW
+	LD (IX+0),A  	; sector 1..n
+	INC IX
+	LD HL,(BYTCNT)	; sector size (128,256,512,1024)
+	LD A,H  	; 0,1,2,4 da 80h,100h,200h,400h
+	CP 4
+	JR NZ,GENT16
+	
+	; A=4
+	LD A,3
+
+GENT16:	LD (IX+0),A  	; 0,1,2,3 Laengenkennung
+	INC IX
+	LD (IX+0),0F7H 	; generate CRC here
+	INC IX
+	
+	LD B,22
+GENT17:	LD (IX+0),04EH
+	INC IX
+	DEC B
+	JR NZ,GENT17
+
+	LD B,12
+GENT18:	LD (IX+0),0
+	INC IX
+	DEC B
+	JR NZ,GENT18
+	
+	LD B,3
+GENT19:	LD (IX+0),0F5H	; generate 0A1h without clock-bits
+	INC IX
+	DEC B
+	JR NZ,GENT19
+	
+	LD (IX+0),0FBH 	; generate data mark
+	INC IX
+
+	; write data block
+
+GENT20:	LD A,(FILLER) 	; data byte
+	LD C,A
+	LD HL,(BYTCNT) ; 128,256,512,1024
+
+GENT21:	LD (IX+0),C
+	INC IX
+	DEC HL
+	LD A,H
+	OR L
+	JR NZ,GENT21
+	
+	LD (IX+0),0F7H 	; generate CRC here
+	INC IX
+	LD A,(DENSIT)
+	OR A
+	JR NZ,GENT22	; -> double density
+	
+	; single density
+	LD C,0FFH  	; Datenbyte SD
+	JR GENT23
+
+GENT22:	; double density
+	LD C,04EH  	; Datenbyte DD
+
+GENT23:	LD A,(GAPLEN)
+	LD B,A
+GENT24:	LD (IX+0),C
+	INC IX
+	DEC B
+	JR NZ,GENT24
+	
+	; next sector
+	LD A,(CURSEC)
+	INC A
+	LD (CURSEC),A 	; neue Sektorennummer
+	POP BC
+	DEC B
+	JP NZ,GENT4	; -> sector loop
+	
+	; fill to the end
+	LD A,(DENSIT)
+	OR A
+	JR NZ,GENT25	; -> double-sided
+
+	; single-sided
+	LD C,0FFH 	; store gap 4
+	JR GENT26
+
+GENT25:	; double-sided
+	LD C,04EH
+
+GENT26:	LD HL,1000	; use big number to make shure there are no
+			; unwanted bytes till the index puls
+GENT27:	LD (IX+0),C
+	INC IX
+	DEC HL
+	LD A,H
+	OR L
+	JR NZ,GENT27
+	
+	RET
+
+;-----------------------------------------------------------------------------
+; Create new track for 1,44 MB
+
+	IF FALSE
+	
+	GLOBAL GEATRK
+	
+GEATRK:	LD IX,(TRKBUF) 	; start of format table
+
+	; ----- create track header -----
+	
+	LD B,80
+	LD C,04EH
+GEAT1:	LD (IX+0),C
+	INC IX
+	DEC B
+	JR NZ,GEAT1
+
+	LD B,12
+	LD C,00H
+GEAT2:	LD (IX+0),C
+	INC IX
+	DEC B
+	JR NZ,GEAT2
+
+	LD B,3
+GEAT3:	LD (IX+0),0F6H	; -> C2 witout clock-bits
+	INC IX
+	DEC B
+	JR NZ,GEAT3
+
+	LD (IX+0),0FCH	; generate index mark (IAM)
+	INC IX
+
+	LD B,50
+GEAT4:
+	LD (IX+0),04EH	; Gap 1 (Post-Indedx Gap)
+	INC IX
+	DEC B
+	JR NZ,GEAT4
+
+	; ----- create sectors -----
+	
+	LD A,1		; start with sector 1 (1..n)
+	LD (CURSEC),A 	; current sector
+	LD A,(SECCNT)
+	LD B,A
+
+GEAT5:	; ----- sector loop -----
+
+	PUSH BC
+
+	; 12 * 00H
+	LD B,12
+GEAT6:	LD (IX+0),00H
+	INC IX
+	DEC B
+	JR NZ,GEAT6
+	
+	; 3 * 0F5
+	LD B,3
+GEAT7:	LD (IX+0),0F5H	; generate 0A1h without clock-bits
+	INC IX
+	DEC B
+	JR NZ,GEAT7
+
+	; 1 * FEH
+	LD (IX+0),0FEH 	; generate ID address mark
+	INC IX
+	
+	LD A,(CURTRK)
+	LD (IX+0),A  	; track 0..n-1
+	INC IX
+	
+	LD A,(SIDSEL) 	; for side-sel SSO
+	AND 80H
+	OR A
+	JR NZ,GEAT8	; -> side 1
+	; side 0
+	LD (IX+0),0  	; side 0
+	JR GEAT9
+GEAT8:	LD (IX+0),1  	; side 1
+GEAT9:	INC IX
+	
+	LD A,(CURSEC)
+	CALL SKEW
+	LD (IX+0),A  	; sector 1..n
+	INC IX
+	
+	LD HL,(BYTCNT)	; sector size (128,256,512,1024)
+	LD A,H  	; 0,1,2,4 da 80h,100h,200h,400h
+	CP 4		; 400h
+	JR NZ,GEAT10
+	; 0400h -> 03h
+	LD A,3
+GEAT10:	LD (IX+0),A
+	INC IX
+	LD (IX+0),0F7H 	; generate CRC here
+	INC IX
+	
+	LD B,22
+GEAT11:	LD (IX+0),04EH
+	INC IX
+	DEC B
+	JR NZ,GEAT11
+
+	LD B,12
+GEAT12:	LD (IX+0),00H
+	INC IX
+	DEC B
+	JR NZ,GEAT12
+	
+	LD B,3
+GEAT13:	LD (IX+0),0F5H	; generate 0A1h without clock-bits
+	INC IX
+	DEC B
+	JR NZ,GEAT13
+	
+	LD (IX+0),0FBH 	; generate data mark
+	INC IX
+
+	; write data block
+	LD HL,(BYTCNT) ; 128,256,512,1024
+GEAT14:	LD (IX+0),0E5H
+	INC IX
+	DEC HL
+	LD A,H
+	OR L
+	JR NZ,GEAT14
+
+	; CRC
+	LD (IX+0),0F7H 	; generate CRC here
+	INC IX
+
+	; GAP 3, 84 * 04EH
+	LD A,(GAPLEN)	; 84
+	LD B,A
+GEAT15:	LD (IX+0),04EH
+	INC IX
+	DEC B
+	JR NZ,GEAT15
+
+	; ----- end of sector -----
+	
+	LD A,(CURSEC)
+	INC A
+	LD (CURSEC),A 	; neue Sektorennummer
+	
+	POP BC
+	DEC B
+	JP NZ,GEAT5	; -> sector loop
+
+	; fill to the end, 1000 * 04EH
+	LD HL,1000	; use big number to make shure there are no
+			; unwanted bytes till the index puls
+	LD C,04EH
+GEAT16:	LD (IX+0),C
+	INC IX
+	DEC HL
+	LD A,H
+	OR L
+	JR NZ,GEAT16
+	
+	RET
+
+	ENDIF
+
+;-----------------------------------------------------------------------------
+; skew/interleave translation
+; sector in A -> (1..n)
+
+SKEW:	DEC A	; sector 0..n-1
+	LD D,0
+	LD E,A
+	LD HL,(SKEWTB)
+	ADD HL,DE
+	LD A,(HL)
+	RET
+	
+;-----------------------------------------------------------------------------
+; Format track
+
+FMT:	CALL DELAY
+	EI
+	CALL FMTA
+	DI
+	
+	; check for lost data and write protection
+	IN A,(FLO+0) 	; read status
+	AND 01000100B	; Bit 2=Lost Data, Bit 6=Write Protect
+	RET
+
+;-----------------------------------------------------------------------------
+
+FMTA:	CALL SETSR 	; setup special register
+
+	; FLO1/FLO2 (C0h)
+	LD A,(SIDSEL) 	; Side-Flag setzen, fuer SSO-Ausgang
+	AND 80H 	; wenn USESSO auf 80h gesetzt wird
+	RLCA  		; BIT 0
+	RLCA  		; BIT 1
+	AND 00000010B 	; Side select for FD1797 (SSO)
+	OR 0F4H 	; 1111x1xx=Write track, Formatier-Befehl+nicht documentiertert
+	OUT (FLO+0),A 	; Side-Select-Befehl fuer SSO
+
+	LD HL,(TRKBUF) 	; track buffer address
+	LD C,FLO+3 	; Datenport
+
+FMTA1:	; format loop
+	IN A,(FLO+4) 	; DRQ int head
+	RLCA  		; DRQ -> carry
+	JR NC,FMTA1 	; -> wait
+	
+	; ready
+	OUTI		; (HL) -> Port (C), length in B
+	JP FMTA1 	; durch INT wird die Routine gestoppt.
+	JR FMTA6
+
+FMTA6:	RET
+
+;-----------------------------------------------------------------------------
+; verify one track, both sides
+;
+; vertrk(track)
+;	int track
+
+	GLOBAL VFYTRK
+
+VFYTRK:	POP BC
+	POP HL
+	LD A,L	; track
+	PUSH HL
+	PUSH BC
+	
+	LD (CURTRK),A
+
+	; --- verify side 0 ---
+	LD A,(DRIVE)
+	AND 7FH
+	LD (DRIVE),A 
+	XOR A
+	LD (SIDSEL),A
+
+	;CALL ECMACHK
+	CALL VFY
+	LD B,A
+	
+	LD A,(SSDS)
+	CP 1
+	JR NZ,VERTR9	; -> single-sided
+
+	; --- double-sided, verify side 1 ---
+	LD A,(DRIVE)
+	OR 80H
+	LD (DRIVE),A
+	LD A,(USESSO)
+	OR A
+	JP Z,VERTR1	; -> no SSO
+	
+	; SSO
+	LD A,80H
+	LD (SIDSEL),A
+
+VERTR1:	CALL VFY
+	LD B,A
+
+VERTR9:	LD L,B
+	LD H,0
+	RET
+
+;-----------------------------------------------------------------------------
+; Verify a track, one side
+	
+VFY:
+	CALL DELAY  	; head settle time
+
+	LD A,1
+	LD (CURSEC),A
+	LD A,(SECCNT)
+	LD B,A		; seccnt
+	
+VFY1:	; sector loop (1..n)
+	PUSH BC
+	CALL READ  	; simply read
+	;CALL ERRCHK  	; 0=ok, otherwise message
+	POP BC
+	RET NZ	; -> error
+	
+	LD A,(CURSEC)
+	INC A
+	LD (CURSEC),A
+	
+	DEC B
+	JP NZ,VFY1
+
+	; no error
+	XOR A
+	RET
+
+;-----------------------------------------------------------------------------
+; Read on sector
+
+READ:	LD B,2	; 2 retries
+
+READ1: ; retry loop
+	PUSH BC
+	EI
+	CALL READEX
+	DI
+	POP BC
+	
+	IN A,(FLO+0) 	; read status
+	AND 00111100B
+	RET Z		; -> ok
+	
+	DJNZ READ1 	; -> retry
+	
+	RET
+
+;-----------------------------------------------------------------------------
+; Read on sector
+
+READEX:	CALL SETSR 	; setup special register
+
+	LD A,(CURSEC)
+	OUT (FLO+2),A 	; Sektor definieren
+	LD A,(SIDSEL) 	; fuer Side-Control
+	AND 80H
+	RLCA  		; BIT 0
+	RLCA  		; BIT 1
+	AND 00000010B 	; 1=Seite 1
+	ADD A,88H 	; kein Delay abwarten, head ist down
+	OUT (FLO+0),A 	; und Befehl geben
+
+	LD HL,(TRKBUF) 	; dorthin Daten legen 
+	LD C,FLO+3 	; Datenport
+
+READX1:	; wait for DRQ
+	IN A,(FLO+4)
+	RLCA		; DRQ -> Carry
+	JP NC,READX1	; -> wait
+
+	INI  		; DATEN ablegen
+	JP READX1 	; bis alle Daten gelesen, dann Interrupt 
+	JP READX2
+
+READX2:	RET
+
+;-----------------------------------------------------------------------------
+; General error check routine
+
+; error code in A
+;   bit 2 = CPU to slow
+;   bit 3 = CRC error
+;   bit 4 = record not found
+;   bit 5 = wrong record type
+;   bit 6 = write protected
+
+ERRCHK:	OR A
+	RET Z  	; =0? -> Status ok
+
+	RET
+
+
+	IF FALSE
+	
+	; TRACK, Spur ausgeben
+	PUSH AF 	; save error code
+	LD HL,TKMSG
+	CALL PRNMSG
+	LD A,(CURTRK)
+	LD L,A
+	LD H,0 
+	CALL PRNTHL
+	LD HL,SKMSG
+	CALL PRNMSG
+	LD A,(CURSEC)
+	LD L,A
+	LD H,0
+	CALL PRNTHL
+	CALL CRLF
+	POP AF  	; restore error code
+	
+	; check bit 2
+	BIT 2,A
+	LD HL,F0MSG 	; error message
+	JP Z,ERRC1	; -> bit 2 not set
+	
+	; bit 2, CPU too slow
+	LD HL,F2MSG
+
+ERRC1:	; check bit 3
+	BIT 3,A
+	JP Z,ERRC2	; -> bit 3 not set
+
+	; bit 3, CRC errror
+	LD HL,F3MSG
+
+ERRC2:	; check bit 4
+	BIT 4,A
+	JP Z,ERRC3	; -> bit 4 not set
+	
+	; bit 4, record not found
+	LD HL,F4MSG
+	
+ERRC3:	; check bit 5
+	BIT 5,A
+	JP Z,ERRC4	; -> bit 5 not set
+
+	; bit 5, wrong record type
+	LD HL,F5MSG
+
+ERRC4:	; check bit 6
+	BIT 6,A
+	JP Z,ERRC5	; -> bit 6 not set
+
+	; bit 6, write protected
+	LD HL,F6MSG
+	
+ERRC5:	; check bit 7
+	JP Z,ERRC6
+	
+	; bit 7, write protected
+	LD HL,F6MSG 	; dominant is write proteced error
+
+ERRC6:	CALL PRNMSG
+
+ERRC7:	; wait for 'W' or 'w'
+	CALL CONIN
+	CP 'W'
+	JP Z,ERRC8
+	CP 'w'
+	JP NZ,ERRC7
+
+ERRC8:	JP START 	; no stack adjust needed
+	
+	ENDIF
+
+;-----------------------------------------------------------------------------
+; Step ausfuehren
+
+	GLOBAL STEPIN
+
+STEPIN:	CALL DELAY 	; settle head
+	EI
+	CALL STPEX
+	DI
+	RET
+
+;-----------------------------------------------------------------------------
+; Execute drive step
+
+STPEX:
+ 	; Laufwerk und Dichte
+	CALL SETSR	; setup special register
+
+	; FLO2 (C0h)
+	LD A,01011011B	; 010=Step In, update=1, headload=1, verify=0, stepping rate=11
+	OUT (FLO+0),A	; write command
+	HALT
+
+;-----------------------------------------------------------------------------
+; Delay loop 40ms..10ms (???)
+
+DELAY:	PUSH BC
+	LD BC,0D05H
+
+DELAY1:	DEC BC
+	LD A,C
+	OR B
+	JP NZ,DELAY1
+	
+	POP BC
+	RET
+
+;-----------------------------------------------------------------------------
+; Setup special register (Register 4)
+
+	GLOBAL SETSR
+
+SETSR:	PUSH BC
+	LD A,(DRIVE) 	; Laufwerkscode
+	LD B,A
+	LD A,(DENSIT)
+	OR A
+	JR NZ,SETCT1	; -> DD
+
+	; SD
+	LD A,B
+	OR 10H		; set FD179x and FDC9293 density signal
+	LD B,A
+
+SETCT1:	LD A,(MINMAX)
+	OR A
+	JR NZ,SETCT2
+
+	; Mini
+	LD A,B
+	OR 20H		; set FDC9293 Mini signal
+	LD B,A
+	
+SETCT2:	LD A,B
+	OUT (FLO+4),A
+
+	POP BC
+	RET
+
+;-----------------------------------------------------------------------------
+
+	END

@@ -1,5 +1,5 @@
 ;************************************************************************
-;* NBIOS.Z80								*
+;* NBIOS10.Z80								*
 ;*									*
 ;* basiert auf der Version 3.1 1984 Rolf-Dieter Klein 841220            *
 ;* Ursprüngliche Version fuer 2 Mini und 2 Maxi Laufwerke		*
@@ -19,7 +19,10 @@
 ;                 System bootet aber Schreiben auf die IDE-Laufwerke schlägt fehl.
 ; 12.07.2026 *dg* Lesen und Schreiben von CF funktioniert
 ; 31.07.2026 *dg* V1.0 Laufwerk C als HD Laufwerk konfiguriert (1.44 MB)
-;                 funktioniert noch nicht
+;                 Probleme immer beim ersten Scheiben nach dem Formatieren
+; 02.07.2026 *dg* Laufwerk B: als HD Laufwerk (1.2 MB)
+;		  Funktioniert noch nicht, Format und Laufwerksparameter unklar 
+; 03.07.2026 *dg* BIOS Debug-Ausgaben per Ctrl-A toggelbar
 
 ;------------------------------------------------------------------------------
 
@@ -38,8 +41,9 @@ LF	EQU 0AH		; line feed
 ; aktiviert alle bisherigen Aenderungen gegenueber der Originalversion 3.1
 DG01	EQU TRUE
 MINI3	EQU TRUE	; 3 MINI, 1 MAXI drive
+DG_BHD	EQU TRUE	; drive B as HD drive (1.2 MB)
 DG_CHD	EQU TRUE	; drive C as HD drive (1.44 MB)
-DEBOUT	EQU FALSE	; debug outputs
+DEBOUT	EQU TRUE	; debug outputs
 
 ; aendert die Laufwerksdefinition:
 ; 3 Mini drives
@@ -137,10 +141,7 @@ WBOOTE:	JP WBOOT	; Warm boot (CTRL-C)
 	; TRUNC (5 * 1024 * (160-4)/2048) - 1 = ca. 780 K
 SIZEAB	EQU 389
 
-	; track offset for disk A and B
-OFFSAB	EQU 4
-
-	;DISKS 8		; define 5 drives (A..E)
+	;DISKS 5		; define 5 drives (A..E)
 NDISKS	EQU	5
 
 DPBASE	EQU	$		;BASE OF DISK PARAMETER BLOCKS
@@ -182,10 +183,10 @@ DPE4:	DW	XLT4,0000H	;TRANSLATE TABLE
 	; SIZEAB = ZAHL DER MAX. MOEGLICHEN BLOECKE
 	; 256 = ZAHL DER DIRECTORY EINTRITTSPUNKTE
 	; 256 = ZAHL DER GEPRUEFTEN EINTRITTSPUNKTE
-	; OFFSAB = ADDITIVE KONSTANTE ZUM ANSPRECHEN DER SPUR 00
+	; OFFS = ADDITIVE KONSTANTE ZUM ANSPRECHEN DER SPUR 00
 
 	; physical format: 3,5 inch/5.25 inch, DD, DS, 1024 bytes/sector, 5 sectors/track, 80 tracks
-	; DISKDEF 0,0,39,0,2048,SIZEAB,256,256,OFFSAB
+	; DISKDEF 0,0,39,0,2048,SIZEAB,256,256,4
 DPB0	EQU	$		;DISK PARM BLOCK
 	DW	40		;SEC PER TRACK
 	DB	4		;BLOCK SHIFT
@@ -280,9 +281,6 @@ XLT4	EQU	0		;NO XLATE TABLE
 	; TRUNC (5 * 1024 * (160-4)/2048) - 1 = ca. 780 K
 SIZEAB	EQU 389
 
-	; track offset for disk A, B, C
-OFFSAB	EQU 4
-
 	;DISKS 8		; define 8 drives (A..H)
 NDISKS	EQU	8	
 
@@ -340,10 +338,10 @@ DPE7:	DW	0000h, 0000h
 	; SIZEAB = ZAHL DER MAX. MOEGLICHEN BLOECKE
 	; 256 = ZAHL DER DIRECTORY EINTRITTSPUNKTE
 	; 256 = ZAHL DER GEPRUEFTEN EINTRITTSPUNKTE
-	; OFFSAB = ADDITIVE KONSTANTE ZUM ANSPRECHEN DER SPUR 00
+	; OFFS = ADDITIVE KONSTANTE ZUM ANSPRECHEN DER SPUR 00
 
-	; physical format: 3,5 inch/5.25 inch, DD, DS, 1024 bytes/sector, 5 sectors/track, 80 tracks
-	; DISKDEF 0,0,39,0,2048,SIZEAB,256,256,OFFSAB
+	; physical format: 3,5 inch NKC, DD, DS, 1024 bytes/sector, 5 sectors/track, 80 tracks
+	; DISKDEF 0,0,39,0,2048,SIZEAB,256,256,4
 DPB0	EQU	$	; DISK PARM BLOCK
 	DW	40	; SEC PER TRACK
 	DB	4	; BLOCK SHIFT
@@ -357,17 +355,36 @@ DPB0	EQU	$	; DISK PARM BLOCK
 	DW	4	; OFFSET
 XLT0	EQU	0	; NO XLATE TABLE
 
-	; Disk 1 (B), same as Disk A -----------------------------------------
+	IF NOT DG_BHD
 
+	; Disk 1 (B), same as Disk A -----------------------------------------
 	; DISKDEF 1,0	; LAUFWERK 1 WIE LAUFWERK 0 DEFINIERT
 DPB1	EQU	DPB0	; EQUIVALENT PARAMETERS
 ;ALS1	EQU	ALS0	; SAME ALLOCATION VECTOR SIZE
 ;CSS1	EQU	CSS0	; SAME CHECKSUM VECTOR SIZE
 XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
 
-	; Disk 2 (C), same as Disk A -----------------------------------------
+	ELSE
+
+	; Disk 1 (B): PHYSICAL FORMAT: 1,2 MB, HD, DS, 1024 BYTES/SECTOR, 7 SECTORS/TRACK, 80 TRACKS
+ DPB1	EQU	$	; DISK PARM BLOCK
+ 	DW	56	; SEC PER TRACK
+ 	DB	5	; BLOCK SHIFT
+ 	DB	31	; BLOCK MASK
+ 	DB	1	; EXTNT MASK
+ 	DW	275	; DISK SIZE-1
+  	DW	255	; DIRECTORY MAX
+ 	DB	192	; ALLOC0
+ 	DB	0	; ALLOC1
+ 	DW	64	; CHECK SIZE
+ 	DW	2	; OFFSET
+ XLT1	EQU	0	; NO XLATE TABLE
+
+	ENDIF
 
 	IF NOT DG_CHD
+
+	; Disk 2 (C), same as Disk A -----------------------------------------
 
 	; DISKDEF 2,0	; LAUFWERK 2 WIE LAUFWERK 0 DEFINIERT
 DPB2	EQU	DPB0	; EQUIVALENT PARAMETERS
@@ -377,8 +394,7 @@ XLT2	EQU	XLT0	; SAME TRANSLATE TABLE
 
 	ELSE
 
-	; PHYSICAL FORMAT: 1,44 MB, HD, DS, 1024 BYTES/SECTOR, 9 SECTORS/TRACK, 80 TRACKS
-	; DISKDEF 0, 1, 72, 0, 4096, 341, 255, 0, 2
+	; Disk 2 (C): PHYSICAL FORMAT: 1,44 MB, HD, DS, 1024 BYTES/SECTOR, 9 SECTORS/TRACK, 80 TRACKS
  DPB2	EQU	$	; DISK PARM BLOCK
  	DW	72	; SEC PER TRACK
  	DB	5	; BLOCK SHIFT
@@ -493,42 +509,72 @@ SIGNON:
 	DB CPMVER/10+'0','.',CPMVER MOD 10+'0'
 	DB ' for MC-Computer '
 	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-	DB 'K NBIOS 260731-03 BOOT='
+	DB 'K NBIOS 260803-02 BOOT='
 	DB BTDRV+'0'
 	DB CR,LF,0
 	
 	ENDIF
 
 ;-----------------------------------------------------------------------------
-; Monitor routines and addresses
-
 ; get state of CONSOLE (if character is available)
+
 CONST:	JP 0F012H
-	
+
+;-----------------------------------------------------------------------------
 ; read one char from CONSOLE and clears parity bit
+
 CONIN:	CALL 0F003H
 	AND 7FH
+
+	IF DEBOUT
+
+	CP A,1
+	RET NZ
+
+	; toggle debug
+	LD B,A
+	LD A,(DEBACT)
+	XOR A,01H
+	LD (DEBACT),A
+	LD A,B
+
+	ENDIF
+	
 	RET
 
+;-----------------------------------------------------------------------------
 ; read one char from READER device -> A
+
 READER	EQU 0F006H
 
+;-----------------------------------------------------------------------------
 ; write one char to CONSOLE (C)
+
 CONOUT	EQU 0F009H
 
+;-----------------------------------------------------------------------------
 ; write one char to PUNCH device (C)
+
 PUNCH	EQU 0F00CH
 
+;-----------------------------------------------------------------------------
 ; write one char to LIST device (C)			
+
 LIST	EQU 0F00FH
 
+;-----------------------------------------------------------------------------
 ; restart Monitor
+
 MSTART	EQU 0F01EH
 
+;-----------------------------------------------------------------------------
 ; Monitor warm start
+
 MWARM	EQU 0F033H	; Monitor warm start, will be overwritten by BIOS
 
+;-----------------------------------------------------------------------------
 ; Monitor write string
+
 MWRSTR	EQU 0F036H	; Write string, will be overwritten by BIOS
 
 ;-----------------------------------------------------------------------------
@@ -607,7 +653,7 @@ WBOO2:	; loop, load CP/M
 			; damit Patches leicht moeglich sind
 
 	;LD C,'*'
-	;CALL MCONOUT
+	;CALL CONOUT
 
 WBOO3:	; sector read loop
 	PUSH BC		; Anzahl merken
@@ -977,7 +1023,7 @@ MAXIR1:	; retry loop
 
 WRITE:	
 	IF NOT DG01
-	
+
 	LD A,(DBANK)	; drive 0..4
 	CP 2		; 
 	JP C,MINIWR	; A < 2 -> drive 0,1 (Mini disks)
@@ -986,6 +1032,11 @@ WRITE:
 	JP C,MAXIWR	; A < 4 -> drive 2,3 (Maxi disks)
 
 	ELSE
+
+	IF DEBOUT
+	LD A,1		; WRITE
+	;CALL DEBBUF
+	ENDIF
 
 	;POP HL
 	;PUSH HL
@@ -1200,12 +1251,19 @@ MINC4:	LD A,D
 CALCTB:	; bit0..3=drive, bit4=density(0=DD), bit5=Mini/Maxi(1=Mini)
 	; bit7=side
 	DB	00100001B	; drive A -> drive0, dd, mini (DD)
+	
+	IF NOT DG_BHD
 	DB	00100010B	; drive B -> drive1, dd, mini (DD)
+	ELSE
+	DB	00000010B	; drive B -> drive2, dd, maxi (HD)
+	ENDIF
+	
 	IF NOT DG_CHD
 	DB	00100100B	; drive C -> drive2, dd, mini (DD)
 	ELSE
 	DB	00000100B	; drive C -> drive2, dd, maxi (HD)
 	ENDIF
+	
 	DB	00011000B	; drive D -> drive3, sd, maxi (SD)
 	;DB	00011000B	; drive D -> drive3, sd, maxi (SD)
 
@@ -1278,8 +1336,13 @@ MINIR1:	; actual physical sector is now in buffer PHSBUF
 	LDIR		; (DE++) <- (HL++), BC--
 			; (IOD) <- (PHSBUF+offset), 128 Byte
 	
+	IF DEBOUT
+	LD A,0		; READ
+	;CALL DEBBUF
 	ENDIF
 			
+	ENDIF
+
 	XOR A
 	RET		; -> finished without error
 
@@ -1484,7 +1547,7 @@ GETPHS:	; reset buffer changed flag
 	LD D,A
 	
 	IF DEBOUT
-	;CALL DEBPHY
+	CALL DEBPHY
 	ENDIF
 	
 	CALL FEXEC	; -> new floppy routine
@@ -1535,7 +1598,7 @@ PUTPHS:	; reset buffer changed flag
 	LD D,A
 
 	IF DEBOUT
-	;CALL DEBPHY
+	CALL DEBPHY
 	ENDIF
 	
 	CALL FEXEC	; -> new floppy routine
@@ -1825,7 +1888,7 @@ PATA:	LD IX,PATAADR
 	LD (IX+3),HIGH PATACL
 
 	;LD C,'+'
-	;CALL MCONOUT
+	;CALL CONOUT
 
 	;---------------------------------------------------------------------
 	; BDOS patch: init BDOS active drive
@@ -1836,16 +1899,16 @@ PATACL:	LD HL,(BDACT)
 
 	;PUSH BC
 	;LD C,'!'
-	;CALL MCONOUT
+	;CALL CONOUT
 	;LD A,(ACTIVE)
 	;ADD '0'
 	;LD C,A
-	;CALL MCONOUT
+	;CALL CONOUT
 	;POP BC
 	RET
 
 PATA1:	;LD C,'-'
-	;CALL MCONOUT
+	;CALL CONOUT
 	RET
 
 ;-----------------------------------------------------------------------------
@@ -1864,7 +1927,7 @@ PATB:	LD IX,PADBADR
 	LD (IX+2),HIGH PATBCL
 
 	LD C,'*'
-	CALL MCONOUT
+	CALL CONOUT
 
 	;---------------------------------------------------------------------
 	; BDOS patch
@@ -1882,7 +1945,7 @@ PATBCL:	LD C,'X'
 	RET
 
 PATB1:LD C,'-'
-	CALL MCONOUT
+	CALL CONOUT
 	RET
 	
 	ENDIF		; FALSE
@@ -1909,16 +1972,21 @@ REXEC:	JP 0F05bh	; FLOMON RAM-FLOPPY
 ; Debug Read/Write physical sector
 ; B=1: read, B=2: write
 
-	IF FALSE
+	IF DEBOUT
 
-DEBPHY:	PUSH BC
+DEBPHY:
+	LD A,(DEBACT)
+	AND A,01H
+	RET Z
+
+	PUSH BC
 	PUSH HL
 	LD L,C		; save drive code
 	
 	LD C,'['
-	CALL MCONOUT
+	CALL CONOUT
 	LD C,'P'
-	CALL MCONOUT
+	CALL CONOUT
 	
 	LD A,B
 	CP 1
@@ -1929,10 +1997,10 @@ DEBPHY:	PUSH BC
 
 DEBPH1:	LD C,'W'
 
-DEBPH2:	CALL MCONOUT
+DEBPH2:	CALL CONOUT
 
 	LD C,','
-	CALL MCONOUT
+	CALL CONOUT
 
 	; drive code in L
 	LD A,L
@@ -1941,7 +2009,7 @@ DEBPH2:	CALL MCONOUT
 	CALL DEBX8
 
 	LD C,','
-	CALL MCONOUT
+	CALL CONOUT
 
 	; track
 	LD A,D
@@ -1949,7 +2017,7 @@ DEBPH2:	CALL MCONOUT
 	CALL DEBX8
 	
 	LD C,','
-	CALL MCONOUT
+	CALL CONOUT
 
 	; sector
 	LD A,E
@@ -1957,7 +2025,7 @@ DEBPH2:	CALL MCONOUT
 	CALL DEBX8
 	
 	LD C,']'
-	CALL MCONOUT
+	CALL CONOUT
 
 	POP HL
 	POP BC
@@ -1975,20 +2043,20 @@ DEBDRV:	PUSH BC
 	PUSH HL
 
 	LD C,'['
-	CALL MCONOUT
+	CALL CONOUT
 	LD C,'F'
-	CALL MCONOUT
+	CALL CONOUT
 	LD A,(DBANK)
 	LD L,A
 	CALL DEBDEC
 	LD H,0
 	
 	LD C,','
-	CALL MCONOUT
+	CALL CONOUT
 	POP HL
 	CALL DEBDEC
 	LD C,']'
-	CALL MCONOUT
+	CALL CONOUT
 
 	POP BC
 	RET
@@ -2005,20 +2073,20 @@ DEBSEL:	PUSH BC
 	PUSH HL
 
 	LD C,'['
-	CALL MCONOUT
+	CALL CONOUT
 	LD C,'S'
-	CALL MCONOUT
+	CALL CONOUT
 	LD A,(DBANK)
 	LD L,A
 	LD H,0
 	CALL DEBDEC
 	
 	LD C,','
-	CALL MCONOUT
+	CALL CONOUT
 	POP HL
 	CALL DEBDEC
 	LD C,']'
-	CALL MCONOUT
+	CALL CONOUT
 
 	POP BC
 	RET
@@ -2037,14 +2105,14 @@ DEBIDE:	PUSH BC
 	PUSH BC
 	PUSH AF
 	LD C,'['
-	CALL MCONOUT
+	CALL CONOUT
 	POP AF
 	LD C,A
-	CALL MCONOUT
+	CALL CONOUT
 	LD C,' '
-	CALL MCONOUT
+	CALL CONOUT
 	LD C,'D'
-	CALL MCONOUT
+	CALL CONOUT
 	POP BC
 	PUSH BC		; drive in C
 	LD A,C
@@ -2054,9 +2122,9 @@ DEBIDE:	PUSH BC
 	CALL DEBDEC
 
 	LD C,','
-	CALL MCONOUT
+	CALL CONOUT
 	LD C,'S'
-	CALL MCONOUT
+	CALL CONOUT
 	POP BC		; sector in C
 	SRL C
 	SRL C
@@ -2065,23 +2133,23 @@ DEBIDE:	PUSH BC
 	CALL DEBDEC
 	
 	LD C,','
-	CALL MCONOUT
+	CALL CONOUT
 	LD C,'T'
-	CALL MCONOUT
+	CALL CONOUT
 	LD L,B
 	LD H,0
 	CALL DEBDEC
 
 	;LD C,','
-	;CALL MCONOUT
+	;CALL CONOUT
 	;LD C,'S'
-	;CALL MCONOUT
+	;CALL CONOUT
 	;LD L,E
 	;LD H,0
 	;CALL DEBDEC
 
 	LD C,']'
-	CALL MCONOUT
+	CALL CONOUT
 
 	POP HL
 	POP DE
@@ -2089,6 +2157,66 @@ DEBIDE:	PUSH BC
 	RET
 
 	ENDIF
+
+;-----------------------------------------------------------------------------
+; debug BDOS buffer, first 3 characters
+; pointer in DMA, A=0: read, A=1: write
+
+DEBBUF:	PUSH HL
+	PUSH BC
+
+	LD B,A		; read / write
+	
+	LD A,(DEBACT)
+	AND A,01H
+	JR Z,DEBBU3
+
+	LD C,'['
+	CALL CONOUT
+	
+	LD A,B		; read/write
+	CP A,1		; -> write
+	JP NZ,DEBBU1
+	
+	; read
+	LD C,'R'
+	JR DEBBU2
+
+DEBBU1:	; write
+	LD C,'W'
+
+DEBBU2:	CALL CONOUT
+	LD C,','
+	CALL CONOUT
+	
+	LD HL,(IOD)
+	
+	LD A,(HL)
+	AND A,7Fh
+	ADD A,'A'
+	LD C,A
+	CALL CONOUT
+
+	INC HL
+	LD A,(HL)
+	AND A,7Fh
+	ADD A,'A'
+	LD C,A
+	CALL CONOUT
+
+	INC HL
+	LD A,(HL)
+	AND A,7Fh
+	ADD A,'A'
+	LD C,A
+	CALL CONOUT
+
+	LD C,']'
+	CALL CONOUT
+
+DEBBU3:	POP BC
+	POP HL
+	RET
 
 ;=============================================================================
 ; Debug outputs
@@ -2129,7 +2257,7 @@ DEBDE2:	INC A		; Zeichen um 1 erhoehen (ASCII-Code weiterzaehlen)
 	;PUSH BC	; Register sichern
 	;PUSH HL
 	LD C,A		; character to print
-	CALL MCONOUT	; uses A
+	CALL CONOUT	; uses A
 	;POP HL
 	;POP BC
 	RET
@@ -2179,7 +2307,7 @@ DEBXN:	AND 0Fh
 DEBXN1:	ADD A,'0'
 
 DEBXN2:	LD C,A
-	JP MCONOUT
+	JP CONOUT
 
 ;-----------------------------------------------------------------------------
 
@@ -2208,7 +2336,7 @@ ION:	DB 1		; number of sectors to read (not used)
 	ELSE
 IOPB:	DW 1		; address of DPB of selected disk
 	ENDIF
-IOT:	DB OFFSAB	; track number (start value is first usable track)
+IOT:	DB 4		; track number (offset des boot laufwerks???)
 IOS:	DB 1		; NUMMER DES GEWUENSCHTEN SEKTORS
 IOD:	DW BUFF		; DMA-ADRESSE
 	IF NOT DG01
@@ -2217,16 +2345,27 @@ INDADR:	DW 0		; not used
 INDAD2:	DW 0		; not used
 	ENDIF
 
+	IF DEBOUT
+DEBACT:	DB 0
+	ENDIF
+
 	;ENDEF		; end macro
 
 	; floppy data area (from diskdef.lib)
 
 BEGDAT	EQU	$
 DIRBUF:	DS	128	;DIRECTORY ACCESS BUFFER
+
 ALV0:	DS	49
 CSV0:	DS	64
+
+	IF NOT DG_BHD
 ALV1:	DS	49
 CSV1:	DS	64
+	ELSE
+ALV1:	DS	35
+CSV1:	DS	64
+	ENDIF
 
 	IF NOT DG_CHD
 ALV2:	DS	49
