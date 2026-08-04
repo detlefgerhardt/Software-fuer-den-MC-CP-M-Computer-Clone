@@ -12,6 +12,9 @@
  28.07.2026 *dg* First version in C
  01.08.2026 *dg* added 1,44 MB format (1024 Byte/9 sectors/80 tracks)
 			     renamed NDR format to NKC format
+ 03.08.2026 *dg* added 1,2 MB format (1024 Byte/7 sectors/80 tracks)
+				 added more parametes
+ 04.08.2026 *dg* Formatierung repariert (side select Problem)
  
 */
 
@@ -27,7 +30,7 @@
 #define CTRLC 3
 #define CR 13
 
-/* for debuggung in old RunCPM CP/M 3.0 emulator */
+/* for debuggng in old RunCPM CP/M 3.0 emulator */
 BOOL isruncpm;
 
 /* buffer for one track.
@@ -61,14 +64,14 @@ format FMNKC =
 {
 	"NKC800",
 	5,				/* 5 sectors */
-	1024,				/* 1024 bytes per sector */
+	1024,			/* 1024 bytes per sector */
 	80,				/* 80 tracks */
 	1,				/* DD */
 	1,				/* DS */
 	0,				/* Mini (3.5/5.25 Zoll) */
 	1,				/* UseSSO */
-	54,				/* gap length */
-	0xE5				/* filler */
+	54,				/* gap3 length */
+	0xE5			/* filler */
 };
 
 #if FALSE
@@ -77,14 +80,14 @@ format FM144 =
 {
 	"1.44MB",
 	18,				/* 26 sectors */
-	512,				/* 128 bytes per sector */
+	512,			/* 128 bytes per sector */
 	80,				/* 77 tracks */
 	1,				/* DD */
 	1,				/* DS */
 	1,				/* Maxi (3.5 Zoll) */
 	1,				/* UseSSO */
-	84,				/* gap length */
-	0xE5				/* filler */
+	84,				/* gap3 length */
+	0xE5			/* filler */
 };
 #endif
 
@@ -92,15 +95,30 @@ format FM144 =
 format FM144 =
 {
 	"1.44MB",
-	9,				/* 26 sectors */
-	1024,				/* 128 bytes per sector */
-	80,				/* 77 tracks */
+	9,				/* 9 sectors */
+	1024,			/* 1024 bytes per sector */
+	80,				/* 80 tracks */
 	1,				/* DD */
 	1,				/* DS */
 	1,				/* Maxi (3.5 Zoll) */
 	1,				/* UseSSO */
-	40,				/* gap 3 length */
-	0xE5				/* filler */
+	40,				/* gap3 length */
+	0xE5			/* filler */
+};
+
+/* Format 1,2 MB 5,25 Zoll HD/DS 1024/7 */
+format FM120 =
+{
+	"1.2MB",
+	7,				/* 7 sectors */
+	1024,			/* 1024 bytes per sector */
+	80,				/* 80 tracks */
+	1,				/* DD */
+	1,				/* DS */
+	1,				/* Maxi (3.5 Zoll) */
+	1,				/* UseSSO */
+	40,				/* gap3 length */
+	0xE5			/* filler */
 };
 
 
@@ -115,12 +133,12 @@ format FMIBMS =
 	0,				/* DS */
 	1,				/* Maxi (8 Zoll) */
 	0,				/* no UseSSO */
-	27,				/* gap length */
+	27,				/* gap3 length */
 	0xE5			/* filler */
 };
 
-#define FMTCNT 3
-format *fmtlist[] = {FMNKC, FM144, FMIBMS};
+#define FMTCNT 4
+format *fmtlist[] = {FMNKC, FM144, FM120, FMIBMS};
 
 /****************************************************************************/
 
@@ -407,15 +425,15 @@ ChkErr(err, track)
 
 /****************************************************************************/
 
-ShowFmt(drive, fmt, skew, verify)
-	int drive, skew, verify;
+ShowFmt(drive, fmt, skew)
+	int drive, skew;
 	format *fmt;
 {
 	char *str;
 	
-	str = "Format drive %c: %s [T=%d S=%d B=%d %s %s/%s I=%d %s]\r\n"; 
-	sprintf(outbuf, "Format drive %c: %s [T=%d S=%d B=%d ",
-		drive+'A', fmt->Name, fmt->TrkCnt, fmt->SecCnt, fmt->BytCnt);
+	/*str = "Format drive %c: %s [T=%d S=%d B=%d %s %s/%s I=%d %s]\r\n"; */
+	sprintf(outbuf, "Format drive %c: %s [T=%d S=%d B=%d GAP3=%d ",
+		drive+'A', fmt->Name, fmt->TrkCnt, fmt->SecCnt, fmt->BytCnt, fmt->GapLen);
 	PutStr(outbuf);
 
 	PutStr(fmt->MinMax == 0 ? "Mini" : "Maxi");
@@ -426,7 +444,7 @@ ShowFmt(drive, fmt, skew, verify)
 	
 	PutStr(fmt->Density == 0 ? "SD" : "DD");
 
-	sprintf(outbuf, "I=%d]\r\n", skew);
+	sprintf(outbuf, " I=%d]\r\n", skew);
 	PutStr(outbuf);
 }
 
@@ -454,14 +472,16 @@ main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	int p, track, trkcnt, stat, ch;
-	int drive, skew, fmtidx;
+	int p, track, stat, ch;
+	int drive, skew, gaplen, seccnt, trkcnt, minmax, density;
+	int heads, side, ctrl, addr; /* not implemented yet */
+	int fmtidx;
 	format *fmt;
 	BOOL error, verify;
 	
 	ChkRunCpm();
 
-	PutStr("\r\nNFORM 1.2 *dg* 08-2026\r\n");
+	PutStr("\r\nNFORM 1.3 *dg* 260804-02\r\n");
 	PutStr("Formatter for MC CP/M computer (FLO2)\r\n\n");
 
 #if DDTZ == 0
@@ -471,13 +491,21 @@ main(argc, argv)
 	fmtidx = 0;
 	fmt = fmtlist[fmtidx];
 	skew = 1;
+	gaplen = -1;
+	seccnt = -1;
+	trkcnt = -1;
+	minmax = -1;
+	density = -1;
+	heads = -1;
+	side = -1;
+	ctrl = -1;
+	addr = 0xC0;
 	verify = TRUE;
 
 	error = FALSE;
 	if (argc < 2)
 		error = TRUE;
 	
-	/*printf("%d %c %c %d\r\n", strlen(argv[1]), argv[1][0], argv[1][1], error);*/
 	if (!error && strlen(argv[1]) == 2 && argv[1][1] == ':')
 	{
 		drive = toupper(argv[1][0]) - 'A';
@@ -486,8 +514,6 @@ main(argc, argv)
 	}
 	else
 		error = TRUE;
-
-	/*printf("drive=%d %d\r\n", drive, error);*/
 
 	if (!error)
 	{
@@ -501,17 +527,61 @@ main(argc, argv)
 					error= TRUE;
 				fmtidx--;
 				fmt = fmtlist[fmtidx];
-				/*
-				printf("fmtidx = %d\r\n", fmtidx);
-				printf("fmt = %s\r\n", fmt->Name);
-				*/
 			}
 			if (toupper(argv[p][1]) == 'I' && strlen(argv[p]) >= 2 && fmt != NULL )
 			{
 				skew = atoi(argv[p] + 2);
 				if (skew < 1 || skew > fmt->SecCnt)
 					error= TRUE;
-				/*printf("skew = %d\r\n", skew);*/
+			}
+			/* gaplen -G<g> */
+			if (toupper(argv[p][1]) == 'G' && strlen(argv[p]) >= 2)
+			{
+				gaplen = atoi(argv[p] + 2);
+				if (gaplen < 1 || gaplen > 100)
+					error= TRUE;
+			}
+			/* seccnt -S<s> */
+			if (toupper(argv[p][1]) == 'S' && strlen(argv[p]) >= 2)
+			{
+				seccnt = atoi(argv[p] + 2);
+				if (seccnt < 1 || seccnt > 100)
+					error= TRUE;
+			}
+			/* trkcnt -T<t> */
+			if (toupper(argv[p][1]) == 'T' && strlen(argv[p]) >= 2)
+			{
+				trkcnt = atoi(argv[p] + 2);
+				if (trkcnt < 1 || trkcnt > 100)
+					error= TRUE;
+			}
+			/* mini/maxi -M<m> */
+			if (toupper(argv[p][1]) == 'M' && strlen(argv[p]) >= 2)
+			{
+				minmax = atoi(argv[p] + 2);
+				if (minmax != 0 && minmax != 1)
+					error= TRUE;
+			}
+			/* density -D<s> */
+			if (toupper(argv[p][1]) == 'D' && strlen(argv[p]) >= 2)
+			{
+				density = atoi(argv[p] + 2);
+				if (density != 0 && density != 1)
+					error= TRUE;
+			}
+			/* heads -H<h> */
+			if (toupper(argv[p][1]) == 'D' && strlen(argv[p]) >= 2)
+			{
+				heads = atoi(argv[p] + 2);
+				if (heads != 1 && heads != 2)
+					error= TRUE;
+			}
+			/* side -H<h> */
+			if (toupper(argv[p][1]) == 'D' && strlen(argv[p]) >= 2)
+			{
+				side = atoi(argv[p] + 2);
+				if (side != 1 && side != 2)
+					error= TRUE;
 			}
 			/*
 			if (toupper(argv[p][1]) == 'V' && strlen(argv[p]) == 2)
@@ -522,10 +592,19 @@ main(argc, argv)
 	
 	if (error)
 	{
-		PutStr("usage: NFORM <d>: -F<f> -I<i> -V\r\n");
+		PutStr("usage: NFORM <d>: -F<f> -I<i> -S<s> -T<t> -G<g> -M<m> -D<d>\r\n");
 		PutStr("  d = Drive A..D\r\n");
-		PutStr("  f = Format 1=NKC 800KB, 2=1,44MB, 3=IBM SS/SD (default=1)\r\n");
+		PutStr("  f = Format 1=NKC 800KB, 2=1,44MB, 3=1,2MB 4=IBM SS/SD (default=1)\r\n");
 		PutStr("  i = Interleave/Skew (default=1)\r\n");
+		PutStr("  s = Sector count\r\n");
+		PutStr("  g = Gap3\r\n");
+		PutStr("  t = Track count\r\n");
+		PutStr("  m = 0=Mini/SD, 1=Maxi/HD\r\n");
+		PutStr("  d = Density (0=SD, 1=DD)\r\n");
+		/*
+		PutStr("  h = Heads (1=SS, 2=DS)\r\n");
+		PutStr("  s = Side 1/2 (only with SS)\r\n");
+		*/
 		/*PutStr("  V = Verify\r\n");*/
 		return;
 	}
@@ -535,6 +614,13 @@ main(argc, argv)
 	fmtidx = 0;
 	fmt = fmtlist[fmtidx];
 	skew = 1;
+	gaplen = -1;
+	seccnt = -1;
+	trkcnt = -1;
+	minmax = -1;
+	density = -1;
+	heads = -1;
+	side = -1;
 	verify = TRUE;
 #endif
 
@@ -550,9 +636,39 @@ main(argc, argv)
 	}
 
 	CalcSkew(skewbuf, fmt->SecCnt, skew);
-	ShowFmt(drive, fmt, skew, verify);
-	if (skew > 1)
+	ShowFmt(drive, fmt, skew, gaplen);
+	/*if (skew > 1)*/
 		ShowSkew(skewbuf, fmt->SecCnt);
+	if (seccnt > 0)
+	{
+		sprintf(outbuf, "sectors=%d\r\n", seccnt);
+		PutStr(outbuf);
+		fmt->SecCnt = seccnt;
+	}
+	if (gaplen > 0)
+	{
+		sprintf(outbuf, "gap3=%d\r\n", gaplen);
+		PutStr(outbuf);
+		fmt->GapLen = gaplen;
+	}
+	if (trkcnt > 0)
+	{
+		sprintf(outbuf, "tracks=%d\r\n", trkcnt);
+		PutStr(outbuf);
+		fmt->TrkCnt = trkcnt;
+	}
+	if (minmax > 0)
+	{
+		sprintf(outbuf, "mini/maxi=%d\r\n", minmax);
+		PutStr(outbuf);
+		fmt->MinMax = minmax;
+	}
+	if (density > 0)
+	{
+		sprintf(outbuf, "density=%d\r\n", density);
+		PutStr(outbuf);
+		fmt->Density = density;
+	}
 	
 	sprintf(outbuf, "\r\nInsert disk in drive %c: an press ENTER\r\n\r\n", drive + 'A');
 	PutStr(outbuf);
@@ -600,6 +716,36 @@ main(argc, argv)
 		if (track < trkcnt - 1)
 			STEPIN();
 	}
+
+	/*
+	if (verify && !error)
+	{
+		HOME();
+		error = FALSE;
+		for (track = 0; track < trkcnt; track++)
+		{
+			ch = GetChr();
+			if (ch == CTRLC)
+			{
+				PutStr("\r\nAborted\r\n");
+				return;
+			}
+			
+			stat = VFYTRK(track);
+			sprintf(outbuf, "Verify track %02d (%02x)\r", track + 1, stat);
+			PutStr(outbuf);
+			if (stat !=0 )
+			{
+				ChkErr(stat, track);
+				error = TRUE;
+				break;
+			}
+
+			if (track < trkcnt - 1)
+				STEPIN();
+		}
+	}
+	*/
 
 	if (!error)
 		PutStr("\r\nfinished\r\n");

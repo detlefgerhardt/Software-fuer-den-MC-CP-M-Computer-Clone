@@ -1,4 +1,4 @@
-; NFORMLL.MAC *dg* 01.08.2026
+; NFORMLL.MAC *dg* 04.08.2026
 ;
 ; low-level assembly routines for NFORM.C
 ;
@@ -75,13 +75,13 @@ INIT:	LD IX,2		; RET
 	LD A,(IX+5)	; TrkCnt
 	LD (TRKCNT),A
 	
-	LD A,(IX+6)	; density
+	LD A,(IX+6)	; Density
 	LD (DENSIT),A
 	
-	LD A,(IX+7)	; SSDD
+	LD A,(IX+7)	; SS/DD
 	LD (SSDS),A
 	
-	LD A,(IX+8)	; MinMax
+	LD A,(IX+8)	; Mini/Maxi
 	LD (MINMAX),A
 
 	LD A,(IX+9)	; UseSSO
@@ -90,7 +90,7 @@ INIT:	LD IX,2		; RET
 	LD A,(IX+10)	; GapLen
 	LD (GAPLEN),A
 
-	LD A,(IX+11)	; Filler
+	LD A,(IX+11)	; Data filler
 	LD (FILLER),A
 
 	; convert drive to binary drive code
@@ -206,6 +206,13 @@ FRMTR1:	; format loop (tracks)
 
 	; --- format side 0 ---
 	
+	; set side 0
+	LD A,(DRIVE)
+	AND 7FH
+	LD (DRIVE),A   
+	XOR A
+	LD (SIDSEL),A
+	
 	;CALL ECMACHK 	; check if track 0 and ECMA70
 	CALL GENTRK 	; create track
 	CALL FMT 	; format track
@@ -233,13 +240,6 @@ FRMTR2:
 	CALL GENTRK
 	CALL FMT
 	JR NZ,FRMTR9
-	
-	; set side 0
-	LD A,(DRIVE)
-	AND 7FH
-	LD (DRIVE),A   
-	XOR A
-	LD (SIDSEL),A
 
 FRMTR3:
 	; return without error
@@ -454,8 +454,7 @@ GENT22:	; double density
 	LD C,04EH  	; Datenbyte DD
 
 GENT23:	LD A,(GAPLEN)
-	LD B,A  	; store gap 3
-
+	LD B,A
 GENT24:	LD (IX+0),C
 	INC IX
 	DEC B
@@ -823,7 +822,7 @@ READEX:	CALL SETSR 	; setup special register
 	RLCA  		; BIT 0
 	RLCA  		; BIT 1
 	AND 00000010B 	; 1=Seite 1
-	ADD A,88H 	; kein Delay abwarten, head ist down
+	ADD A,10001000B	; kein Delay abwarten, head ist down
 	OUT (FLO+0),A 	; und Befehl geben
 
 	LD HL,(TRKBUF) 	; dorthin Daten legen 

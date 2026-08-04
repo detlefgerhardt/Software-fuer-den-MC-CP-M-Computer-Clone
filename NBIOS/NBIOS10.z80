@@ -509,7 +509,7 @@ SIGNON:
 	DB CPMVER/10+'0','.',CPMVER MOD 10+'0'
 	DB ' for MC-Computer '
 	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-	DB 'K NBIOS 260803-02 BOOT='
+	DB 'K NBIOS 260804-04 BOOT='
 	DB BTDRV+'0'
 	DB CR,LF,0
 	
@@ -1034,13 +1034,14 @@ WRITE:
 	ELSE
 
 	IF DEBOUT
-	LD A,1		; WRITE
+	;LD A,1		; WRITE
 	;CALL DEBBUF
-	ENDIF
 
 	;POP HL
 	;PUSH HL
 	;CALL DEBDRV	; debug output (DBANK)
+	ENDIF
+
 
 	LD A,(DBANK)	; drive 0..5
 	CP 3
@@ -1173,7 +1174,7 @@ MINCAL:
 
 	; DBANK=1 
 	LD A,2
-	
+
 MINC1:	LD C,A		; physical drive
 
 	LD A,(IOT)
@@ -1185,7 +1186,7 @@ MINC1:	LD C,A		; physical drive
 	LD A,C
 	OR 1		; if backside: drive 0 -> drive 1,  drive 2 -> drive 3
 	LD C,A
-	
+
 MINC2:	LD A,D
 	AND 7FH		; limit to 0..127 tracks
 	LD D,A
@@ -1195,6 +1196,13 @@ MINC2:	LD A,D
 
 	ELSE	; ----------
 
+	LD A,(IOS)
+	CP A,12
+	JR NZ,MINIC1
+
+	NOP
+
+MINIC1:
 	; logical sector to physical sector
 
 	; get drive specific factor
@@ -1202,23 +1210,21 @@ MINC2:	LD A,D
 	AND 00000011B	; max 4 drives here
 	LD HL,POWTB
 	CALL LOOKUP
-	LD E,A
-	
+	AND A
+	JP Z,MINIC4	; -> factor = 0
+
+	LD B,A		; factor
 	LD A,(IOS)	; logical sector
-
-	;LD E,POWTB
-	OR E
-	JP Z,MINIC3
-
-	PUSH BC
-	LD B,E
 MINIC2:	RRCA
 	DJNZ MINIC2
-	POP BC
 
 	AND 00000111b	; important because of rotate command
+	JR MINIC5
 
-MINIC3:	INC A		; sector number starts with 1
+MINIC4:	; factor = 0
+	LD A,(IOS)
+
+MINIC5:	INC A		; sector number starts with 1
 	LD E,A		; save in E
 
 	; drive A,B,C -> 001,010,100
@@ -1232,16 +1238,16 @@ MINIC3:	INC A		; sector number starts with 1
 
 	LD A,(IOT)
 	RRCA		; Track / 2,  = Phys Track, carry=backside
-	;AND 7FH	; Bereich Track 0..79 real
+	;AND 7FH		; Bereich Track 0..79 real
 	LD D,A		; Track merken
-	JP NC,MINC4	; -> side 0
+	JP NC,MINIC6	; -> side 0
 
 	; side
 	LD A,C
 	OR 10000000B	; side 1 flag
 	LD C,A
 	
-MINC4:	LD A,D
+MINIC6:	LD A,D
 	AND 7FH		; limit to 0..127 tracks
 	LD D,A 
 
@@ -1337,7 +1343,7 @@ MINIR1:	; actual physical sector is now in buffer PHSBUF
 			; (IOD) <- (PHSBUF+offset), 128 Byte
 	
 	IF DEBOUT
-	LD A,0		; READ
+	;LD A,0		; READ
 	;CALL DEBBUF
 	ENDIF
 			
@@ -1375,15 +1381,15 @@ MINIWR:	LD A,C
 	LD (ISDIR),A	; flag for Directory Write (1=write)
 
 	CALL MINCAL	; calc physical sector and drive data for compare
-	
+
 	LD A,(CURDRV)	; und wie bei MINIRD
 	CP C		;
 	JP NZ,MINIW3	; other drive -> load sector
-	
+
 	LD A,(CURTRK)
 	CP D
 	JP NZ,MINIW3	; other track -> load sector
-	
+
 	LD A,(CURSEC)
 	CP E
 	JP NZ,MINIW3	; other sector -> load sector
@@ -1488,6 +1494,15 @@ CALCPHS:
 	; now we have (IOS mod SECSIZE) * 128 in DE
 	LD HL,PHSBUF
 	ADD HL,DE	; pointer into PHSBUF in DE
+	
+	IF DEBOUT
+	;LD C,'['
+	;CALL CONOUT
+	;CALL DEBX16
+	;LD C,']'
+	;CALL CONOUT
+	ENDIF
+	
 	EX DE,HL
 	LD HL,(IOD)
 	LD BC,128
@@ -1533,7 +1548,7 @@ GETPHS:	; reset buffer changed flag
 	LD A,(CURTRK)
 	LD D,A
 	CALL MEXEC	; -> old Mini routine
-	JP C,BLKERR
+	JP C,PHSERR
 
 	ELSE
 
@@ -1546,12 +1561,12 @@ GETPHS:	; reset buffer changed flag
 	LD A,(CURTRK)
 	LD D,A
 	
+	CALL FEXEC	; -> new floppy routine
+	JP C,PHSERR
+
 	IF DEBOUT
 	CALL DEBPHY
 	ENDIF
-	
-	CALL FEXEC	; -> new floppy routine
-	JP C,BLKERR
 	
 	ENDIF
 
@@ -1561,7 +1576,13 @@ GETPHS:	; reset buffer changed flag
 
 ;-----------------------------------------------------------------------------
 
-BLKERR:	SCF
+PHSERR:	
+	IF DEBOUT
+	;LD C,'*'
+	;CALL CONOUT
+	ENDIF
+
+	SCF
 	RET
 
 ;-----------------------------------------------------------------------------
@@ -1584,7 +1605,7 @@ PUTPHS:	; reset buffer changed flag
 	LD A,(CURTRK)
 	LD D,A
 	CALL MEXEC	; -> old Mini routine
-	JP C,BLKERR
+	JP C,PHSERR
 
 	ELSE
 
@@ -1602,7 +1623,7 @@ PUTPHS:	; reset buffer changed flag
 	ENDIF
 	
 	CALL FEXEC	; -> new floppy routine
-	JP C,BLKERR
+	JP C,PHSERR
 	
 	ENDIF
 	
@@ -1947,9 +1968,9 @@ PATBCL:	LD C,'X'
 PATB1:LD C,'-'
 	CALL CONOUT
 	RET
-	
+
 	ENDIF		; FALSE
-	
+
 	ENDIF		; DG01
 
 ;------------------------------------------------------------------------------
@@ -1974,8 +1995,7 @@ REXEC:	JP 0F05bh	; FLOMON RAM-FLOPPY
 
 	IF DEBOUT
 
-DEBPHY:
-	LD A,(DEBACT)
+DEBPHY:	LD A,(DEBACT)
 	AND A,01H
 	RET Z
 
@@ -1989,13 +2009,16 @@ DEBPHY:
 	CALL CONOUT
 	
 	LD A,B
-	CP 1
-	JR NZ,DEBPH1
+	;PUSH AF
+	CP 1		; read
+	JR NZ,DEBPH1	; -> write
 
+	; read
 	LD C,'R'
 	JR DEBPH2
 
-DEBPH1:	LD C,'W'
+DEBPH1:	; write
+	LD C,'W'
 
 DEBPH2:	CALL CONOUT
 
@@ -2013,25 +2036,71 @@ DEBPH2:	CALL CONOUT
 
 	; track
 	LD A,D
-	;LD H,0
 	CALL DEBX8
-	
+
 	LD C,','
 	CALL CONOUT
 
 	; sector
 	LD A,E
-	;LD H,0
 	CALL DEBX8
-	
+
 	LD C,']'
 	CALL CONOUT
 
-	POP HL
+	;POP AF
+	;CP 1		; read
+	;JR NZ,DEBPH3	; -> write
+
+	; read
+	CALL DEBLK
+
+DEBPH3:	POP HL
 	POP BC
 	RET
 
 	ENDIF
+
+;-----------------------------------------------------------------------------
+
+DEBLK:	PUSH DE
+
+	LD C,'<'
+	CALL CONOUT
+
+	LD HL,PHSBUF
+	LD B,8
+
+DEBLK1:	; loop B=8..1
+	LD A,(HL)
+	CALL DEBX8
+	LD C,'-'
+	CALL CONOUT
+
+	INC HL
+	LD A,(HL)
+	CALL DEBX8
+	LD C,'-'
+	CALL CONOUT
+	
+	INC HL
+	LD A,(HL)
+	CALL DEBX8
+	LD C,','
+	CALL CONOUT
+
+	DEC HL
+	DEC HL
+	LD DE,80H
+	ADD HL,DE
+	DJNZ DEBLK1
+	
+	LD C,'>'
+	CALL CONOUT
+
+	POP DE
+	
+	RET
 
 ;-----------------------------------------------------------------------------
 ; Debug output (DBANK) (READ/WRITE)
@@ -2192,24 +2261,19 @@ DEBBU2:	CALL CONOUT
 	LD HL,(IOD)
 	
 	LD A,(HL)
-	AND A,7Fh
-	ADD A,'A'
-	LD C,A
+	CALL DEBX8	
+	LD C,','
 	CALL CONOUT
 
 	INC HL
 	LD A,(HL)
-	AND A,7Fh
-	ADD A,'A'
-	LD C,A
+	CALL DEBX8	
+	LD C,','
 	CALL CONOUT
 
 	INC HL
 	LD A,(HL)
-	AND A,7Fh
-	ADD A,'A'
-	LD C,A
-	CALL CONOUT
+	CALL DEBX8	
 
 	LD C,']'
 	CALL CONOUT
