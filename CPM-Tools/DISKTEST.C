@@ -27,15 +27,17 @@
 #define SIDES 2
 /*#define SECTORS 54*/
 #define SECTOR_SIZE 128
+/*#define MSECTOR_SIZE 1024*/
 
 #define DRV_CNT 8 /* number of drives */
 
-#define DEBDRV 1
-#define DEBSEC 56
+/*#define DEBDRV 1
+#define DEBSEC 56*/
 
-char outbuf[80];
+char outbuf[120];
 
 char *buffer;
+char *mbuffer;
 
 #ASM
 BIOS:	DW	0
@@ -281,6 +283,24 @@ int WaitCr()
 	}
 }
 
+BOOL Flop(cmd, drive, track, sector, addr)
+	int cmd,drive, track, sector;
+	unsigned addr;
+{
+#ASM
+	LD IX,2			; RET
+	ADD IX,SP
+	LD B,(IX+0)		; cmd (1= read, 2=write)
+	LD C,(IX+2)		; drive code
+	LD D,(IX+4)		; track
+	LD E,(IX+6)		; sector
+	LD L,(IX+8)		; addr (high)
+	LD H,(IX+9)		; addr (low)
+	CALL 0F021H		; Monitor FLOP routine
+	LD L,A			; A=0: no error
+	LD H,0
+#ENDASM
+}
 /****************************************************************************/
 
 int ReadSector(drive, track, side, sector, addr)
@@ -319,15 +339,15 @@ int WriteSector(drive, track, side, sector, addr)
 
 /****************************************************************************/
 
-BOOL WriteDisk(drive, seccnt, buffer)
-	int drive, seccnt;
+BOOL WriteDisk(drive, seccnt, debid, buffer)
+	int drive, seccnt, debid;
 	char *buffer;
 {
 	int track, side, sector, b;
 	int ch, stat, result;
 
-	/* for (track = 0; track < TRACKS; track++) */
-	for (track = 0; track < 2; track++)
+	/*for (track = 0; track < TRACKS; track++)*/
+	for (track = 0; track < 10; track++)
 	{
 		ch = GetChr();
 		if (ch == CTRLC) 
@@ -340,13 +360,14 @@ BOOL WriteDisk(drive, seccnt, buffer)
 
 		for (side = 0; side < SIDES; side++)
 		{
+			printf("Write track=%d side=%d %04X\r", track, side, buffer);
+
 			for (sector = 0; sector < seccnt; sector++)
 			{
-				printf("Write track=%d side=%d sector=%d %04X\r\n", track, side, sector, buffer);
-				
 				buffer[0] = track;
 				buffer[1] = side;
 				buffer[2] = sector;
+				buffer[3] = debid;
 				result = WriteSector(drive, track, side, sector, buffer);
 
 				if (result != 0)
@@ -356,26 +377,93 @@ BOOL WriteDisk(drive, seccnt, buffer)
 					printf("\r\nWrite error drive %c track %d side=%d sector=%d stat=%02X\r\n",
 						drive + 'A', track, side, sector, stat);
 					if (stat & 0x40)
-						printf("\r\nWrite protection");
+						printf("\r\nWrite protection\r\n");
 					return FALSE;
 				}
 			}
 		}
 	} /* tracks */
+	
+	PutStr("\r\n");
 	return TRUE;
 }
 
 /****************************************************************************/
 
-BOOL ReadDisk(drive, seccnt, buffer)
-	int drive, seccnt;
+BOOL ReadDisk(drive, seccnt, debid, buffer)
+	int drive, seccnt, debid;
 	char *buffer;
 {
 	int track, side, sector, b;
 	int ch, stat, result;
 	BOOL error;
 
-	/* for (track = 0; track < TRACKS; track++) */
+	/*for (track = 0; track < TRACKS; track++)*/
+	for (track = 0; track < 10; track++)
+	{
+		ch = GetChr();
+		if (ch == CTRLC) 
+		{
+			printf("\r\nCtrl-C detected. Aborted!\r\n");
+			return FALSE;
+		}
+
+		/*printf("Read track %d %04X\r\n", track, buffer);*/
+
+		for (side = 0; side < SIDES; side++)
+		{
+			printf("Read  track=%d side=%d\r", track, side);
+
+			for (sector = 0; sector < seccnt; sector++)
+			{
+				result = ReadSector(drive, track, side, sector, buffer);
+				if (result != 0)
+				{
+					stat = InPort(0xC0);
+
+					printf("\r\nRead error drive=%c track=%d side=%d sector=%d stat=%02X\r\n",
+						drive + 'A', track, side, sector, stat);
+					return FALSE;
+				}
+
+				error = FALSE;
+				if (buffer[0] != track || buffer[1] != side || buffer[2] != sector || buffer[3] != debid)
+				{
+					error = TRUE;
+					printf("\r\ntrack error trk=%d/%d sid=%d/%d sec=%d/%d id=%d/%d\r\n", 
+						track, buffer[0], side, buffer[1], sector, buffer[2], debid, buffer[3]);
+				}
+				if (error)
+				{
+					return FALSE;
+					/*
+					ch = WaitCr();
+					if (ch==CTRLC) return FALSE;
+					*/
+				}
+			}
+		}
+	} /* tracks */
+	
+	PutStr("\r\n");
+	
+	return TRUE;
+}
+
+/****************************************************************************/
+
+#if FALSE
+
+BOOL MReadDisk(drive, seccnt, buffer)
+	int drive, seccnt;
+	char *buffer;
+{
+	int track, side, sector, b, drvcod;
+	int ch, stat, result;
+	unsigned offset;
+	BOOL error;
+
+	/*for (track = 0; track < TRACKS; track++)*/
 	for (track = 0; track < 2; track++)
 	{
 		ch = GetChr();
@@ -389,11 +477,15 @@ BOOL ReadDisk(drive, seccnt, buffer)
 
 		for (side = 0; side < SIDES; side++)
 		{
-			for (sector = 0; sector < seccnt; sector++)
+			for (sector = 1; sector <= seccnt; sector++)
 			{
-				printf("Read track=%d side=%d sector=%d %04X\r\n", track, side, sector, buffer);
-				
-				result = ReadSector(drive, track, side, sector, buffer);
+				printf("MRead track=%d side=%d sector=%d %04X\r\n", track, side, sector, buffer);
+
+				/*int drvcod = (1 << drive) | 0x20;*/
+				drvcod = (1 << drive);
+				if (side == 1) drvcod |= 0x80;
+				/* read sector by Monitor */
+				result = Flop(1, drvcod, track, sector, buffer);
 				if (result != 0)
 				{
 					stat = InPort(0xC0);
@@ -403,31 +495,136 @@ BOOL ReadDisk(drive, seccnt, buffer)
 					return FALSE;
 				}
 
-				error = FALSE;
-				if (buffer[0] != track)
+				for (b = 0; b < 8; b++)
 				{
-					error = TRUE;
-					printf("\r\ntrack error track=%d read=%d\r\n", track, buffer[0]);
+					offset = b * 128;
+					printf("sec=%d ofs=%04X [%d %d %d]\r\n", sector, offset, buffer[offset], buffer[offset+1], buffer[offset+2]);
 				}
-				if (buffer[1] != side)
-				{
-					error = TRUE;
-					printf("\r\nside error side=%d read=%d\r\n", side, buffer[1]);
-				}
-				if (buffer[2] != sector)
-				{
-					error = TRUE;
-					printf("\r\nsector error sector=%d read=%d\r\n", sector, buffer[2]);
-				}
+
+				/*
 				if (error)
 				{
 					ch = WaitCr();
 					if (ch==CTRLC) return FALSE;
 				}
+				*/
 			}
 		}
 	} /* tracks */
 	return TRUE;
+}
+
+/****************************************************************************/
+
+int DebWrit(drive, track, side, sector, debid, buffer)
+	int drive, track, side, sector, debid;
+	char *buffer;
+{
+	int result;
+	
+	buffer[0] = track;
+	buffer[1] = side;
+	buffer[2] = sector;
+	buffer[3] = debid;
+	printf("Write sector track=%d side=%d sector=%d id=%d\r\n", track, side, sector, debid);
+	result = WriteSector(drive, track, side, sector, buffer);
+	if (result != 0)
+	{
+		ChkErr();
+	}
+	return result;
+}
+
+/****************************************************************************/
+
+int DebRead(drive, track, side, sector, buffer)
+	int drive, track, side, sector;
+	char *buffer;
+{
+	int result;
+	
+	printf("Read sector track=%d side=%d sector=%d\r\n", track, side, sector);
+	result = ReadSector(drive, track, side, sector, buffer);
+	printf("D=%d T=%d S=%d ID=%d\r\n", buffer[0], buffer[1], buffer[2], buffer[3]);
+	if (result != 0)
+	{
+		ChkErr();
+	}
+	return result;
+}
+
+/****************************************************************************/
+
+int DebDisk(buffer)
+	char *buffer;
+{
+	int result, drive, track, side, sector, debid;
+
+	debid = 1;
+	drive = 1;
+	
+	track = 0;
+	side = 1;
+	/*
+	for (sector = 48; sector < 56; sector++)
+	{
+		result = DebWrit(drive, track, side, sector, buffer);
+	}
+	*/
+
+	track = 1;
+	side = 0;
+	for (sector = 0; sector < 8; sector++)
+	{
+		result = DebWrit(drive, track, side, sector, debid, buffer);
+	}
+
+	result = DebWrit(drive, track, side, 12, debid, buffer);
+
+	
+	track = 1;
+	side = 0;
+	for (sector = 0; sector < 8; sector++)
+	{
+		result = DebRead(drive, track, side, sector, buffer);
+		if (result !=0 || buffer[0] != track || buffer[1] != side || buffer[2] != sector)
+		{
+			ChkErr();
+			printf("\r\nerror\r\n");
+			return;
+		}
+	}
+}
+
+#endif
+
+/****************************************************************************/
+
+ChkErr()
+{
+	int err;
+	
+	err = InPort(0xC0);
+
+	if (err == 0) return;
+
+	if (err & 0x04)
+		PutStr("CPU to slow error\r\n");
+	
+	if (err & 0x08)
+		PutStr("CRC error\r\n");
+
+	if (err & 0x10)
+		PutStr("Record not found error\r\n");
+	
+	if (err & 0x20)
+		PutStr("Wrong record type error\r\n");
+
+	if (err & 0x40)
+		PutStr("Write protect error\r\n");
+	
+	if (err & 0x80)
+		PutStr("Unknown error\r\n");
 }
 
 /****************************************************************************/
@@ -441,9 +638,9 @@ main(argc, argv)
 
 	BiosAddr();
 	
-	PutStr("\r\nDISKTEST V1.0 *dg* 08/2026\r\n\n");
+	PutStr("\r\nDISKTEST V1.1 *dg* 260806-02\r\n\n");
 
-	seccnt = 40;
+	seccnt = 72;
 
 #ifndef DEBDRV
 	error = FALSE;
@@ -490,6 +687,14 @@ main(argc, argv)
 		PutStr("Error: not enough memory\r\n");
 		return FALSE;
 	}
+	/*
+	mbuffer = CALLOC(MSECTOR_SIZE, 1);
+	if (buffer == NULL)
+	{
+		PutStr("Error: not enough memory\r\n");
+		return FALSE;
+	}
+	*/
 
 	sprintf(outbuf, "sectors = %d\r\n", seccnt);
 	PutStr(outbuf);
@@ -499,19 +704,29 @@ main(argc, argv)
 	ch = WaitCr();
 	if (ch == CTRLC) return;
 
-	InitDisks();
+	/*InitDisks();*/
 
 	for (b = 0; b < SECTOR_SIZE; b++)
 		buffer[b] = 0x55;
 
-	WriteDisk(drive, seccnt, buffer);
-	
-	ReadDisk(drive, seccnt, buffer);
+	/*
+	DebDisk(buffer);
+	return;
+	*/
 
-	PutStr("\r\n\nInsert SYSTEM-Disk and press ENTER\r\n");
+	success = WriteDisk(drive, seccnt, 1, buffer);
+	
+	if (success)
+	{
+		ReadDisk(drive, 7, 1, buffer);
+	}
+
+	PutStr("\r\nInsert SYSTEM-Disk and press ENTER\r\n");
 	WaitCr();
 
+	/*
 	InitDisks();
+	*/
 }
 
 /****************************************************************************/

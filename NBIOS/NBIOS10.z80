@@ -3,7 +3,8 @@
 ;*									*
 ;* basiert auf der Version 3.1 1984 Rolf-Dieter Klein 841220            *
 ;* Ursprüngliche Version fuer 2 Mini und 2 Maxi Laufwerke		*
-; ***********************************************************************
+;*									*
+;************************************************************************
 ;
 ; PLEASE NOTE THE CHANGED CP/M & BIOS START ADDRESS !!!
 ;
@@ -20,9 +21,11 @@
 ; 12.07.2026 *dg* Lesen und Schreiben von CF funktioniert
 ; 31.07.2026 *dg* V1.0 Laufwerk C als HD Laufwerk konfiguriert (1.44 MB)
 ;                 Probleme immer beim ersten Scheiben nach dem Formatieren
-; 02.07.2026 *dg* Laufwerk B: als HD Laufwerk (1.2 MB)
+; 02.08.2026 *dg* Laufwerk B: als 5.25 Zoll HD Laufwerk
 ;		  Funktioniert noch nicht, Format und Laufwerksparameter unklar 
-; 03.07.2026 *dg* BIOS Debug-Ausgaben per Ctrl-A toggelbar
+; 03.08.2026 *dg* BIOS Debug-Ausgaben per Ctrl-A toggelbar
+; 06.08.2026 *dg* 5.25 Zoll Format mit 1024*8 funktioniert (1.4 MB)
+;                 5.25 Zoll Format mit 512*15 funktioniert noch nicht (1.2 MB)
 
 ;------------------------------------------------------------------------------
 
@@ -40,22 +43,13 @@ LF	EQU 0AH		; line feed
 
 ; aktiviert alle bisherigen Aenderungen gegenueber der Originalversion 3.1
 DG01	EQU TRUE
-MINI3	EQU TRUE	; 3 MINI, 1 MAXI drive
-DG_BHD	EQU TRUE	; drive B as HD drive (1.2 MB)
+;MINI3	EQU TRUE	; 3 MINI, 1 MAXI drive
+DG_BHD	EQU TRUE	; drive B as HD drive (1.4 MB)
 DG_CHD	EQU TRUE	; drive C as HD drive (1.44 MB)
-DEBOUT	EQU TRUE	; debug outputs
-
-; aendert die Laufwerksdefinition:
-; 3 Mini drives
-; A = Mini drive 0
-; B = Mini drive 1
-; C = Mini drive 2
-; D = Maxi drive 3 Side 0
-; E = Maxi drive 3 Side 1
-; F = RAM disk
+DEBOUT	EQU FALSE	; debug outputs
 
 ; logical drive to boot from
-	IF NOT MINI3
+	IF NOT DG01
 BTDRV	EQU 0		; drive A:
 	ELSE
 ;BTDRV	EQU 4		; drive E: (CF)
@@ -134,7 +128,7 @@ WBOOTE:	JP WBOOT	; Warm boot (CTRL-C)
 
 ;-----------------------------------------------------------------------------
 
-	IF NOT MINI3
+	IF NOT DG01
 	
 	; size of mini disks A and B
 	; TRUNC(5 logical sectors * 1024 logical sector size * (2*80 tracks - 4 offset) / 2048 block size) - 1 = ca. 780 KB
@@ -366,19 +360,39 @@ XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
 
 	ELSE
 
-	; Disk 1 (B): PHYSICAL FORMAT: 1,2 MB, HD, DS, 1024 BYTES/SECTOR, 7 SECTORS/TRACK, 80 TRACKS
+	IF FALSE
+	; Disk 1 (B): PHYSICAL FORMAT: 1.4 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 8 SECTORS/TRACK, 80 TRACKS
  DPB1	EQU	$	; DISK PARM BLOCK
- 	DW	56	; SEC PER TRACK
+ 	;DW	72; 64; 56	; SEC PER TRACK
+ 	DW	64	; SEC PER TRACK
  	DB	5	; BLOCK SHIFT
  	DB	31	; BLOCK MASK
  	DB	1	; EXTNT MASK
- 	DW	275	; DISK SIZE-1
+ 	DW	354 ;315; 275	; DISK SIZE-1
   	DW	255	; DIRECTORY MAX
  	DB	192	; ALLOC0
  	DB	0	; ALLOC1
  	DW	64	; CHECK SIZE
  	DW	2	; OFFSET
  XLT1	EQU	0	; NO XLATE TABLE
+	ENDIF
+
+	; Disk 1 (B): PHYSICAL FORMAT: 1.2 MB, HD, DS, 512 BYTES/SECTOR, 4096 Bytes/Block, 15 SECTORS/TRACK, 80 TRACKS
+ DPB1	EQU	$	; DISK PARM BLOCK
+ 	;DW	56 ; 60	; SEC PER TRACK
+ 	DW	60	; SEC PER TRACK
+ 	DB	5	; BLOCK SHIFT
+ 	DB	31	; BLOCK MASK
+ 	DB	1	; EXTNT MASK
+ 	;DW	275 ; 295	; DISK SIZE-1
+ 	DW	295	; DISK SIZE-1
+  	DW	255	; DIRECTORY MAX
+ 	DB	192	; ALLOC0
+ 	DB	0	; ALLOC1
+ 	DW	64	; CHECK SIZE
+ 	DW	2	; OFFSET
+ XLT1	EQU	0	; NO XLATE TABLE
+
 
 	ENDIF
 
@@ -394,7 +408,7 @@ XLT2	EQU	XLT0	; SAME TRANSLATE TABLE
 
 	ELSE
 
-	; Disk 2 (C): PHYSICAL FORMAT: 1,44 MB, HD, DS, 1024 BYTES/SECTOR, 9 SECTORS/TRACK, 80 TRACKS
+	; Disk 2 (C): PHYSICAL FORMAT: 1.44 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 9 SECTORS/TRACK, 80 TRACKS
  DPB2	EQU	$	; DISK PARM BLOCK
  	DW	72	; SEC PER TRACK
  	DB	5	; BLOCK SHIFT
@@ -486,7 +500,7 @@ DPB7	EQU	DPB4	; EQUIVALENT PARAMETERS
 ;ALS3	EQU	ALS2	; SAME ALLOCATION VECTOR SIZE
 ;CSS3	EQU	CSS2	; SAME CHECKSUM VECTOR SIZE
 
-	ENDIF	; MINI3
+	ENDIF	; DG01
 
 ;-----------------------------------------------------------------------------
 ; CP/M message after cold start
@@ -509,10 +523,27 @@ SIGNON:
 	DB CPMVER/10+'0','.',CPMVER MOD 10+'0'
 	DB ' for MC-Computer '
 	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-	DB 'K NBIOS 260804-04 BOOT='
-	DB BTDRV+'0'
+	DB 'K NBIOS 260806-04'
+	DB " BOOT=",BTDRV+'A',CR,LF
+
+	DB "A:NKC800"
+
+	IF NOT DG_BHD
+	DB ",B:NKC800"
+	ELSE
+	DB ",B:1.4MB"
+	ENDIF
+
+	IF NOT DG_CHD
+	DB ", C:NKC800"
+	ELSE
+	DB ",C:1.44MB"
+	ENDIF
+
+	DB ",D:IBM SS/SD,E..H:IDE"
+
 	DB CR,LF,0
-	
+
 	ENDIF
 
 ;-----------------------------------------------------------------------------
@@ -526,6 +557,7 @@ CONST:	JP 0F012H
 CONIN:	CALL 0F003H
 	AND 7FH
 
+	IF DG01
 	IF DEBOUT
 
 	CP A,1
@@ -538,6 +570,7 @@ CONIN:	CALL 0F003H
 	LD (DEBACT),A
 	LD A,B
 
+	ENDIF
 	ENDIF
 	
 	RET
@@ -586,7 +619,7 @@ BOOT:	LD SP,BUFF+80H	; set stack
 	CALL PRMSG
 	
 	; clear / set last used drive
-	IF NOT MINI3
+	IF NOT DG01
 	XOR A
 	ELSE
 	LD A,BTDRV
@@ -622,7 +655,7 @@ WBOOT:	; write physical sector buffer to disk if changed
 	OR A
 	JP Z,WBOO1
 
-	;IF NOT MINI3
+	;IF NOT DG01
 	
 	CALL PUTPHS	; normalerweise ist Schreibvorgang
 			; nach einem Direktoryzugriff abgeschlossen
@@ -1257,7 +1290,7 @@ MINIC6:	LD A,D
 CALCTB:	; bit0..3=drive, bit4=density(0=DD), bit5=Mini/Maxi(1=Mini)
 	; bit7=side
 	DB	00100001B	; drive A -> drive0, dd, mini (DD)
-	
+
 	IF NOT DG_BHD
 	DB	00100010B	; drive B -> drive1, dd, mini (DD)
 	ELSE
@@ -1274,9 +1307,13 @@ CALCTB:	; bit0..3=drive, bit4=density(0=DD), bit5=Mini/Maxi(1=Mini)
 	;DB	00011000B	; drive D -> drive3, sd, maxi (SD)
 
 POWTB:	DB 3		; drive A: [0..39] / 2^3 -> 0..4 (800K)
-	DB 3		; drive B: [0..39] / 2^3 -> 0..4 (800K)
+
+	;DB 3		; drive B: [0..39] / 2^3 -> 0..4 (800K)
+	DB 2		; drive B: [0..59] / 2^2 -> 0..14 (1.2MB)
+	
 	DB 3		; drive C: [0..39] / 2^3 -> 0..4  1.44MB 1024 Byte
 	;DB 2		; drive C: [0..71] / 2^2 -> 0..17 1.44MB 512 Byte
+	
 	DB 0		; drive D: [0..25] / 2^0 -> 0..25 (240KB)
 
 	ENDIF	; DG01 ----------
@@ -1474,9 +1511,10 @@ ERRIO:	LD A,1	; Fehler aufgetreten
 
 ; mask for modulo (n = IOS mod mask)
 MSKTB:	DB 00000111B	; drive a: phys. sector = 1024, modulo 0..7
-	DB 00000111B	; drive b: phys. sector = 1024, modulo 0..7
+	;DB 00000111B	; drive b: phys. sector = 1024, modulo 0..7
+	DB 00000011B	; drive b: phys. sector = 512, modulo 0..3
 	DB 00000111B	; drive c: phys. sector = 1024, modulo 0..7
-	;DB 00000011B	; drive c: phys. sector = 512, modulo 0..3
+	DB 00000011B	; drive c: phys. sector = 512, modulo 0..3
 	DB 00000000B	; phys. sector = 128, modulo 0
 
 CALCPHS:
@@ -2063,6 +2101,8 @@ DEBPH3:	POP HL
 
 ;-----------------------------------------------------------------------------
 
+	IF DEBOUT
+
 DEBLK:	PUSH DE
 
 	LD C,'<'
@@ -2101,6 +2141,8 @@ DEBLK1:	; loop B=8..1
 	POP DE
 	
 	RET
+
+	ENDIF
 
 ;-----------------------------------------------------------------------------
 ; Debug output (DBANK) (READ/WRITE)
@@ -2231,6 +2273,8 @@ DEBIDE:	PUSH BC
 ; debug BDOS buffer, first 3 characters
 ; pointer in DMA, A=0: read, A=1: write
 
+	IF FALSE
+
 DEBBUF:	PUSH HL
 	PUSH BC
 
@@ -2281,6 +2325,8 @@ DEBBU2:	CALL CONOUT
 DEBBU3:	POP BC
 	POP HL
 	RET
+
+	ENDIF
 
 ;=============================================================================
 ; Debug outputs
@@ -2427,8 +2473,15 @@ CSV0:	DS	64
 ALV1:	DS	49
 CSV1:	DS	64
 	ELSE
-ALV1:	DS	35
+	IF FALSE
+;ALV1:	DS	45	;40	; 35
+ALV1:	DS	40
 CSV1:	DS	64
+	ELSE
+;ALV1:	DS	35	;37
+ALV1:	DS	37
+CSV1:	DS	64
+	ENDIF
 	ENDIF
 
 	IF NOT DG_CHD
@@ -2436,20 +2489,20 @@ ALV2:	DS	49
 CSV2:	DS	64
 	ELSE
 	; 1.44 MB
-ALV2:	DS	192
+ALV2:	DS	45
 CSV2:	DS	64
 	ENDIF
 
 ALV3:	DS	31
 CSV3:	DS	16
 
-	IF NOT MINI3
+	IF NOT DG01
 
 ALV4:	DS	23
 CSV4:	DS	16
 
 	ELSE
-	
+
 ALV4:	DS	128	; size of each must be (DSM/8)+1
 CSV4:	DS	1	; Could probably remove these chk areas, but just made size small
 ALV5:	DS	128
@@ -2459,7 +2512,7 @@ CSV6:	DS	1
 ALV7:	DS	128
 CSV7:	DS	1
 
-	ENDIF
+	ENDIF	; DG01
 	
 ENDDAT	EQU	$
 DATSIZ	EQU	$-BEGDAT

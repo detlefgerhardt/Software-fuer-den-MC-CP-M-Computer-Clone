@@ -240,10 +240,12 @@ SI_O1:
 SI_PutStr(s)
 	char *s;
 {
+#if FALSE	
 	if (IsRunCpm()) return;
 	
 	while(*s)
 		SI_Out(*s++);
+#endif
 }		
 
 /****************************************************************************/
@@ -2331,7 +2333,10 @@ main()
 	exit_game = FALSE;
 	ask_exit_active = FALSE;
 
-	SI_PutStr("\r\n\r\n--- startraders ---\r\n");
+	PutStr("\r\n--- startraders ---\r\n");
+
+	/* SI_PutStr("\r\n\r\n--- startraders ---\r\n"); */
+	PutStr("\r\n\r\n--- startraders ---\r\n");
 
 	ScrClr();
 
