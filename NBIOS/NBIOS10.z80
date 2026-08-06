@@ -25,7 +25,11 @@
 ;		  Funktioniert noch nicht, Format und Laufwerksparameter unklar 
 ; 03.08.2026 *dg* BIOS Debug-Ausgaben per Ctrl-A toggelbar
 ; 06.08.2026 *dg* 5.25 Zoll Format mit 1024*8 funktioniert (1.4 MB)
-;                 5.25 Zoll Format mit 512*15 funktioniert noch nicht (1.2 MB)
+;                 5.25 Zoll Format mit 512*15 funktioniert! (1.2 MB)
+
+; TODO:
+; 8080 RRCA ersetzen durch Z80 SLA
+; Drive-spezifische Tabellen zu den Laufwerkstabellen
 
 ;------------------------------------------------------------------------------
 
@@ -46,7 +50,7 @@ DG01	EQU TRUE
 ;MINI3	EQU TRUE	; 3 MINI, 1 MAXI drive
 DG_BHD	EQU TRUE	; drive B as HD drive (1.4 MB)
 DG_CHD	EQU TRUE	; drive C as HD drive (1.44 MB)
-DEBOUT	EQU FALSE	; debug outputs
+DEBOUT	EQU TRUE	; debug outputs
 
 ; logical drive to boot from
 	IF NOT DG01
@@ -523,7 +527,7 @@ SIGNON:
 	DB CPMVER/10+'0','.',CPMVER MOD 10+'0'
 	DB ' for MC-Computer '
 	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-	DB 'K NBIOS 260806-04'
+	DB 'K NBIOS 260806-07'
 	DB " BOOT=",BTDRV+'A',CR,LF
 
 	DB "A:NKC800"
@@ -643,6 +647,13 @@ BOOT:	LD SP,BUFF+80H	; set stack
 	;CALL PATF	; patch BDOS close function
 	CALL PATA	; patch BDOS active drive
 	;CALL PATB
+	ENDIF
+
+	IF DG01
+	; set steprate
+	LD D,00000000B	; max steprate 00b, no sso
+	LD B,0		; set steprate
+	CALL FEXEC
 	ENDIF
 	
 	JP GOCPM	; start CP/M
@@ -1229,13 +1240,15 @@ MINC2:	LD A,D
 
 	ELSE	; ----------
 
+	IF FALSE
 	LD A,(IOS)
 	CP A,12
 	JR NZ,MINIC1
 
 	NOP
-
 MINIC1:
+	ENDIF
+	
 	; logical sector to physical sector
 
 	; get drive specific factor
@@ -1248,10 +1261,11 @@ MINIC1:
 
 	LD B,A		; factor
 	LD A,(IOS)	; logical sector
-MINIC2:	RRCA
+MINIC2:	;RRCA
+	SRL A
 	DJNZ MINIC2
 
-	AND 00000111b	; important because of rotate command
+	;AND 00001111b	; important because of rotate command
 	JR MINIC5
 
 MINIC4:	; factor = 0
