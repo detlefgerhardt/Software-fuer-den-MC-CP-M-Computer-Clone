@@ -527,7 +527,7 @@ SIGNON:
 	DB CPMVER/10+'0','.',CPMVER MOD 10+'0'
 	DB ' for MC-Computer '
 	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-	DB 'K NBIOS 260806-07'
+	DB 'K NBIOS 260807-01'
 	DB " BOOT=",BTDRV+'A',CR,LF
 
 	DB "A:NKC800"
@@ -962,7 +962,7 @@ NOERR:	XOR A		; sonst ok.
 	; SSSSTTTT T0000000   , adresse fuer RAM-Floppy
 ADRERZ:	LD A,(IOT)		; Track holen
  	RRCA 			; und umrechnen
- 	AND 0FH		; unterer Teil vom MSB
+ 	AND 0FH			; unterer Teil vom MSB
  	LD H,A
  	LD A,(IOS)		; dann Sektor dazu
  	RLCA
@@ -971,19 +971,19 @@ ADRERZ:	LD A,(IOT)		; Track holen
  	RLCA
  	AND 0F0H
  	OR H
- 	LD H,A		; damit sssstttt ok
+ 	LD H,A			; damit sssstttt ok
  	LD A,(IOT)
  	RRCA			; txxxxxxx
  	AND 80H
- 	LD L,A		; t0000000
+ 	LD L,A			; t0000000
  	LD A,(IOT)		; nun noch bank bestimmen, in c und b	
  	RLCA			; und dazu msb-Teil des Tracks verwenden
  	RLCA			; 0mmttttt
  	RLCA			; Banknummer
- 	AND 03H		; 000000mm
+ 	AND 03H			; 000000mm
 	ADD A,1			; erst ab Bank 1 starten
- 	LD B,A		; da BANK 0=CP/M RAM und TPA
- 	LD C,A		; ok beide definiert
+ 	LD B,A			; da BANK 0=CP/M RAM und TPA
+ 	LD C,A			; ok beide definiert
  	RET
 
 ;-----------------------------------------------------------------------------
@@ -1284,7 +1284,8 @@ MINIC5:	INC A		; sector number starts with 1
 	LD C,A		; physical drive
 
 	LD A,(IOT)
-	RRCA		; Track / 2,  = Phys Track, carry=backside
+	;RRCA		; Track / 2,  = Phys Track
+	SRL A		; Track / 2, Bit0 -> Carry (side 1)
 	;AND 7FH		; Bereich Track 0..79 real
 	LD D,A		; Track merken
 	JP NC,MINIC6	; -> side 0
@@ -1294,9 +1295,9 @@ MINIC5:	INC A		; sector number starts with 1
 	OR 10000000B	; side 1 flag
 	LD C,A
 	
-MINIC6:	LD A,D
-	AND 7FH		; limit to 0..127 tracks
-	LD D,A 
+MINIC6:	;LD A,D
+	;AND 7FH		; limit to 0..127 tracks
+	;LD D,A 
 
 	; D=track=D, E=sector, C=drive-code + side
 	RET
@@ -2406,10 +2407,10 @@ DEBX8:	PUSH AF
 	PUSH BC
 
 	PUSH AF
-	RRCA
-	RRCA
-	RRCA
-	RRCA
+	SRL A
+	SRL A
+	SRL A
+	SRL A
 	CALL DEBXN
 	POP AF
 	CALL DEBXN

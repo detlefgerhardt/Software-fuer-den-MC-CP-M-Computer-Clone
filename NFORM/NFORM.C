@@ -74,53 +74,50 @@ format FMNKC =
 	0xE5			/* filler */
 };
 
-#if FALSE
-/* Format 1,44 MB 3,5 Zoll HD/DS 512/18 */
-format FM144 =
-{
-	"1.44MB",
-	18,				/* 26 sectors */
-	512,			/* 128 bytes per sector */
-	80,				/* 77 tracks */
-	1,				/* DD */
-	1,				/* DS */
-	1,				/* Maxi (3.5 Zoll) */
-	1,				/* UseSSO */
-	84,				/* gap3 length */
-	0xE5			/* filler */
-};
-#endif
-
 /* Format 1,44 MB 3,5 Zoll HD/DS 1024/9 */
-format FM144 =
+format HD35 =
 {
-	"1.44MB",
+	"HD3.5",
 	9,				/* 9 sectors */
 	1024,			/* 1024 bytes per sector */
 	80,				/* 80 tracks */
 	1,				/* DD */
 	1,				/* DS */
-	1,				/* Maxi (3.5 Zoll) */
+	1,				/* Maxi or HD */
 	1,				/* UseSSO */
 	40,				/* gap3 length */
 	0xE5			/* filler */
 };
 
-/* Format 1,2 MB 5,25 Zoll HD/DS 1024/7 */
-format FM120 =
+/* Format 1,4 MB 5,25 Zoll HD/DS 1024/7 */
+format HD525 =
 {
-	"1.2MB",
-	7,				/* 7 sectors */
+	"HD5.25A",
+	8,				/* 8 sectors */
 	1024,			/* 1024 bytes per sector */
 	80,				/* 80 tracks */
 	1,				/* DD */
 	1,				/* DS */
-	1,				/* Maxi (3.5 Zoll) */
+	1,				/* Maxi or HD */
 	1,				/* UseSSO */
 	40,				/* gap3 length */
 	0xE5			/* filler */
 };
 
+/* Format 1,4 MB 5,25 Zoll HD/DS 1024/7 */
+format HD525B =
+{
+	"HD5.25B",
+	15,				/* 15 sectors */
+	512,			/* 512 bytes per sector */
+	80,				/* 80 tracks */
+	1,				/* DD */
+	1,				/* DS */
+	1,				/* Maxi or HD */
+	1,				/* UseSSO */
+	40,				/* gap3 length */
+	0xE5			/* filler */
+};
 
 /* Format IBM 8" SD */
 format FMIBMS =
@@ -138,7 +135,7 @@ format FMIBMS =
 };
 
 #define FMTCNT 4
-format *fmtlist[] = {FMNKC, FM144, FM120, FMIBMS};
+format *fmtlist[] = {FMNKC, HD35, HD525, HD525B, FMIBMS};
 
 /****************************************************************************/
 
@@ -436,11 +433,11 @@ ShowFmt(drive, fmt, skew)
 		drive+'A', fmt->Name, fmt->TrkCnt, fmt->SecCnt, fmt->BytCnt, fmt->GapLen);
 	PutStr(outbuf);
 
-	PutStr(fmt->MinMax == 0 ? "Mini" : "Maxi");
+	PutStr(fmt->MinMax == 0 ? "Mini" : "Maxi/HD");
 	PutChr(' ');
 
 	PutStr(fmt->SSDS == 0 ? "SS" : "DS");
-	PutChr('/');
+	PutChr(' ');
 	
 	PutStr(fmt->Density == 0 ? "SD" : "DD");
 
@@ -481,12 +478,12 @@ main(argc, argv)
 	
 	ChkRunCpm();
 
-	PutStr("\r\nNFORM 1.3 *dg* 260804-02\r\n");
+	PutStr("\r\nNFORM 1.3 *dg* 26080-02\r\n");
 	PutStr("Formatter for MC CP/M computer (FLO2)\r\n\n");
 
 #if DDTZ == 0
 
-	/* ----- parameter ----- */
+	/* ----- parameter start ----- */
 
 	fmtidx = 0;
 	fmt = fmtlist[fmtidx];
@@ -594,7 +591,7 @@ main(argc, argv)
 	{
 		PutStr("usage: NFORM <d>: -F<f> -I<i> -S<s> -T<t> -G<g> -M<m> -D<d>\r\n");
 		PutStr("  d = Drive A..D\r\n");
-		PutStr("  f = Format 1=NKC 800KB, 2=1,44MB, 3=1,2MB 4=IBM SS/SD (default=1)\r\n");
+		PutStr("  f = Format 1=NKC 800KB, 2=1,44MB, 3=5.25(1K) 4=5.25(512) 5=IBM SS/SD (default=1)\r\n");
 		PutStr("  i = Interleave/Skew (default=1)\r\n");
 		PutStr("  s = Sector count\r\n");
 		PutStr("  g = Gap3\r\n");
@@ -625,20 +622,6 @@ main(argc, argv)
 #endif
 
 
-	/* ----- parameter ----- */
-
-	skewbuf = calloc(fmt->SecCnt, 1);
-	buffer = calloc(BUFFER_SIZE, 1);
-	if (buffer == NULL || skewbuf == NULL)
-	{
-		PutStr("Not enough memory\r\n");
-		return;
-	}
-
-	CalcSkew(skewbuf, fmt->SecCnt, skew);
-	ShowFmt(drive, fmt, skew, gaplen);
-	/*if (skew > 1)*/
-		ShowSkew(skewbuf, fmt->SecCnt);
 	if (seccnt > 0)
 	{
 		sprintf(outbuf, "sectors=%d\r\n", seccnt);
@@ -669,8 +652,23 @@ main(argc, argv)
 		PutStr(outbuf);
 		fmt->Density = density;
 	}
+
+	skewbuf = calloc(fmt->SecCnt, 1);
+	buffer = calloc(BUFFER_SIZE, 1);
+	if (buffer == NULL || skewbuf == NULL)
+	{
+		PutStr("Not enough memory\r\n");
+		return;
+	}
+
+	/* ----- parameter end ----- */
+
+	CalcSkew(skewbuf, fmt->SecCnt, skew);
+	ShowFmt(drive, fmt, skew, gaplen);
+	/*if (skew > 1)*/
+		ShowSkew(skewbuf, fmt->SecCnt);
 	
-	sprintf(outbuf, "\r\nInsert disk in drive %c: an press ENTER\r\n\r\n", drive + 'A');
+	sprintf(outbuf, "\r\nInsert disk in drive %c: and press ENTER\r\n\r\n", drive + 'A');
 	PutStr(outbuf);
 	
 	ch = WaitCr();
