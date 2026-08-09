@@ -28,10 +28,24 @@
 ;                 5.25 Zoll Format mit 512*15 funktioniert! (1.2 MB)
 ; 08.08.2026 *dg* CF-Card Laufwerksparameter geaendert
 ; 09.08.2026 *dg* Quick'n dirty fix for Warmboot from IDE/CF
-		  (disk params still hardcoded for Warmboot)
-
-; TODO:
+;		  (Disk-Parameter immer hardcodiert beim Warmboot aber konfigurierbar)
+;
+; Verbesserung/Verändernungen zu BIOS 3.1 seit Juni 2026
+;
+; BIOS vergroessert, dadurch geaenderte Startadressen. CP/M ab CC00-E1FF, BIOS E200-EFFF
+; Dateinamen geaendert, die meisten Files und Tools beinnen "N" zu Unterscheidung von den Original-Files
+; Laufwerksparameter geändert, A ist 800KB (NDR/NKC), B und C unterschiedlich, D ist IBM 8" SS/SD
+; IDE/CF eingebunden, Laufwerke E bis H, je 2 MB, E ist bootfähig (geaenderte BIOS-Parameter)
+; Blocking/Deblocking geändert, ist jetzt flexibler und leichter zu konfigurieren
+; max. Steprate wird beim Warmstart gesetzt
+; Debug-Ausgaben im BIOS über, über Compiler-Schalter und zu Laufzeit mit Ctrl-A ein- und ausschaltbar
+; Diverse Laufwerksformate gestestet, est mit echten 8 Zoll Laufwerken steht noch aus.
+; MOVCPM und SYSGEN funktionieren werden der geänderten BIOS-Groesse vermutlich nicht mehr und muessen
+; neu angasst werden (oder flexible Variante verwenden)
+;
+; TO-DO:
 ; Drive-spezifische Tabellen zu den Laufwerkstabellen
+; Maxi-Routinen in Mini-Routinen integrieren
 
 ;------------------------------------------------------------------------------
 
@@ -58,12 +72,14 @@ BTDRV	EQU 0		; drive A:
 BTSEC	EQU 8		; start sector of CP/M
 BTSECN	EQU 40		; sector per track
 	ELSE
-	IF BTDRV = 0
+	; boot from disk A (800KB NDE/NKC format)
+	IF BTDRV = 0	; drive A
 BTSEC	EQU 8		; start sector of CP/M on disk with 1024 bytes/sector
 BTSECN	EQU 40		; sector per track
 	ENDIF
-	IF BTDRV = 4
-BTSEC	EQU 1		; start sector of CP/M on IDE/CF (2. sector)
+	; boot from IDE/CF (2 MB format)
+	IF BTDRV = 4	; drive E
+BTSEC	EQU 1		; start sector of CP/M on IDE/CF (second sector)
 BTSECN	EQU 64		; sector per track
 	ENDIF
 	ENDIF		; if DG_01
@@ -78,22 +94,24 @@ MCONOUT	EQU 0F009h	; character in C
 	ENDIF
 
 ;------------------------------------------------------------------------------
+; CPM and BIOS sizes and addresses
 
-;MSIZE 	EQU 60		; Speichergroesse, hier 60K
-MSIZE 	EQU 58		; Speichergroesse, hier 58K
+;MSIZE 	EQU 60			; Speichergroesse, hier 60K
+MSIZE 	EQU 58			; Speichergroesse, hier 58K
 
 BIAS	EQU (MSIZE-20)*1024	; min=20K
-CCP	EQU 3400H+BIAS	; start of CCP (CP/M)
-BDOS	EQU CCP+806H	; BDOS entry behind serial number (6 bytes)
-BIOS	EQU CCP+1600H	; start of BIOS
+CCP	EQU 3400H+BIAS		; start of CCP (CP/M)
+BDOS	EQU CCP+806H		; BDOS entry behind serial number (6 bytes)
+BIOS	EQU CCP+1600H		; start of BIOS
 
 BDOSADR	EQU BDOS - 6
 
-CPMB	EQU CCP		; Start CP/M-Boot
+CPMB	EQU CCP			; Start CP/M-Boot
 
-CPML	EQU BIOS-CPMB	; Laenge des CP/Ms
-NSECTS	EQU CPML/128	; Anzahl der von CP/M belegten Sektoren for Warmboot
+CPML	EQU BIOS-CPMB		; Laenge des CP/Ms
+NSECTS	EQU CPML/128		; Anzahl der von CP/M belegten Sektoren for Warmboot
 
+;-----------------------------------------------------------------------------
 
 JWARM	EQU 0000H	; JMP to WBOOT
 IOBYTE	EQU 0003H	; Address of IOBYTE
@@ -135,7 +153,7 @@ WBOOTE:	JP WBOOT	; Warm boot (CTRL-C)
 	; --- end of offical BIOS calls ---
 	
 	IF DG01
-	JP FLUSH	; BDOS close and write sector buffer to disk
+	JP FLUSH	; BDOS close and write sector buffer to disk (not used)
 	ENDIF
 
 ;-----------------------------------------------------------------------------
@@ -145,7 +163,6 @@ WBOOTE:	JP WBOOT	; Warm boot (CTRL-C)
 	; size of mini disks A and B
 	; TRUNC(5 logical sectors * 1024 logical sector size * (2*80 tracks - 4 offset) / 2048 block size) - 1 = ca. 780 KB
 	; TRUNC (5 * 1024 * (160-4)/2048) - 1 = ca. 780 K
-SIZEAB	EQU 389
 
 	;DISKS 5		; define 5 drives (A..E)
 NDISKS	EQU	5
@@ -186,13 +203,13 @@ DPE4:	DW	XLT4,0000H	;TRANSLATE TABLE
 	; 0 = OPTIONALER VERSCHIEBUNGSFAKTOR ZUM
 	;     VERSETZEN ABSPEICHERN DER SEKTOREN
 	; 2048 = GROESSE EINES BLOCKS
-	; SIZEAB = ZAHL DER MAX. MOEGLICHEN BLOECKE
+	; 389 = ZAHL DER MAX. MOEGLICHEN BLOECKE
 	; 256 = ZAHL DER DIRECTORY EINTRITTSPUNKTE
 	; 256 = ZAHL DER GEPRUEFTEN EINTRITTSPUNKTE
 	; OFFS = ADDITIVE KONSTANTE ZUM ANSPRECHEN DER SPUR 00
 
 	; physical format: 3,5 inch/5.25 inch, DD, DS, 1024 bytes/sector, 5 sectors/track, 80 tracks
-	; DISKDEF 0,0,39,0,2048,SIZEAB,256,256,4
+	; DISKDEF 0,0,39,0,2048,389,256,256,4
 DPB0	EQU	$		;DISK PARM BLOCK
 	DW	40		;SEC PER TRACK
 	DB	4		;BLOCK SHIFT
@@ -285,7 +302,6 @@ XLT4	EQU	0		;NO XLATE TABLE
 	; size of mini disks A, B, C
 	; TRUNC(5 logical sectors * 1024 logical sector size * (2*80 tracks - 4 offset) / 2048 block size) - 1 = ca. 780 KB
 	; TRUNC (5 * 1024 * (160-4)/2048) - 1 = ca. 780 K
-SIZEAB	EQU 389
 
 	;DISKS 8		; define 8 drives (A..H)
 NDISKS	EQU	8	
@@ -341,13 +357,13 @@ DPE7:	DW	0000h, 0000h
 	; 0 = OPTIONALER VERSCHIEBUNGSFAKTOR ZUM
 	;     VERSETZEN ABSPEICHERN DER SEKTOREN
 	; 2048 = GROESSE EINES BLOCKS
-	; SIZEAB = ZAHL DER MAX. MOEGLICHEN BLOECKE
+	; 389 = ZAHL DER MAX. MOEGLICHEN BLOECKE
 	; 256 = ZAHL DER DIRECTORY EINTRITTSPUNKTE
 	; 256 = ZAHL DER GEPRUEFTEN EINTRITTSPUNKTE
 	; OFFS = ADDITIVE KONSTANTE ZUM ANSPRECHEN DER SPUR 00
 
 	; physical format: 3,5 inch NKC, DD, DS, 1024 bytes/sector, 5 sectors/track, 80 tracks
-	; DISKDEF 0,0,39,0,2048,SIZEAB,256,256,4
+	; DISKDEF 0,0,39,0,2048,389,256,256,4
 DPB0	EQU	$	; DISK PARM BLOCK
 	DW	40	; SEC PER TRACK
 	DB	4	; BLOCK SHIFT

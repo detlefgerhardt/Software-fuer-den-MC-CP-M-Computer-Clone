@@ -21,25 +21,31 @@
 ; 11.07.2026 *dg* Increased number of sectors to read to 63 because of larger BIOS
 
 
-HSTBUF	EQU	08100H		; will put 256-byte raw sector here
-IDEREAD	EQU	0F02AH		; Monitor function IDEREAD
-BIOS	EQU	0EA00H-800H	; CP/M cold start entry
-CPM	EQU	0D400H-800H	; CCP Start
+HSTBUF	EQU 08100H		; will put 256-byte raw sector here
+BIOS	EQU 0EA00H-800H		; CP/M cold start entry
+CPM	EQU 0D400H-800H		; CCP Start
 
-IDESTAT	EQU	01FH		; Hardwareadresse IDE Statusregister
+CONOUT	EQU 0F009H		; Console out
+IDEREAD	EQU 0F02AH		; Monitor function IDEREAD
+
+IDESTAT	EQU 010+0FH		; Hardwareadresse IDE Statusregister
 
 ; sector count (1024 byte sectors)
 ; on a IDE/CF disk 1 track is reserved: 64 sectors
 ;SECCNT	EQU (0F000h-CPM)/128
-SECCNT	EQU 63			; only 64 sectors on one track
+SECCNT	EQU 50
 
 ;-----------------------------------------------------------------------------
 
-	ORG	08000H
+	ORG 08000H
 
-; read track 0, sectors 1 to 49
+; read track 0, sectors 1 to SECCNT
 
-BOOT:	LD A,1			; starting sector -- sector 0 has cpm_loader
+BOOT:	
+	LD HL,MSG
+	CALL WRSTR
+
+	LD A,1			; starting sector -- sector 0 has cpm_loader
 	LD (SECTOR),A
 	LD HL,CPM		; memory address to place image
 	LD (DMAAD),HL
@@ -49,8 +55,8 @@ BOOT:	LD A,1			; starting sector -- sector 0 has cpm_loader
 BOOT1:	; read track 0 loop
 	CALL RDSEC
 	LD A,(SECTOR)
-	CP 50
-	JP Z,BOOT2
+	CP SECCNT
+	JR Z,BOOT2
 
 	; inc sector
 	INC A
@@ -62,7 +68,7 @@ BOOT1:	; read track 0 loop
 	ADD HL,DE
 	LD (DMAAD),HL
 	
-	JP BOOT1
+	JR BOOT1
 
 BOOT2:	JP BIOS
 
@@ -98,6 +104,22 @@ RDSEC1:	; read sector bytes loop
 	IN A,(IDESTAT)	; get status
 	AND 01H		; error bit
 	RET
+
+;-----------------------------------------------------------------------------
+
+WRSTR:	LD A,(HL)	; get char from string
+	AND A		; check if 0
+	RET Z		; -> end of string
+	
+	LD C,A
+	CALL CONOUT
+	INC HL		; next char in string
+	JR WRSTR	; start over
+
+CR	EQU 0DH
+LF	EQU 0AH
+
+MSG:	DEFB CR,LF,"NBOOT-CF 1.0 260809",CR,LF,0
 
 ;-----------------------------------------------------------------------------
 

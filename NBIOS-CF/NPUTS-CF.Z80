@@ -1,5 +1,5 @@
 ;*****************************************************************************
-; PUTYS-CF.Z80
+; NPUTS-CF.Z80 V1.0
 ;
 ; Writes CP/M and BIOS from memory (notice start addresses to the IDE/CF
 ; Interface
@@ -23,23 +23,26 @@
 ; 10.07.2026 *dg* Renamed to PUTSY-CF and reformatted
 ;                 Changed BIOS address to E200
 ;		  Changed for CF/IDE drives 4..7 (E..H)
+; 09.08.2026 *dg* Renamed to NPUTS-CF, Jump to BIOS because when finished,
+;		  because the program uses the BIOS and overwrites the monitor.
 
 CPM	EQU 0D400H-800H
 BIOS	EQU 0EA00H-800H
 
 ; Monitor calls
 
-MWARM	EQU 0F033H	; Monitor entry
+;MWARM	EQU 0F033H	; Monitor entry
 
 ; bios calls
 
+CONOUT	EQU BIOS+00CH	; output char in C
 SELDSK	EQU BIOS+01BH	; pass disk no. in c
 SETDMA	EQU BIOS+024H	; pass address in bc
 SETTRK	EQU BIOS+01EH	; pass track in reg C
 SETSEC	EQU BIOS+021H	; pass sector in reg c
 WRITE	EQU BIOS+02AH	; write one CP/M sector to disk
 
-STDRIVE	EQU 4		; first IDE/CF-drive
+BOOTDRV	EQU 4		; first IDE/CF-drive
 
 ; sector count (1024 byte sectors)
 ; on a IDE/CF disk 1 track is reserved: 64 sectors
@@ -50,11 +53,13 @@ SECCNT	EQU 63			; only 64 sectors per track
 
 	ORG 100H	; program starts at 100H
 
-; write track 0, sectors 1 to 50
 ; write track 0, sectors 1 to SECCNT
-; only one system track available
+; only one system track available!
 
-PUT:	LD C,STDRIVE	; first CF/IDE drive
+PUT:	LD HL,MSG1
+	CALL WRSTR
+
+	LD C,BOOTDRV	; first CF/IDE drive
 	CALL SELDSK		
 	LD A,1		; starting with 2. sector (0..n-1) 
 	LD (SECTOR),A
@@ -83,8 +88,33 @@ PUT1:	; track loop
 	LD (ADDR),HL
 	JP PUT1
 
-PUT2:	;JP MWARM	; call Monitor
+PUT2:	; finished
+	LD HL,MSG2
+	CALL WRSTR
+
 	JP BIOS
+
+;-----------------------------------------------------------------------------
+; Uses BIOS CONOUT to print 0-terminated string
+; address in HL
+
+WRSTR:	LD A,(HL)	; get char from string
+	AND A		; check if 0
+	RET Z		; -> end of string
+	
+	LD C,A
+	CALL CONOUT
+	INC HL		; next char in string
+	JP WRSTR	; start over
+
+;-----------------------------------------------------------------------------
+
+CR	EQU 0DH
+LF	EQU 0AH
+
+MSG1:	DEFB CR,LF,"NPUTS-CF V1.0 260809-01",CR,LF,0
+	
+MSG2:	DEFM "System written to drive ",BOOTDRV+'A'," on IDE/CF",CR,LF,LF,0
 
 ;-----------------------------------------------------------------------------
 

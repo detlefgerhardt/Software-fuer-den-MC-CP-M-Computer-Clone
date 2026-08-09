@@ -1,0 +1,92 @@
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   1
+NPUTB-CFZ80
+
+    1                   ;*****************************************************************************
+    2                   ; NPUTB-CF.Z80
+    3                   ;
+    4                   ; Write bootloader for MC CP/M-Computer IDE/CF drive
+    5                   
+    6                   ; based on BLOAD-CF von Ulrich Haumann from 05/2026
+    7                   ;
+    8                   ;*****************************************************************************
+    9                   ; Writes Boot loader from address 1000h to IDE/Compact-Flash
+   10                   ; Uses calls to Monitor and returns to Monitor
+   11                   ;
+   12                   ; DOES NOT USE BIOS or CP/M START ADDRESS !!!
+   13                   ;
+   14                   ; Writes track 0, sectors 0 
+   15                   ; Subroutine to write one IDE/ATA Disk sector (256 bytes)
+   16                   ; Address of data to write to disk passed in HL
+   17                   ; LBA bits 0 to 7 passed in C, bits 8 to 15 passed in B
+   18                   ; LBA bits 16 to 23 passed in E
+   19                   ;
+   20                   ; Version history
+   21                   ;
+   22                   ; 10.07.2026 *dg* Renamed to NBPUT-CF and reformatted
+   23                   ; 09.08.2026 *dg* Renamed to NPUTB-CF
+   24                   ;
+   25                   
+   26                   ;-----------------------------------------------------------------------------
+   27                   
+   28         1000      BOOTADR	EQU 01000H	; the bootloader was loaded to this address before
+   29                   
+   30                   ; calls to Monitor
+   31         F009      CONOUT	EQU 0F009h	; Output a chracter
+   32         F02D      IDEWR	EQU 0F02DH	; IDE/CF write routine in Monitor
+   33         F033      MWARM	EQU 0F033H	; goto Monitor
+   34                   
+   35         0004      BOOTDRV	EQU 4		; first IDE/CF-drive (only used for message)
+   36                   
+   37                   ;-----------------------------------------------------------------------------
+   38                   
+   39         0100      	ORG 0100H	; start program here
+   40                   
+   41 0100              START:	
+   42 0100  21 0126     	LD HL,MSG1
+   43 0103  CD 011B     	CALL WRSTR
+   44                   
+   45 0106  21 1000     	LD HL,BOOTADR
+   46 0109  0E 00       	LD C,00H
+   47 010B  06 00       	LD B,00H
+   48 010D  1E 00       	LD E,00H
+   49 010F  CD F02D     	CALL IDEWR	; write one 128 byte sector
+   50                   	
+   51 0112  21 0142     	LD HL,MSG2
+   52 0115  CD 011B     	CALL WRSTR
+   53                   	
+   54                   	; we did not use the BIOS, so we can return to the Monitor
+   55 0118  C3 F033     	JP MWARM
+   56                   
+   57                   ;-----------------------------------------------------------------------------
+   58                   ; Used monitor CONOUT to print 0-terminated string
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
+NPUTB-CFZ80
+
+   59                   ; address in HL
+   60                   ; 00h = string end
+   61                   
+   62 011B  7E          WRSTR:	LD A,(HL)	; get char from string
+   63 011C  A7          	AND A		; check if 0
+   64 011D  C8          	RET Z		; -> end of string
+   65                   	
+   66 011E  4F          	LD C,A
+   67 011F  CD F009     	CALL CONOUT
+   68 0122  23          	INC HL		; next char in string
+   69 0123  C3 011B     	JP WRSTR	; start over
+   70                   
+   71                   ;-----------------------------------------------------------------------------
+   72                   
+   73         000D      CR	EQU 0DH
+   74         000A      LF	EQU 0AH
+   75                   
+   76 0126  0D 0A 4E 50 MSG1:	DEFB CR,LF,"NPUTB-CF V1.0 260809-01",CR,LF,0
+   77                   
+   78 0142  42 6F 6F 74 MSG2:	DEFM "Bootloader written from 1000h to drive ",BOOTDRV+'A'," on IDE/CF",CR,LF,LF,0
+   79                   
+   80                   ;-----------------------------------------------------------------------------
+   81                   
+   82                   	END
+ 0 Error(s) Detected.
+ 120 Absolute Bytes. 11 Symbols Detected.
+  63 011C  A7          	AND A		; check if 0
+   64 01

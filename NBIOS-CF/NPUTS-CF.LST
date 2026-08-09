@@ -1,0 +1,138 @@
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   1
+NPUTS-CFZ80
+
+    1                   ;*****************************************************************************
+    2                   ; NPUTS-CF.Z80 V1.0
+    3                   ;
+    4                   ; Writes CP/M and BIOS from memory (notice start addresses to the IDE/CF
+    5                   ; Interface
+    6                   ;
+    7                   ; based on PUTSYS from Donn Stewart, June 2019
+    8                   ; changed by Ulrich Haumann 04/2026
+    9                   ;
+   10                   ;*****************************************************************************
+   11                   ;Image size is 6400 bytes, so need to save 6400/128 = 50 sectors
+   12                   ;For system with 64-sector tracks, image can all be on track 0
+   13                   ;Load and run from ROM monitor
+   14                   ;Uses calls to cbios, in memory at EA00h
+   15                   ;benuzt calls zum Monitor im oberen RAM F000h
+   16                   ;Copies the memory image of CP/M loaded at CPM onto track 0 of the first CP/M disk
+   17                   ;Writes track 0, sectors 1 to 50 (sector 0 has cpm loader)
+   18                   ;
+   19                   ; PLEASE NOTE THE CHANGED CP/M & BIOS START ADDRESS AND CF/IDE DRIVES !!!
+   20                   ;
+   21                   ; Version history
+   22                   ;
+   23                   ; 10.07.2026 *dg* Renamed to PUTSY-CF and reformatted
+   24                   ;                 Changed BIOS address to E200
+   25                   ;		  Changed for CF/IDE drives 4..7 (E..H)
+   26                   ; 09.08.2026 *dg* Renamed to NPUTS-CF, Jump to BIOS because when finished,
+   27                   ;		  because the program uses the BIOS and overwrites the monitor.
+   28                   
+   29         CC00      CPM	EQU 0D400H-800H
+   30         E200      BIOS	EQU 0EA00H-800H
+   31                   
+   32                   ; Monitor calls
+   33                   
+   34                   ;MWARM	EQU 0F033H	; Monitor entry
+   35                   
+   36                   ; bios calls
+   37                   
+   38         E20C      CONOUT	EQU BIOS+00CH	; output char in C
+   39         E21B      SELDSK	EQU BIOS+01BH	; pass disk no. in c
+   40         E224      SETDMA	EQU BIOS+024H	; pass address in bc
+   41         E21E      SETTRK	EQU BIOS+01EH	; pass track in reg C
+   42         E221      SETSEC	EQU BIOS+021H	; pass sector in reg c
+   43         E22A      WRITE	EQU BIOS+02AH	; write one CP/M sector to disk
+   44                   
+   45         0004      BOOTDRV	EQU 4		; first IDE/CF-drive
+   46                   
+   47                   ; sector count (1024 byte sectors)
+   48                   ; on a IDE/CF disk 1 track is reserved: 64 sectors
+   49                   ;SECCNT	EQU (0F000h-CPM)/128
+   50         003F      SECCNT	EQU 63			; only 64 sectors per track
+   51                   
+   52                   ;-----------------------------------------------------------------------------
+   53                   
+   54         0100      	ORG 100H	; program starts at 100H
+   55                   
+   56                   ; write track 0, sectors 1 to SECCNT
+   57                   ; only one system track available!
+   58                   
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
+NPUTS-CFZ80
+
+   59 0100  21 0159     PUT:	LD HL,MSG1
+   60 0103  CD 014E     	CALL WRSTR
+   61                   
+   62 0106  0E 04       	LD C,BOOTDRV	; first CF/IDE drive
+   63 0108  CD E21B     	CALL SELDSK		
+   64 010B  3E 01       	LD A,1		; starting with 2. sector (0..n-1) 
+   65 010D  32 019C     	LD (SECTOR),A
+   66 0110  21 CC00     	LD HL,CPM	; memory address to start
+   67 0113  22 019D     	LD (ADDR),HL
+   68 0116  0E 00       	LD C,0		; CP/M track
+   69 0118  CD E21E     	CALL SETTRK
+   70                   
+   71 011B              PUT1:	; track loop
+   72 011B  3A 019C     	LD A,(SECTOR)
+   73 011E  4F          	LD C,A		; CP/M sector
+   74 011F  CD E221     	CALL SETSEC
+   75 0122  ED 4B 019D  	LD BC,(ADDR)	; memory location
+   76 0126  CD E224     	CALL SETDMA
+   77 0129  CD E22A     	CALL WRITE
+   78 012C  3A 019C     	LD A,(SECTOR)
+   79                   	;CP 50
+   80 012F  FE 3F       	CP SECCNT
+   81 0131  CA 0145     	JP Z,PUT2
+   82                   		
+   83 0134  3C          	INC A
+   84 0135  32 019C     	LD (SECTOR),A
+   85 0138  2A 019D     	LD HL,(ADDR)
+   86 013B  11 0080     	LD DE,128
+   87 013E  19          	ADD HL,DE
+   88 013F  22 019D     	LD (ADDR),HL
+   89 0142  C3 011B     	JP PUT1
+   90                   
+   91 0145              PUT2:	; finished
+   92 0145  21 0175     	LD HL,MSG2
+   93 0148  CD 014E     	CALL WRSTR
+   94                   
+   95 014B  C3 E200     	JP BIOS
+   96                   
+   97                   ;-----------------------------------------------------------------------------
+   98                   ; Uses BIOS CONOUT to print 0-terminated string
+   99                   ; address in HL
+  100                   
+  101 014E  7E          WRSTR:	LD A,(HL)	; get char from string
+  102 014F  A7          	AND A		; check if 0
+  103 0150  C8          	RET Z		; -> end of string
+  104                   	
+  105 0151  4F          	LD C,A
+  106 0152  CD E20C     	CALL CONOUT
+  107 0155  23          	INC HL		; next char in string
+  108 0156  C3 014E     	JP WRSTR	; start over
+  109                   
+  110                   ;-----------------------------------------------------------------------------
+  111                   
+  112         000D      CR	EQU 0DH
+  113         000A      LF	EQU 0AH
+  114                   
+  115 0159  0D 0A 4E 50 MSG1:	DEFB CR,LF,"NPUTS-CF V1.0 260809-01",CR,LF,0
+  116                   	
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   3
+NPUTS-CFZ80
+
+  117 0175  53 79 73 74 MSG2:	DEFM "System written to drive ",BOOTDRV+'A'," on IDE/CF",CR,LF,LF,0
+  118                   
+  119                   ;-----------------------------------------------------------------------------
+  120                   
+  121 019C  00          SECTOR:	DB	00H
+  122 019D  0000        ADDR:	DW	0000H
+  123                   
+  124                   ;-----------------------------------------------------------------------------
+  125                   
+  126                   	END
+ 0 Error(s) Detected.
+ 159 Absolute Bytes. 20 Symbols Detected.
+        

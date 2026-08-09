@@ -17,6 +17,7 @@
 ;
 ; 10.07.2026 *dg* Renamed to NPUTBOOT and reformatted source code
 ; 11.07.2026 *dg* Use new floppy routine 0F021h in Monitor
+; 09.08.2026 *dg* Added output version and error message
 
 ;-----------------------------------------------------------------------------
 
@@ -27,15 +28,21 @@ CPMB	EQU 03400H+OFFSET	; start CP/M
 BIOS	EQU 04A00H+OFFSET	; start BIOS
 
 ; Monitor functions
-RSTRT	EQU 0F01EH	; Restart routine in Monitor
+CONOUT	EQU 0F009h	; Output a chracter
+;RSTRT	EQU 0F01EH	; Restart routine in Monitor
 FLOP	EQU 0F021H	; Monior Floppy routine
-MINI	EQU 0F027H	; Old MINI routine in Monitor (obsolete)
+MWARM	EQU 0F033H	; goto Monitor
 
 MEMADDR	EQU 01000H	; address for boot loader in memory
+
+BOOTDRV	EQU 0		; only used for message
 
 ;-----------------------------------------------------------------------------
 
 WBOOT:	LD SP,0FFH	; set stack
+
+	LD HL,MSG1
+	CALL WRSTR
 
 	LD HL,MEMADDR	; START ADRESSE Boot Loader
 	LD D,0		; write to track 0
@@ -54,9 +61,41 @@ WBOOT:	LD SP,0FFH	; set stack
 	POP BC
 	POP DE
 	POP HL
-	JP C,RSTRT	; -> error -> call monitor restart
-				
-	JP BIOS		; no error -> CP/M cold boot
+	JR C,WBOOT2	; -> error -> call monitor restart
+		
+	; no error
+	; we did not use the BIOS, so we can return to the Monitor
+	LD HL,MSG2
+	CALL WRSTR
+	JP MWARM
+
+WBOOT2:	; error
+	LD HL,ERRMSG
+	CALL WRSTR
+	JP MWARM
+
+;-----------------------------------------------------------------------------
+; Uses monitor CONOUT to print 0-terminated string
+; address in HL
+; 00h = string end
+
+WRSTR:	LD A,(HL)	; get char from string
+	AND A		; check if 0
+	RET Z		; -> end of string
+	
+	LD C,A
+	CALL CONOUT
+	INC HL		; next char in string
+	JR WRSTR	; start over
+
+CR	EQU 0DH
+LF	EQU 0AH
+
+MSG1:	DEFB CR,LF,"NPUTBOOT V1.0 260809-01",CR,LF,0
+
+MSG2:	DEFM "Bootloader written from 1000h to drive ",BOOTDRV+'A',CR,LF,0
+
+ERRMSG	DEFM CR,LF,"Error",CR,LF,0
 
 ;-----------------------------------------------------------------------------
 
