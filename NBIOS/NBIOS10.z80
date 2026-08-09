@@ -26,14 +26,14 @@
 ; 03.08.2026 *dg* BIOS Debug-Ausgaben per Ctrl-A toggelbar
 ; 06.08.2026 *dg* 5.25 Zoll Format mit 1024*8 funktioniert (1.4 MB)
 ;                 5.25 Zoll Format mit 512*15 funktioniert! (1.2 MB)
+; 08.08.2026 *dg* CF-Card Laufwerksparameter geaendert
+; 09.08.2026 *dg* Quick'n dirty fix for Warmboot from IDE/CF
+		  (disk params still hardcoded for Warmboot)
 
 ; TODO:
-; 8080 RRCA ersetzen durch Z80 SLA
 ; Drive-spezifische Tabellen zu den Laufwerkstabellen
 
 ;------------------------------------------------------------------------------
-
-	;MACLIB DISKDEF1	; LOAD DEFINTION FOR DISKS
 
 CPMVER	EQU 22		; CP/M version
 FALSE	EQU 0
@@ -47,18 +47,26 @@ LF	EQU 0AH		; line feed
 
 ; aktiviert alle bisherigen Aenderungen gegenueber der Originalversion 3.1
 DG01	EQU TRUE
-;MINI3	EQU TRUE	; 3 MINI, 1 MAXI drive
-DG_BHD	EQU TRUE	; drive B as HD drive (1.4 MB)
-DG_CHD	EQU TRUE	; drive C as HD drive (1.44 MB)
+DG_BHD	EQU TRUE	; drive B as HD drive (5 1/4 inch, 1.4 MB)
+DG_CHD	EQU TRUE	; drive C as HD drive (3 1/2 inch, 1.44 MB)
 DEBOUT	EQU TRUE	; debug outputs
+BTDRV	EQU 0		; drive A:
+;BTDRV	EQU 4		; drive E: (IDE/CF)
 
 ; logical drive to boot from
 	IF NOT DG01
-BTDRV	EQU 0		; drive A:
+BTSEC	EQU 8		; start sector of CP/M
+BTSECN	EQU 40		; sector per track
 	ELSE
-;BTDRV	EQU 4		; drive E: (CF)
-BTDRV	EQU 0		; drive A:
+	IF BTDRV = 0
+BTSEC	EQU 8		; start sector of CP/M on disk with 1024 bytes/sector
+BTSECN	EQU 40		; sector per track
 	ENDIF
+	IF BTDRV = 4
+BTSEC	EQU 1		; start sector of CP/M on IDE/CF (2. sector)
+BTSECN	EQU 64		; sector per track
+	ENDIF
+	ENDIF		; if DG_01
 
 ;------------------------------------------------------------------------------
 ; Monitor functions
@@ -84,7 +92,7 @@ BDOSADR	EQU BDOS - 6
 CPMB	EQU CCP		; Start CP/M-Boot
 
 CPML	EQU BIOS-CPMB	; Laenge des CP/Ms
-NSECTS	EQU CPML/128	; Anzahl der von CP/M belegten Sektoren
+NSECTS	EQU CPML/128	; Anzahl der von CP/M belegten Sektoren for Warmboot
 
 
 JWARM	EQU 0000H	; JMP to WBOOT
@@ -474,10 +482,9 @@ XLT3	EQU	$	; TRANSLATE TABLE
  	DB	22	
 
 	; Disk 4 (E), IDE partition 0 ----------------------------------------
-	; 64-sector tracks, numbering starting at zero (sectors 0 to 63)
-	; Block size 2048
-	; Disk size 2 mb, DSM 1023, yields 256 tracks (0 to 255)
 DPB4:	;disk parameter block for all disks.
+	IF FALSE
+	; Disk size 2 mb, DSM 1023, yields 256 tracks (0 to 255)
 	DW	64	; sectors per track
 	DB	4	; block shift factor
 	DB	15	; block mask - with block shift, sets block size to 1024
@@ -488,6 +495,19 @@ DPB4:	;disk parameter block for all disks.
 	DB	0	; alloc 1 -- no. bits = (directory max x 32)/block size	
 	DW	0	; check size -- no checking, so zero
 	DW	1	; track offset -- first track for system
+	ELSE
+	; Disk size 2 MB, 128 Byte/Sector, 64 sectors, 256 tracks (0 to 255)
+	DW	64	; sectors per track
+	DB	5	; block shift factor
+	DB	31	; block mask - with block shift, sets block size to 1024
+	DB	1	; null mask
+	DW	509	; disk size-1 = number of blocks in a disk - 1
+	DW	255	; directory max = no. directory entries/disk, arbitrary
+	DB	192	; alloc 0 -- need 4 bits (blocks) for 256 directory entries -- 
+	DB	0	; alloc 1 -- no. bits = (directory max x 32)/block size	
+	DW	0	; check size -- no checking, so zero
+	DW	1	; track offset -- first track for system
+	ENDIF
 
 	; Disk 5 (F), IDE partition 1 ----------------------------------------
 DPB5	EQU	DPB4	; EQUIVALENT PARAMETERS
@@ -527,7 +547,7 @@ SIGNON:
 	DB CPMVER/10+'0','.',CPMVER MOD 10+'0'
 	DB ' for MC-Computer '
 	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-	DB 'K NBIOS 260807-01'
+	DB 'K NBIOS 260809-02'
 	DB " BOOT=",BTDRV+'A',CR,LF
 
 	DB "A:NKC800"
@@ -683,20 +703,19 @@ WBOO1:	LD A,0FFH	; alle Tracks ungueltig, bei Diskettenwechsel wichtig
 	PUSH BC		; und dann anfangen zu booten
 
 WBOO2:	; loop, load CP/M
-	; hier ist noch das Format des Boot-Laufwerks hardkodiert !!!
-	LD BC,CPMB	; Boot von MINI-Diskette / Boot drive
+	LD BC,CPMB	; CPM address
 	CALL SETDMA	; auf der Startadresse des CP/Ms
 	LD C,BTDRV	; Laufwerk A (or BTDRV)
 	CALL SELDSK	; auswaehlen
 	LD C,0		; Track 0
 	CALL SETTRK	; und den zweiten phys. Sektor, (Nr 8 logisch)
-	LD C,8		; entspricht Nr 2 bei 1024 Bytes
+	LD C,BTSEC
 	CALL SETSEC	; wichtig, da andere Zaehlweise
 	POP BC		; und von da an n Sektoren einlesen
 	LD B,NSECTS	; aber das BIOS nicht ueberschreiben
 			; damit Patches leicht moeglich sind
 
-	;LD C,'*'
+	;LD C,'1'
 	;CALL CONOUT
 
 WBOO3:	; sector read loop
@@ -709,7 +728,7 @@ WBOO3:	; sector read loop
 	ADD HL,DE	; dazu addieren,
 	LD (IOD),HL	; und dann wieder zurueckspeichern.
 	LD A,(IOS)	; Sektor laden
-	CP 39		; Mini 0..39 Sektoren a 128 Bytes
+	CP BTSECN-1	; Mini 0..39 sektors, IDE/CF 0..63 sectors (a 128 bytes)
 			; Anzahl der Sektoren hardcodiert !!!
 	JP C,WBOO4	; solange auf der gleichen Spur bleiben
 
