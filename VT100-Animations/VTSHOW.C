@@ -157,8 +157,6 @@ int ReadDir(list)
 	mask->dr = 0; /* current */
 	strncpy(mask->fn, "????????VT?", 11); /* copy without '\0' */
 
-	/*BDOS(dir, 26);*/	/* set DMA address */
-
 	cnt = 0;
 	while(TRUE)
 	{
@@ -179,8 +177,6 @@ int ReadDir(list)
 		}
 		*pn = '\0';
 	
-		/*	printf("%d %d '%s'\r\n", cnt, result, name); */
-
 		if (list != NULL)
 		{
 			p = calloc(strlen(name) + 1, 1);
@@ -189,21 +185,10 @@ int ReadDir(list)
 			if (strlen(name) > 11)
 				p[12] = '\0';
 			list[cnt] = p;
-			/*printf("%04X %04X %04X\r\n", list[cnt], p, name);*/
-			/*Dump(list, 20);*/
 		}
 	
 		cnt++;
-		/*getchar();*/
 	}
-
-	/*
-	if (list != NULL)
-	{
-		for (i = 0; i < cnt; i++)
-			printf("%d %s %04X\r\n", i, list[i], list[i]);
-	}
-	*/
 	
 	return cnt;
 }
@@ -216,8 +201,6 @@ ShowFile(filename)
 	FILE *fp;
 	int cnt, ret;
 	int c, f;
-	
-	/* printf("show file %s\r\n", filename); */
 	
 	fp = fopen(filename, "ra");
 	if (fp == NULL)
@@ -239,7 +222,6 @@ ShowFile(filename)
 	{
 		cnt++;
 		
-		/*putchar('*');*/
 		c = GetChr();
 		if (c == 0x03) 
 		{
@@ -260,9 +242,6 @@ ShowFile(filename)
 	}
 	fclose(fp);
 
-	/*PutStr("\033c");*/		/* VT100 reset terminal */
-	/*PutStr("\033[?25h");*/	/* VT100 cursor on */
-	
 	return ret;
 }
 
@@ -281,7 +260,6 @@ main(argc, argv)
 		PutStr("no vt files\r\n");
 		return;
 	}
-	/*printf("filCnt = %d\r\n", filCnt);*/
 	list = calloc(filCnt, 2);
 	if (list == NULL)
 	{
@@ -300,11 +278,6 @@ main(argc, argv)
 		PutStr("calloc error\r\n");
 		return;
 	}
-
-	/*
-	for (f = 0; f < filCnt; f++)
-		printf("%d %s\r\n", f, list[f]);
-	*/
 
 	RndSeed(1246);
 
@@ -342,7 +315,6 @@ main(argc, argv)
 			playCnt++;
 			shown[f] = 1;
 			
-			/*printf("f = %d %s\r\n", f, list[f]);*/
 			ch = ShowFile(list[f]);
 			if (ch == 0X03) break;
 			
@@ -381,11 +353,6 @@ main(argc, argv)
 		filename[12] = '\0';
 	}
 
-	/*
-	PutStr(filename);
-	PutStr("\r\n");
-	*/
-	
 	fp = fopen(filename, "ra");
 	if (fp == NULL)
 	{
@@ -403,14 +370,10 @@ main(argc, argv)
 	while(TRUE)
 	{
 		cnt++;
-		/*if (cnt > 20) break;*/
-		
-		/*putchar('*');*/
 		c = GetChr();
 		if (c == 0x03) break; /* Ctrl-C */
 		
 		c = getc(fp);
-		/*printf("%02X\r\n", c);*/
 		
 		if (c == EOF) break;
 
