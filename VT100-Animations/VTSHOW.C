@@ -28,6 +28,8 @@ typedef struct {
 
 long rndstate;
 
+#define MAXDRIVES 4
+
 /****************************************************************************/
 /* aprox. 1 s delay */
 
@@ -129,12 +131,15 @@ Dump(ptr)
 
 /****************************************************************************/
 
-int ReadDir(list)
+int ReadDir(list, drvcnt, drvlst)
 	char **list;
+	int drvcnt;
+	char *drvlst;
 {
 	stfcb *mask, *dir;
-	int result, i, cnt;
-	char name[13], *pn, *p;
+	int result, i, d, cnt;
+	char name[15], *pn, *p;
+	BOOL first;
 	
 	mask = calloc(1, sizeof(stfcb));
 	if (mask == NULL)
@@ -154,40 +159,51 @@ int ReadDir(list)
 		p[i] = 0;
 
 	/*mask->dr = 6;*/ /* F: */
-	mask->dr = 0; /* current */
 	strncpy(mask->fn, "????????VT?", 11); /* copy without '\0' */
-
 	cnt = 0;
-	while(TRUE)
+	for (d = 0; d < drvcnt; d++)
 	{
-		BDOS(dir, 26);	/* set DMA address */
-		if (cnt == 0)
-			result = BDOS(mask, 17); 	/* get first dir entry */
-		else
-			result = BDOS(mask, 18); 	/* get next dir entry */
-		if (result == 255) break;
+		mask->dr = drvlst[d]; /* 0=current, 1=A, 2=B, ... */
+		first = TRUE;
+		while(TRUE)
+		{
+			BDOS(dir, 26);					/* set DMA address */
+			if (first)
+			{
+				result = BDOS(mask, 17); 	/* get first dir entry */
+				first = FALSE;
+			}
+			else
+				result = BDOS(mask, 18); 	/* get next dir entry */
+			if (result == 255) break;
 
-		p = (char *)dir + result * 32 + 1;
-		pn = name;
-		for (i=0; i<11; i++)
-		{
-			if (p[i] == ' ') continue;
-			if (i==8) *pn++ = '.';
-			*pn++ = p[i];
+			p = (char *)dir + result * 32 + 1;
+			pn = name;
+			if (drvlst[d] > 0)
+			{
+				*pn++ = drvlst[d] - 1 + 'A';
+				*pn++ = ':';
+			}
+			for (i=0; i<11; i++)
+			{
+				if (p[i] == ' ') continue;
+				if (i==8) *pn++ = '.';
+				*pn++ = p[i];
+			}
+			*pn = '\0';
+		
+			if (list != NULL)
+			{
+				p = calloc(strlen(name) + 1, 1);
+				if (p == NULL) break;
+				strncpy(p, name, 14); /* d:xxxxxxxx.yyy = 14 chars */
+				if (strlen(name) > 13)
+					p[14] = '\0';
+				list[cnt] = p;
+			}
+		
+			cnt++;
 		}
-		*pn = '\0';
-	
-		if (list != NULL)
-		{
-			p = calloc(strlen(name) + 1, 1);
-			if (p == NULL) break;
-			strncpy(p, name, 12);
-			if (strlen(name) > 11)
-				p[12] = '\0';
-			list[cnt] = p;
-		}
-	
-		cnt++;
 	}
 	
 	return cnt;
@@ -213,6 +229,7 @@ ShowFile(filename)
 
 	PutStr("\033c");		/* VT100 reset terminal */
 	Delay(1);
+	PutStr("\033[?25l");	/* VT100 cursor off */
 	PutStr("\033[?25l");	/* VT100 cursor off */
 	PutStr("\033[2J");		/* VT100 clear screen */
 
@@ -252,67 +269,105 @@ main(argc, argv)
 	char *argv[];
 {
 	char **list, *shown;
-	int filCnt, playCnt, i, f, ch;
+	char drvlst[MAXDRIVES];
+	int filcnt, plycnt, drvcnt, i, f, ch;
+	BOOL fnd;
 
-	filCnt = ReadDir(NULL);
-	if (filCnt == 0)
+	i = 0;
+	if (argc < 2)
+	{
+		PutStr("VTSHOW *dg* 260812-01\r\n");
+		PutStr(" usage: vtshow [<d> <d>...] <random seed>  (1..32748)\r\n");
+		PutStr("  e.g.: vtshow a b 100\r\n");
+		return;
+	}
+	drvcnt = 0;
+	for (i = 0; i< MAXDRIVES; i++)
+	{
+		if (i + 2 > argc) break;
+		if (toupper(argv[i + 1][0]) >= 'A' && toupper(argv[i + 1][0]) <= 'P')
+		{
+			drvlst[drvcnt] = argv[i + 1][0] - 'A' + 1;
+			drvcnt++;
+		}
+	}
+	if (drvcnt == 0)
+	{
+		drvlst[0] = 0;
+		drvcnt++;
+	}
+
+	i = atoi(argv[argc - 1]);
+	if (i < 0) i = -i;
+	RndSeed(i);
+
+	/* first read to get file count */
+	filcnt = ReadDir(NULL, drvcnt, drvlst);
+	if (filcnt == 0)
 	{
 		PutStr("no vt files\r\n");
 		return;
 	}
-	list = calloc(filCnt, 2);
+	list = calloc(filcnt, 2);
 	if (list == NULL)
 	{
 		PutStr("calloc error\r\n");
 		return;
 	}
-	filCnt = ReadDir(list);
-	if (filCnt == 0)
+	/* second read to get list */
+	filcnt = ReadDir(list, drvcnt, drvlst);
+	if (filcnt == 0)
 	{
 		PutStr("error reading vt files\r\n");
 		return;
 	}
-	shown = calloc(filCnt, 1);
+	
+	shown = calloc(filcnt, 1);
 	if (shown == NULL)
 	{
 		PutStr("calloc error\r\n");
 		return;
 	}
 
-	RndSeed(1246);
-
 	while(TRUE)
 	{
-		for (f = 0; f < filCnt; f++)
+		for (f = 0; f < filcnt; f++)
 			shown[f] = 0;
 
-		playCnt = 0;
-		while(playCnt < filCnt)
+		plycnt = 0;
+		while(plycnt < filcnt)
 		{
 			ch = GetChr();
 			if (ch == 0x03) break; /* Ctrl-C */
-			
+
+			fnd = FALSE;
 			for (i = 0; i < 5; i++)
 			{
-				f = RndNext(0, filCnt);
-				if (!shown[f]) break;
-				f = 0;
-			}
-			if (f == 0)
-			{	/* not found */
-				for (f = 0; f < filCnt; f++)
+				f = RndNext(0, filcnt);
+				if (!shown[f])
 				{
-					if (!shown[f]) break;
-					f = 0;
+					fnd = TRUE;
+					break;
 				}
-				if (f == 0)
+			}
+			if (!fnd)
+			{	/* not found */
+				for (f = 0; f < filcnt; f++)
+				{
+					if (!shown[f])
+					{
+						fnd = TRUE;
+						break;
+					}
+				}
+				if (!fnd)
 				{
 					/* this should not happen */
 					break;
 				}
 			}
 			
-			playCnt++;
+			plycnt++;
 			shown[f] = 1;
 			
 			ch = ShowFile(list[f]);
@@ -323,70 +378,10 @@ main(argc, argv)
 		if (ch == 0X03) break;
 	}
 
-	return;
-
 	PutStr("\033c");		/* VT100 reset terminal */
 	Delay(1);
 	PutStr("\033[?25h");	/* VT100 cursor on */
-	return;
-	
-	
-#if FALSE
-	
-	if (argc < 2)
-	{
-		PutStr("\r\nVT VT100 animation viewer *dg* 260812-01\r\n");
-		PutStr(" usage: vt filename[.vt]\r\n");
-		return;
-	}
-
-	if (index(argv[1], ".") == -1)
-	{
-		/* no extention */
-		strncpy(filename, argv[1], 8);
-		strcat(filename, ".vt");
-	}
-	else
-	{
-		/* with extention */
-		strncpy(filename, argv[1], 12);
-		filename[12] = '\0';
-	}
-
-	fp = fopen(filename, "ra");
-	if (fp == NULL)
-	{
-		PutStr("\r\nfile ");
-		PutStr(filename);
-		PutStr(" not found\r\n");
-		return;
-	}
-
-	/*PutStr("\033c");*/		/* VT100 reset terminal */
-	PutStr("\033[?25l");	/* VT100 cursor off */
-	PutStr("\033[2J");		/* VT100 clear screen */
-
-	cnt = 0;
-	while(TRUE)
-	{
-		cnt++;
-		c = GetChr();
-		if (c == 0x03) break; /* Ctrl-C */
-		
-		c = getc(fp);
-		
-		if (c == EOF) break;
-
-		if (c == 0x0A) putchar(0x0D);
-		putchar(c);
-	}
-	fclose(fp);
-
-	/*PutStr("\033c");*/		/* VT100 reset terminal */
 	PutStr("\033[?25h");	/* VT100 cursor on */
-
-#endif
-	
 }
 
 /****************************************************************************/
