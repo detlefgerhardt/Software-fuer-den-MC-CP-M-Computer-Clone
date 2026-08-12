@@ -1,5 +1,5 @@
 # VT100 Animationen für den MC CP/M Computer
-Eine Auswahl der besten VT100 Animationen von http://artscene.textfiles.com/vt100/ und ein Viewer für Endlos-Demos.
+Eine Auswahl der besten VT100 Animationen von http://artscene.textfiles.com/vt100/ und zwei Viewer-Programme für den MC CP/M-Copmputer.
 
 VT.COM ist ein Viewer für einelen VT100-Files. Natürlich kann man die Files auch mit pip con:=file.vt ausgeben. Aber die einzelnen Files erwarten zum Teil unterschiedliche Terminaleinstellungen, zum Beispiel beim Zeileende. Der Viewer behebt das Problem und schaltet vor dem starten der Animation den Cursor ab.
 
