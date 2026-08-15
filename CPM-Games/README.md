@@ -1,6 +1,6 @@
-# VT100 Animationen für den MC CP/M Computer
-Eine Auswahl der besten VT100 Animationen von http://artscene.textfiles.com/vt100/ und zwei Viewer-Programme für den MC CP/M-Computer.
+# Spiele für den den MC CP/M Computer
+Hier sollen nach und nach einige auf dem MC CP/M-Computer getestete Spiele abgelegt werden. Darunter auch einige selbstprogrammierte Spiele, in der Regel Neuimplementierungen (in C) alter Spieleklassiker aus den 1960er und 1970ern Jahre. Zum Beispiel Hammurabi, Adventure (Colossal Cave Adventure), Lunar Lander usw.
 
-**VT.COM** ist ein Viewer für einzelen VT100-Files. Natürlich kann man die Files auch mit **pip con:=file.vt** ausgeben. Aber die einzelnen Files erwarten zum Teil unterschiedliche Terminaleinstellungen, zum Beispiel beim Zeileende. Der Viewer behebt das Problem und schaltet vor dem Starten der Animation den Cursor ab.
+**STARTRAD.COM** Habe ich 1983 als Basic-Programm bekommen und für den CBM 3032 und später den C64 angepasst. Diese Neuimplemenierung für CP/M und VT100-Terminal ist noch in Arbeit und noch nicht funktionsfähig!
 
-**VTSHOW.COM** zeigt alle VT100-Files auf dem aktuellen Laufwerk in zufälliger Reihenfolge als Endlos-Demo an.
+
