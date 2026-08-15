@@ -2,7 +2,7 @@
 /*
 	VTSHOW.C  *dg*  08/2026 for MI-C compiler and CP/M
 	
-	Random Show of VT100 animations
+	Output of VT100 animations in random order as an endless loop.
 	
 */
 /****************************************************************************/
@@ -276,7 +276,7 @@ main(argc, argv)
 	i = 0;
 	if (argc < 2)
 	{
-		PutStr("VTSHOW *dg* 260812-01\r\n");
+		PutStr("VTSHOW *dg* 260815-01\r\n");
 		PutStr(" usage: vtshow [<d> <d>...] <random seed>  (1..32748)\r\n");
 		PutStr("  e.g.: vtshow a b 100\r\n");
 		return;
