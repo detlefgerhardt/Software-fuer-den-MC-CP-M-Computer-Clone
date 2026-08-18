@@ -12,6 +12,7 @@ The K&R standard (Kernighan & Ritchie) is the oldest C standard. Function declar
     int c
   {
     int a, b, c;
+    ...
   }
 ```
 and all variables have to be declared at the beginning of a function. There is no "void" and the default return type is int.
