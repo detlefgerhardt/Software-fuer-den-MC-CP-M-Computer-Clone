@@ -5,7 +5,7 @@ It contains also my own libraries and sample code that I use in my projects.
 
 It is a German C compiler from 1983 and uses old K&R syntax, not ANSI C.
 
-The K&R (Kernighan & Ritchie) is the oldest C standard. Function declarations look like this:
+The K&R standard (Kernighan & Ritchie) is the oldest C standard. Function declarations look like this:
 
 function(p1, p2, c)
   char *p1,*p2;
@@ -13,8 +13,8 @@ function(p1, p2, c)
 {
 }
 
-and all variables have to be declared at the beginning of a function. There is no void and no bool and the default return type is int.
-// ist not alowed for comments.
+and all variables have to be declared at the beginning of a function. There is no "voi"d and the default return type is int.
+// ist not alowed for comments. But it has a 32 bit long data type and fast buffered file I/O which is a big advantage over Turbo Pascal 3.0.
 
 The MI-C compiler produces very small Z80 assembler code (8080 optimal) that can be assembled and linked with M80 and L80. It is very eay to mix C and assembler code.
 
