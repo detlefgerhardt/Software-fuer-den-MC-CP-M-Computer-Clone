@@ -5,7 +5,7 @@ It contains also my own libraries and sample code that I use in my projects.
 
 It is a German C compiler from 1983 and uses old K&R syntax, not ANSI C.
 
-The K&R (Kernigham & Ritschie) is the oldest C standard. Function declarations look like this:
+The K&R (Kernighan & Ritchie) is the oldest C standard. Function declarations look like this:
 
 function(p1, p2, c)
   char *p1,*p2;
