@@ -1,0 +1,39 @@
+; memset()
+
+	PUBLIC MEMSET
+
+; char *memset(mem, c, n)
+;     char *mem;
+;     int c, n;
+;   return mem
+
+
+MEMSET:	LD IX,2		; RET address
+	ADD IX,SP
+
+	; mem -> HL
+	LD L,(IX+0)
+	LD H,(IX+1)
+	PUSH HL
+
+	; c -> C
+	LD C,(IX+2)
+
+	; n -> DE
+	LD E,(IX+4)
+	LD D,(IX+5)
+
+	;LD A,C
+MEMS1:	LD (HL),C
+	INC HL
+	DEC DE
+	LD A,E
+	OR D
+	JR NZ,MEMS1
+
+	; return mem
+	POP HL
+
+	RET
+
+	END

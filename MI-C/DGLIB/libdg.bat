@@ -1,0 +1,16 @@
+REM build LIBDG.REL
+
+REM compile c modules
+CPM CCZ /SX CONIO
+CPM M80 =CONIO/Z/L
+CPM CCZ /SX CGETS
+CPM M80 =CGETS/Z/L
+
+REM assemble assembler modules
+CPM M80 =MEMSET/Z/L
+CPM M80 =MEMCPY/Z/L
+CPM M80 =OUTP/Z/L
+CPM M80 =INP/Z/L
+
+REM build library from modules
+CPM LIB80 LIBDG=MEMSET,MEMCPY,OUTP,INP,CONIO,CGETS/E

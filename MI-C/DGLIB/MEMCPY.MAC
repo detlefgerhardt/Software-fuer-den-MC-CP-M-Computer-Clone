@@ -1,0 +1,34 @@
+; memcpy()
+
+	PUBLIC MEMCPY
+
+; char *memcpy(dst, src, n)
+;     char *dst, *src;
+;     int n;
+;   return dst
+
+
+MEMCPY:	LD IX,2		; RET address
+	ADD IX,SP
+
+	; dst -> DE
+	LD E,(IX+0)
+	LD D,(IX+1)
+	PUSH DE
+
+	; src -> HL
+	LD L,(IX+2)
+	LD H,(IX+3)
+
+	; n -> BC
+	LD C,(IX+4)
+	LD B,(IX+5)
+
+	LDIR
+
+	; return dst
+	POP HL
+
+	RET
+
+	END

@@ -1,0 +1,23 @@
+; outp()
+
+	PUBLIC OUTP
+
+; outp(port, c)
+;     int port, c;
+
+
+OUTP:	LD IX,2		; RET address
+	ADD IX,SP
+
+	; port -> C
+	LD C,(IX+0)
+
+	; c -> A
+	LD A,(IX+2)
+
+	OUT (C),A
+
+	; return dst
+	LD HL,0
+
+	END
