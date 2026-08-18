@@ -19,7 +19,7 @@ The K&R standard (Kernighan & Ritchie) is the oldest C standard. Function declar
 and all variables have to be declared at the beginning of a function. There is no "void" and the default return type is int.
 // ist not alowed for comments. The library is very limited, which is why I am gradually expanding it.
 
-But even this old C standard has a 32 bit long data type. So you do not have to use slow floating point types instead. And it has fast buffered file I/O which is both a big advantage over Turbo Pascal 3.0 for CP/M.
+But even this old C standard has a 32 bit long data type. So you do not have to use slow floating point types in most cases. And it has fast buffered file I/O which is both a big advantage over Turbo Pascal 3.0 for CP/M.
 
 The MI-C compiler produces very small Z80 assembler code (8080 optinal) that can be assembled and linked with M80 and L80. It is very easy to mix C and assembler code.
 
