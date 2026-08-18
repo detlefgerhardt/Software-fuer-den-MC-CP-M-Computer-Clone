@@ -7,6 +7,7 @@ It is a German C compiler from 1983 and uses old K&R syntax, not ANSI C.
 
 The K&R standard (Kernighan & Ritchie) is the oldest C standard. Function declarations look like this:
 ```
+  // <- this is NOT allowed
   function(p1, p2, c)
     char *p1, *p2;
     int c
