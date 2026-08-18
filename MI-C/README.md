@@ -8,12 +8,13 @@ It is a German C compiler from 1983 and uses old K&R syntax, not ANSI C.
 The K&R standard (Kernighan & Ritchie) is the oldest C standard. Function declarations look like this:
 ```
   function(p1, p2, c)
-    char *p1,*p2;
+    char *p1, *p2;
     int c
   {
+    int a, b, c;
   }
 ```
-and all variables have to be declared at the beginning of a function. There is no "voi"d and the default return type is int.
+and all variables have to be declared at the beginning of a function. There is no "void" and the default return type is int.
 // ist not alowed for comments. The library is very limited, which is why I am gradually expanding it.
 But even this old C standard has a 32 bit long data type and fast buffered file I/O which is a big advantage over Turbo Pascal 3.0.
 
