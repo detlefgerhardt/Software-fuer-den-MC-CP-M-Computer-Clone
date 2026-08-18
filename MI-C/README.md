@@ -14,8 +14,9 @@ function(p1, p2, c)
 }
 
 and all variables have to be declared at the beginning of a function. There is no "voi"d and the default return type is int.
-// ist not alowed for comments. But it has a 32 bit long data type and fast buffered file I/O which is a big advantage over Turbo Pascal 3.0.
+// ist not alowed for comments. The library is very limited, which is why I am gradually expanding it.
+But even this old C standard has a 32 bit long data type and fast buffered file I/O which is a big advantage over Turbo Pascal 3.0.
 
-The MI-C compiler produces very small Z80 assembler code (8080 optimal) that can be assembled and linked with M80 and L80. It is very eay to mix C and assembler code.
+The MI-C compiler produces very small Z80 assembler code (8080 optinal) that can be assembled and linked with M80 and L80. It is very easy to mix C and assembler code.
 
 I used this compiler in 1984 on a Sharp MZ80B with CP/M 2.2. No big projects, only some tools and some ROM code for small Z80 embedded systems.
