@@ -24,3 +24,5 @@ But even this old C standard has a 32 bit long data type. So you do not have to 
 The MI-C compiler produces very small Z80 assembler code (8080 optinal) that can be assembled and linked with M80 and L80. It is very easy to mix C and assembler code.
 
 I used this compiler in 1984 on a Sharp MZ80B with CP/M 2.2. No big projects, only some tools and some ROM code for small Z80 embedded systems.
+
+**As with the entire repository, this is also a work in progress. Much is still unfinished or not yet properly tested.**
