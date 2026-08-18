@@ -26,3 +26,5 @@ The MI-C compiler produces very small Z80 assembler code (8080 optinal) that can
 I used this compiler in 1984 on a Sharp MZ80B with CP/M 2.2. No big projects, only some tools and some ROM code for small Z80 embedded systems.
 
 **As with the entire repository, this is also a work in progress. Much is still unfinished or not yet properly tested.**
+
+I'm testing by using it. I lack the time and patience for systematic testing. ;-)
