@@ -17,7 +17,7 @@ The K&R (Kernighan & Ritchie) standard from 1978 is the oldest C standard and it
   }
 ```
 All variables have to be declared at the beginning of a function. There is no "void" and the default return type is int.
-// ist not allowed for comments. The library is very limited, which is why I am gradually expanding it.
+// ist not allowed for comments. The library of MIC-C is very limited, which is why I am gradually expanding it.
 
 But even this old C standard has a 32 bit long data type. So you do not have to use slow floating point types in most cases. And it has fast buffered file I/O which is both a big advantage over Turbo Pascal 3.0 for CP/M.
 
