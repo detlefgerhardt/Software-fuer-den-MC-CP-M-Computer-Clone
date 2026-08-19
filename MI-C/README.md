@@ -27,4 +27,4 @@ I used this compiler in 1984 on a Sharp MZ80B with CP/M 2.2. No big projects, on
 
 **As with the entire repository, this is also a work in progress. Much is still unfinished or not yet properly tested.**
 
-I'm testing by using it. I lack the time and patience for systematic testing. ;-)
+I'm testing by using it. I lack the time and patience for systematic testing. It's a hobby project. ;-)
