@@ -21,7 +21,7 @@ All variables have to be declared at the beginning of a function. There is no "v
 
 But even this old C standard has a 32 bit long data type. So you do not have to use slow floating point types in most cases. And it has fast buffered file I/O which is both a big advantage over Turbo Pascal 3.0 for CP/M.
 
-The MI-C compiler produces very small Z80 assembler code (8080 optinal) that can be assembled and linked with M80 and L80. It is very easy to mix C and assembler code. The library very limited, which is why I am gradually expanding it.
+The MI-C compiler produces very small Z80 assembler code (8080 optinal) that can be assembled and linked with M80 and L80. It is very easy to mix C and assembler code. The library very limited, which is why I am gradually expanding it. Because of the use of the M80 assembler, only the first 6 characters of an identifier are significant. This is quite unusual when programming in C.
 
 I used this compiler in 1984 on a Sharp MZ80B with CP/M 2.2. No big projects, only some tools and some ROM code for small Z80 embedded systems.
 
