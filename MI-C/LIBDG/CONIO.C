@@ -1,15 +1,19 @@
-/* conio.h combines all conio funtions ny using
+/* conio.h combines all conio funtions by using
    nonblocking BDOS functions */
 
-/* make them local */
+/* static makes them local */
 static int lastch = -1;
+static int hitch = -1;
 
 
 /* putch() using BDOS function 6 */
 int putch(c)
 	int c;
 {
-	BDOS(c, 6);
+	if (c != 0xFF)
+	{
+		BDOS(c, 6);
+	}
 	return c;
 }
 
@@ -18,10 +22,17 @@ int putch(c)
 int getch()
 {
 	register int c;
+	
 	if (lastch != -1)
 	{
 		c = lastch;
 		lastch = -1;
+		return c;
+	}
+	if (hitch != -1)
+	{
+		c = hitch;
+		hitch = -1;
 		return c;
 	}
 	
@@ -33,7 +44,7 @@ int getch()
 }
 
 
-/* getch() using nonblocking BDOS function 6 */
+/* getche() using nonblocking BDOS function 6 */
 /* echos character to console */
 int getche()
 {
@@ -44,11 +55,19 @@ int getche()
 }
 
 
+/* kbhit() using nonblocking BDOS function 6 */
 /* return 1 if character from console is available and 0 if not */
 int kbhit()
 {
-	if (lastch != -1) return 1;
-	return BDOS(0, 11) & 0x01;
+	int c;
+	
+	if (hitch != -1 || lastch != -1) return 1;
+
+	c = BDOS(0xFF, 6);
+	if (c == 0) return 0;
+
+	hitch = c;
+	return 1;
 }
 
 
@@ -67,6 +86,5 @@ cputs(ptr)
 	while(*ptr)
 		putch(*ptr++);
 }
-
 
 /* end of file */
