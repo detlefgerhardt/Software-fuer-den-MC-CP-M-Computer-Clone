@@ -13,3 +13,6 @@ extern rndnxt();
 ctphex();
 utohex();
 ltohex();
+
+strlwr();
+strupr();
