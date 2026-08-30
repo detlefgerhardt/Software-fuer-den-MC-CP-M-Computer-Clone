@@ -1,3 +1,5 @@
+/* RANDOM.C *dg* 30.08.2026 */
+
 /* random.c pseudo random number generator */
 /* erzeugte mit OpenAI Codex */
 

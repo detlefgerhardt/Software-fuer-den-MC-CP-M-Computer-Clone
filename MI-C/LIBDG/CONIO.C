@@ -1,3 +1,4 @@
+/* CONIO.C *dg* 30.08.2026 */
 /* conio.h combines all conio funtions by using
    nonblocking BDOS functions */
 

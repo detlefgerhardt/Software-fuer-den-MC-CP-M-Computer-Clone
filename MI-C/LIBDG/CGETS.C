@@ -1,4 +1,4 @@
-/* cputs() */
+/* CGETS.C *dg* 30.08.2026 */
 
 /* gets max characters from console till cr/lf, max is specified in ptr[0] */
 cgets(ptr)
