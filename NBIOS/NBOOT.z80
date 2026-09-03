@@ -19,7 +19,6 @@
 ; 11.07.2026 *dg* Use new floppy routine 0F021h in Monitor
 ; 25.07.2026 *dg* Added short message output
 
-
 OFFSET	EQU 0A000H-800H		; damit BIOS Start bei E200h
 CPMB	EQU 03400H+OFFSET	; start CP/M
 BIOS	EQU 04A00H+OFFSET	; start BIOS

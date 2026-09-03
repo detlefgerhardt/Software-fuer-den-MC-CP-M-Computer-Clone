@@ -11,13 +11,13 @@
 ; 24.06.2026 *dg* Kommentare hinzugefuegt
 ;                 Binaer identisch zur Origial-Version
 ; 06.07.2026 *dg* V1.0 Erste Aenderungen am BIOS. Alte Monnitor-Routinen werden
-;                 nicht mehr verwendet. Laufwerksumrechnung geändert.
+;                 nicht mehr verwendet. Laufwerksumrechnung geaendert.
 ;                 Version getestet.
 ;                 Alle Aenderungen mit bedingter Assemblierung (Flag MINI3)
 ;                 Testweise den Speicherbereich fuer das BIOS auf E200..EFFF
 ;		  geaendert. CP/M startet dann bei CC00 (58K)
 ; 09.07.2026 *dg* V1.0 Erweitert um 4 IDE/CF-Laufwerke - funktioniert nicht
-;                 System bootet aber Schreiben auf die IDE-Laufwerke schlägt fehl.
+;                 System bootet aber Schreiben auf die IDE-Laufwerke schlaegt fehl.
 ; 12.07.2026 *dg* Lesen und Schreiben von CF funktioniert
 ; 31.07.2026 *dg* V1.0 Laufwerk C als HD Laufwerk konfiguriert (1.44 MB)
 ;                 Probleme immer beim ersten Scheiben nach dem Formatieren
@@ -29,24 +29,37 @@
 ; 08.08.2026 *dg* CF-Card Laufwerksparameter geaendert
 ; 09.08.2026 *dg* Quick'n dirty fix for Warmboot from IDE/CF
 ;		  (Disk-Parameter immer hardcodiert beim Warmboot aber konfigurierbar)
+; 03.09.2026 *dg* Deblocking-Parameter fuer jedes Laufwerk stehen jetzt direkt hinter den
+;		  DPBx Parameter-Bloecken                 
 ;
-; Verbesserung/Verändernungen zu BIOS 3.1 seit Juni 2026
+; Verbesserung/Veraenderungen zu BIOS 3.1 seit Juni 2026
 ;
-; BIOS vergroessert, dadurch geaenderte Startadressen. CP/M ab CC00-E1FF, BIOS E200-EFFF
-; Dateinamen geaendert, die meisten Files und Tools beinnen "N" zu Unterscheidung von den Original-Files
-; Laufwerksparameter geändert, A ist 800KB (NDR/NKC), B und C unterschiedlich, D ist IBM 8" SS/SD
-; IDE/CF eingebunden, Laufwerke E bis H, je 2 MB, E ist bootfähig (geaenderte BIOS-Parameter)
-; Blocking/Deblocking geändert, ist jetzt flexibler und leichter zu konfigurieren
-; max. Steprate wird beim Warmstart gesetzt
-; Debug-Ausgaben im BIOS über, über Compiler-Schalter und zu Laufzeit mit Ctrl-A ein- und ausschaltbar
-; Diverse Laufwerksformate gestestet, est mit echten 8 Zoll Laufwerken steht noch aus.
-; MOVCPM und SYSGEN funktionieren werden der geänderten BIOS-Groesse vermutlich nicht mehr und muessen
-; neu angasst werden (oder flexible Variante verwenden)
+; BIOS vergroessert, dadurch geaenderte Startadressen. CP/M ab CC00-E1FF,
+; BIOS ab E200-EFFF.
+; Dateinamen geaendert, die meisten Files und Tools beginnen mit "N" zu
+; Unterscheidung von den Original-Files.
+; Laufwerksparameter geaendert, A ist 800KB (NDR/NKC), B und C unterschiedlich,
+; D ist IBM 8 Zoll SS/SD.
+; IDE/CF eingebunden, Laufwerke E bis H, je 2 MB, E ist bootfaehig (geaenderte
+; BIOS-Parameter).
+; Blocking/Deblocking geaendert, ist jetzt flexibler und leichter zu
+; konfigurieren max. Steprate wird beim Warmstart gesetzt.
+; Debug-Ausgaben im BIOS ueber Compiler-Schalter und zur Laufzeit mit Ctrl-A
+; ein- und ausschaltbar.
+; Diverse Laufwerksformate gestestet, test mit echten 8 Zoll Laufwerken steht
+; noch aus.
+; MOVCPM und SYSGEN funktionieren werden der geaenderten BIOS-Groesse
+; vermutlich nicht mehr und muessen angasst werden (oder flexible Variante
+; verwenden).
 ;
 ; TO-DO:
-; Drive-spezifische Tabellen zu den Laufwerkstabellen
-; Maxi-Routinen in Mini-Routinen integrieren
-
+; x Drive-spezifische Tabellen direkt bei den Laufwerkstabellen platzieren
+;   (erledigt 03.09.26)
+; - Maxi-Routinen in Mini-Routinen integrieren. Gemeinsame Routinen fuer
+;   Blocking/Deblocking fuer alle Laufwerkstypen.
+; x Make shure not to override the BIOS on WBOOT -> das war schon so
+;   (CP/M Alteration Guide page 17)
+;
 ;------------------------------------------------------------------------------
 
 CPMVER	EQU 22		; CP/M version
@@ -61,7 +74,7 @@ LF	EQU 0AH		; line feed
 
 ; aktiviert alle bisherigen Aenderungen gegenueber der Originalversion 3.1
 DG01	EQU TRUE
-DG_BHD	EQU TRUE	; drive B as HD drive (5 1/4 inch, 1.4 MB)
+DG_BHD	EQU FALSE	; drive B as HD drive (5 1/4 inch, 1.4 MB)
 DG_CHD	EQU TRUE	; drive C as HD drive (3 1/2 inch, 1.44 MB)
 DEBOUT	EQU TRUE	; debug outputs
 BTDRV	EQU 0		; drive A:
@@ -96,20 +109,21 @@ MCONOUT	EQU 0F009h	; character in C
 ;------------------------------------------------------------------------------
 ; CPM and BIOS sizes and addresses
 
-;MSIZE 	EQU 60			; Speichergroesse, hier 60K
-MSIZE 	EQU 58			; Speichergroesse, hier 58K
+;MSIZE 	EQU 60			; default memory size model (60K)
+MSIZE 	EQU 58			; actual memory size of this BIOS (58K)
 
-BIAS	EQU (MSIZE-20)*1024	; min=20K
-CCP	EQU 3400H+BIAS		; start of CCP (CP/M)
-BDOS	EQU CCP+806H		; BDOS entry behind serial number (6 bytes)
-BIOS	EQU CCP+1600H		; start of BIOS
+BIAS	EQU (MSIZE - 20) * 1024	; smallest memory model is 20K
+CCP	EQU 3400H + BIAS		; start of CCP (CP/M), smallest memory model starts at 3400h
+BDOS	EQU CCP + 806H		; BDOS entry behind 6 byte serial number, size of CCP is 800h
+CPML	EQU 1600H		; length of CP/M (CCP + BDOS)
+BIOS	EQU CCP + CPML		; start of BIOS
 
-BDOSADR	EQU BDOS - 6
+BDOSADR	EQU BDOS - 6		; actual start address of BDOS (used for patches)
 
-CPMB	EQU CCP			; Start CP/M-Boot
+CPMB	EQU CCP			; CP/M boot entry
 
-CPML	EQU BIOS-CPMB		; Laenge des CP/Ms
-NSECTS	EQU CPML/128		; Anzahl der von CP/M belegten Sektoren for Warmboot
+NSECTS	EQU CPML / 128		; Number of logical sectors ocupied by CP/M
+				; (used for for WBOOT)
 
 ;-----------------------------------------------------------------------------
 
@@ -133,7 +147,7 @@ STARTBIOS:
 	; --- start of offical BIOS calls ---
 	
 WBOOTE:	JP WBOOT	; Warm boot (CTRL-C)
-	JP CONST	; Get CONSOLE status -> A
+	JP CONST	; Get CONSOLE status -> A, 0FFh if character available
 	JP CONIN	; Input character from CONSOLE -> A
 	JP CONOUT	; Output character to CONSOLE (C)
 	JP LIST		; Output character to LIST device (C)
@@ -152,9 +166,7 @@ WBOOTE:	JP WBOOT	; Warm boot (CTRL-C)
 	
 	; --- end of offical BIOS calls ---
 	
-	IF DG01
-	JP FLUSH	; BDOS close and write sector buffer to disk (not used)
-	ENDIF
+	;JP FLUSH	; BDOS close and write sector buffer to disk (not used)
 
 ;-----------------------------------------------------------------------------
 
@@ -234,7 +246,7 @@ XLT1	EQU	XLT0	;SAME TRANSLATE TABLE
 	; Disk 2 (C) --------------------------------------------------------
 	; physical format: 8 inch, SD, SS, 128 bytes/sector, 26 sectors/track, 77 tracks
 	; DISKDEF 2,1,26,6,1024,243,64,64,2 ; 8 ZOLL DEFINITION
-	
+
  DPB2	EQU	$		;DISK PARM BLOCK
  	DW	26		;SEC PER TRACK
  	DB	3		;BLOCK SHIFT
@@ -312,37 +324,37 @@ DPE0:	DW	XLT0,0000H	;TRANSLATE TABLE
 	DW	0000H,0000H	;SCRATCH AREA
 	DW	DIRBUF,DPB0	;DIR BUFF,PARM BLOCK
 	DW	CSV0,ALV0	;CHECK, ALLOC VECTORS
-	
+
 DPE1:	DW	XLT1,0000H	;TRANSLATE TABLE
 	DW	0000H,0000H	;SCRATCH AREA
 	DW	DIRBUF,DPB1	;DIR BUFF,PARM BLOCK
 	DW	CSV1,ALV1	;CHECK, ALLOC VECTORS
-	
+
 DPE2:	DW	XLT2,0000H	;TRANSLATE TABLE
 	DW	0000H,0000H	;SCRATCH AREA
 	DW	DIRBUF,DPB2	;DIR BUFF,PARM BLOCK
 	DW	CSV2,ALV2	;CHECK, ALLOC VECTORS
-	
+
 DPE3:	DW	XLT3,0000H	;TRANSLATE TABLE
 	DW	0000H,0000H	;SCRATCH AREA
 	DW	DIRBUF,DPB3	;DIR BUFF,PARM BLOCK
 	DW	CSV3,ALV3	;CHECK, ALLOC VECTORS
-	
+
 DPE4:	DW	0000h, 0000h
 	DW	0000h, 0000h
 	DW	DIRBUF, DPB4
 	DW	CSV4, ALV4
-	
+
 DPE5:	DW	0000h, 0000h
 	DW	0000h, 0000h
 	DW	DIRBUF, DPB5
 	DW	CSV5, ALV5
-	
+
 DPE6:	DW	0000h, 0000h
 	DW	0000h, 0000h
 	DW	DIRBUF, DPB6
 	DW	CSV6, ALV6
-	
+
 DPE7:	DW	0000h, 0000h
 	DW	0000h, 0000h
 	DW	DIRBUF, DPB7
@@ -375,6 +387,11 @@ DPB0	EQU	$	; DISK PARM BLOCK
 	DB	0	; ALLOC1
 	DW	64	; CHECK SIZE
 	DW	4	; OFFSET
+	; new parameters:
+	DB	00100000B ; Mini/DD
+	DB 	3	  ; 40 / 5 Tracks = 8 -> 2^3
+	DB	00000111B ; 1024 bytes/sector -> modulo 0..7
+	
 XLT0	EQU	0	; NO XLATE TABLE
 
 	IF NOT DG_BHD
@@ -391,8 +408,7 @@ XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
 	IF FALSE
 	; Disk 1 (B): PHYSICAL FORMAT: 1.4 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 8 SECTORS/TRACK, 80 TRACKS
  DPB1	EQU	$	; DISK PARM BLOCK
- 	;DW	72; 64; 56	; SEC PER TRACK
- 	DW	64	; SEC PER TRACK
+ 	DW	60	; SEC PER TRACK
  	DB	5	; BLOCK SHIFT
  	DB	31	; BLOCK MASK
  	DB	1	; EXTNT MASK
@@ -402,12 +418,17 @@ XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
  	DB	0	; ALLOC1
  	DW	64	; CHECK SIZE
  	DW	2	; OFFSET
+	; new parameters:
+	DB	00000000B ; Maxi/HD
+	DB 	2	  ; 60 / 15 = 4 -> 2^2
+	DB	00000011B ; 512 bytes/sector -> modulo 0..3
+
  XLT1	EQU	0	; NO XLATE TABLE
-	ENDIF
+ 
+	ENDIF	; FALSE
 
 	; Disk 1 (B): PHYSICAL FORMAT: 1.2 MB, HD, DS, 512 BYTES/SECTOR, 4096 Bytes/Block, 15 SECTORS/TRACK, 80 TRACKS
  DPB1	EQU	$	; DISK PARM BLOCK
- 	;DW	56 ; 60	; SEC PER TRACK
  	DW	60	; SEC PER TRACK
  	DB	5	; BLOCK SHIFT
  	DB	31	; BLOCK MASK
@@ -419,8 +440,12 @@ XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
  	DB	0	; ALLOC1
  	DW	64	; CHECK SIZE
  	DW	2	; OFFSET
- XLT1	EQU	0	; NO XLATE TABLE
+	; new parameters:
+	DB	00000000B ; Maxi/HD
+	DB 	2	; 60 / 15 = 4 -> 2^2
+	DB	00000011B ; 512 bytes/sector -> modulo 0..3
 
+ XLT1	EQU	0	; NO XLATE TABLE
 
 	ENDIF
 
@@ -448,6 +473,11 @@ XLT2	EQU	XLT0	; SAME TRANSLATE TABLE
  	DB	0	; ALLOC1
  	DW	64	; CHECK SIZE
  	DW	2	; OFFSET
+	; new parameters:
+ 	DB	00000000B ; Maxi/HD
+	DB 	2	  ; 72 / 9 = 8 -> 2^3
+	DB	00000011B ; 512 bytes/sector -> modulo 0..3
+	
  XLT2	EQU	0	; NO XLATE TABLE
 	
 	ENDIF
@@ -468,6 +498,10 @@ DPB3	EQU	$	; DISK PARM BLOCK
  	DB	0	; ALLOC1
  	DW	16	; CHECK SIZE
  	DW	2	; OFFSET
+	; new parameters:
+	DB	00010000B ; Maxi/SD
+	DB	0	; no deblocking
+	DB	0	; no deblocking
 	
 XLT3	EQU	$	; TRANSLATE TABLE
  	DB	1		
@@ -563,7 +597,7 @@ SIGNON:
 	DB CPMVER/10+'0','.',CPMVER MOD 10+'0'
 	DB ' for MC-Computer '
 	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-	DB 'K NBIOS 260809-02'
+	DB 'K NBIOS 260903-06'
 	DB " BOOT=",BTDRV+'A',CR,LF
 
 	DB "A:NKC800"
@@ -571,7 +605,8 @@ SIGNON:
 	IF NOT DG_BHD
 	DB ",B:NKC800"
 	ELSE
-	DB ",B:1.4MB"
+	;DB ",B:1.4MB"
+	DB ",B:NKC800"
 	ENDIF
 
 	IF NOT DG_CHD
@@ -719,44 +754,44 @@ WBOO1:	LD A,0FFH	; alle Tracks ungueltig, bei Diskettenwechsel wichtig
 	PUSH BC		; und dann anfangen zu booten
 
 WBOO2:	; loop, load CP/M
-	LD BC,CPMB	; CPM address
-	CALL SETDMA	; auf der Startadresse des CP/Ms
-	LD C,BTDRV	; Laufwerk A (or BTDRV)
-	CALL SELDSK	; auswaehlen
-	LD C,0		; Track 0
-	CALL SETTRK	; und den zweiten phys. Sektor, (Nr 8 logisch)
-	LD C,BTSEC
-	CALL SETSEC	; wichtig, da andere Zaehlweise
-	POP BC		; und von da an n Sektoren einlesen
-	LD B,NSECTS	; aber das BIOS nicht ueberschreiben
-			; damit Patches leicht moeglich sind
+	LD BC,CPMB	; Init load address to CPM start address
+	CALL SETDMA
+	LD C,BTDRV	; drive 0 (or BTDRV)
+	CALL SELDSK
+	LD C,0		; track 0
+	CALL SETTRK
+	LD C,BTSEC	; start with first logical sector behind physical boot sector
+	CALL SETSEC	; (depends on the number of logical sectors per phyiscal sector)
+	POP BC
+	LD B,NSECTS	; number of sectors for CP/M without BIOS, do not overwrite BIOS
+			; to preserve patches.
 
 	;LD C,'1'
 	;CALL CONOUT
 
 WBOO3:	; sector read loop
-	PUSH BC		; Anzahl merken
-	CALL READ	; LESEN ausfuehren
-	JP NZ,BOOTERR	; Fehler: defekter Sektor
+	PUSH BC
+	CALL READ	; read logical secor
+	JP NZ,BOOTERR	; -> error
 	
-	LD HL,(IOD)	; Zieladresse laden
-	LD DE,128	; um logische Sektorgroesser erhoehen
-	ADD HL,DE	; dazu addieren,
-	LD (IOD),HL	; und dann wieder zurueckspeichern.
-	LD A,(IOS)	; Sektor laden
-	CP BTSECN-1	; Mini 0..39 sektors, IDE/CF 0..63 sectors (a 128 bytes)
-			; Anzahl der Sektoren hardcodiert !!!
-	JP C,WBOO4	; solange auf der gleichen Spur bleiben
+	LD HL,(IOD)	; increment DMA address by 128
+	LD DE,128
+	ADD HL,DE
+	LD (IOD),HL
+	LD A,(IOS)	; check for end of track
+	CP BTSECN-1
+	JP C,WBOO4
 
-	; next track, Spurzuordnung hardcodert !!!
-	LD A,(IOT)	; Dann neue Spur anwaehlen,
+	; next track, Caution! track scheme is hardcoded !!!
+	LD A,(IOT)	; increment track
 	INC A	  	; jedoch im Verfahren 0,2,...
 	INC A		; SPUR 0, dann SPUR 2, wegen BOOT.ASM
 	LD (IOT),A	; denn 1,3,5 ist die Rueckseite des Laufwerks
-	LD A,0FFH	; 0,1,2,3.... nach Increment A=0
+	LD A,0FFH	; 0,1,2,3.... will by incremented to 0
 	
-WBOO4:	INC A		; dann 0
-	LD (IOS),A	; und auch neuesn Sektor anwaehlen
+WBOO4:	INC A
+	LD (IOS),A	; set new sector
+	
 	POP BC		; Schleifenzaehler zuruech
 	DEC B		; und immer weiter lesen
 	JP NZ,WBOO3	; -> read next sector
@@ -835,25 +870,46 @@ SELDSK:	LD HL,0		; und pruefen ob gueltig
 	
 	LD (DBANK),A
 
-	IF DG01
+	;IF DG01
 	;POP HL
 	;PUSH HL
 	;CALL DEBSEL
-	ENDIF
-	
-			; dann zusaetzlich die	
-	LD L,C		; Laufwerkstabelle ausrechnen
-	LD H,0		; dazu Nummer mit 16 multiplizieren
+	;ENDIF
+
+	; get address of DPEx -> HL (= DPBASE + disk number * 16)
+	LD L,C		; disk number
+	LD H,0
+	ADD HL,HL	; HL <- HL * 16
 	ADD HL,HL	
 	ADD HL,HL	
 	ADD HL,HL	
-	ADD HL,HL	
-	LD DE,DPBASE	; und Basisadresse drauf addieren.
+	LD DE,DPBASE	; add DPBASE
 	ADD HL,DE
 
-	;IF DG01
-	;LD (IOPB),HL	; save DPB for additional parameters (not used yet)
-	;ENDIF
+	IF DG01
+
+	; get additional deblockling parameters from the end of
+	; the regluar DPBx block
+	PUSH HL
+	LD DE,10	; position of DPBx in DPEx
+	ADD HL,DE
+	LD E,(HL)
+	INC HL
+	LD D,(HL)
+	EX DE,HL	; address of DPEx now in HL
+	LD DE,15	; length of DPBx
+	ADD HL,DE
+	LD A,(HL)
+	LD (BLREG),A
+	INC HL
+	LD A,(HL)
+	LD (BLPOW),A
+	INC HL
+	LD A,(HL)
+	LD (BLMSK),A
+	POP HL
+	
+	ENDIF
 
 	RET
 
@@ -1044,28 +1100,33 @@ MAXC1:	; drive E
 	LD C,10010100b	; -> drive 2, MAXI, single-density, side 1
 	RET
 	
-	ELSE		; ----------
+	ELSE		; DG01
 
-	; drive A,B,C -> 001,010,100
-	PUSH HL
-	LD A,(DBANK)
-	LD HL,CALCTB
-	CALL LOOKUP
-	POP HL
+	; drive A,B,C,D -> 0001,0010,0100,1000
+	LD A,(DBANK)	; 0..3
+	INC A		; -> 1..4
+	LD B,A
+	SCF		; shift in carry
+MAXC2:	RLA
+	DJNZ MAXC2
+	
+	LD B,A
+	LD A,(BLREG)
+	OR B
 	LD C,A
 
 	LD A,(DBANK)
 	CP 4
-	JP NZ,MAXC1
+	JP NZ,MAXC3
 	
 	; drive E, side 1
 	LD A,C
 	OR 10000000B
 	LD C,A
 
-MAXC1:	RET
+MAXC3:	RET
 	
-	ENDIF		; ----------
+	ENDIF		; DG01
 
 ;-----------------------------------------------------------------------------
 ; Read Maxi disk
@@ -1184,7 +1245,7 @@ MAXIW1:	PUSH BC		; Dazu Fehlerzaehler retten
 ;-----------------------------------------------------------------------------
 ; Flush current sector buffer
 
-	IF DG01
+	IF FALSE
 
 FLUSH:	; BDOS close file
 	JP BDOSADR + 08A2H
@@ -1195,7 +1256,7 @@ FLUSH:	; BDOS close file
 	RET Z
 	JP PUTPHS
 
-	ENDIF	; DG01
+	ENDIF	; FALSE
 
 ;=============================================================================
 ; Read Mini disk, 80 Spur, DD, DS
@@ -1248,7 +1309,7 @@ MINCAL:
 
 	LD A,(DBANK)	; DRIVE 0->0  1->2
 			; nur 0,1 SUI 4 ; und Track umrechnen , Laufwerk 0,1
-	CP 1		; 0,2,4,6,8 ist Vorderseite 1,3,5... Rueckseite
+	CP 1		; 0,2,4... ist Vorderseite 1,3,5... Rueckseite
 	JP NZ,MINC1
 
 	; DBANK=1 
@@ -1259,7 +1320,7 @@ MINC1:	LD C,A		; physical drive
 	LD A,(IOT)
 	RRCA		; Track / 2,  = Phys Track, carry=backside
 	LD D,A		; Track merken
-	JP NC,MINC2	; frontside
+	JP NC,MINC2	; -> frontside
 
 	; backside, track=0
 	LD A,C
@@ -1274,33 +1335,18 @@ MINC2:	LD A,D
 	RET
 
 	ELSE	; ----------
-
-	IF FALSE
-	LD A,(IOS)
-	CP A,12
-	JR NZ,MINIC1
-
-	NOP
-MINIC1:
-	ENDIF
 	
 	; logical sector to physical sector
-
 	; get drive specific factor
-	LD A,(DBANK)
-	AND 00000011B	; max 4 drives here
-	LD HL,POWTB
-	CALL LOOKUP
+	LD A,(BLPOW)
 	AND A
-	JP Z,MINIC4	; -> factor = 0
+	JR Z,MINIC4	; -> factor = 0
 
 	LD B,A		; factor
 	LD A,(IOS)	; logical sector
-MINIC2:	;RRCA
-	SRL A
+MINIC2:	SRL A
 	DJNZ MINIC2
-
-	;AND 00001111b	; important because of rotate command
+	
 	JR MINIC5
 
 MINIC4:	; factor = 0
@@ -1309,69 +1355,41 @@ MINIC4:	; factor = 0
 MINIC5:	INC A		; sector number starts with 1
 	LD E,A		; save in E
 
-	; drive A,B,C -> 001,010,100
-	PUSH HL
-	LD A,(DBANK)
-	LD HL,CALCTB
-	CALL LOOKUP
-	POP HL
+	; drive A,B,C,D -> 0001,0010,0100,1000
+	LD A,(DBANK)	; 0..3
+	INC A		; -> 1..4
+	LD B,A
+	XOR A
+	SCF		; shift in carry
+MINIC6:	RLA
+	DJNZ MINIC6
 
-	LD C,A		; physical drive
+	LD B,A
+	LD A,(BLREG)
+	OR B
+	LD C,A
 
 	LD A,(IOT)
-	;RRCA		; Track / 2,  = Phys Track
 	SRL A		; Track / 2, Bit0 -> Carry (side 1)
-	;AND 7FH		; Bereich Track 0..79 real
 	LD D,A		; Track merken
-	JP NC,MINIC6	; -> side 0
+	JP NC,MINIC7	; -> side 0
 
 	; side
 	LD A,C
 	OR 10000000B	; side 1 flag
 	LD C,A
 	
-MINIC6:	;LD A,D
-	;AND 7FH		; limit to 0..127 tracks
-	;LD D,A 
-
-	; D=track=D, E=sector, C=drive-code + side
+MINIC7:	; D=track=D, E=sector, C=drive-code + side
 	RET
 
-CALCTB:	; bit0..3=drive, bit4=density(0=DD), bit5=Mini/Maxi(1=Mini)
-	; bit7=side
-	DB	00100001B	; drive A -> drive0, dd, mini (DD)
-
-	IF NOT DG_BHD
-	DB	00100010B	; drive B -> drive1, dd, mini (DD)
-	ELSE
-	DB	00000010B	; drive B -> drive2, dd, maxi (HD)
-	ENDIF
-	
-	IF NOT DG_CHD
-	DB	00100100B	; drive C -> drive2, dd, mini (DD)
-	ELSE
-	DB	00000100B	; drive C -> drive2, dd, maxi (HD)
-	ENDIF
-	
-	DB	00011000B	; drive D -> drive3, sd, maxi (SD)
-	;DB	00011000B	; drive D -> drive3, sd, maxi (SD)
-
-POWTB:	DB 3		; drive A: [0..39] / 2^3 -> 0..4 (800K)
-
-	;DB 3		; drive B: [0..39] / 2^3 -> 0..4 (800K)
-	DB 2		; drive B: [0..59] / 2^2 -> 0..14 (1.2MB)
-	
-	DB 3		; drive C: [0..39] / 2^3 -> 0..4  1.44MB 1024 Byte
-	;DB 2		; drive C: [0..71] / 2^2 -> 0..17 1.44MB 512 Byte
-	
-	DB 0		; drive D: [0..25] / 2^0 -> 0..25 (240KB)
+	;---------------------------------------------------------------------
 
 	ENDIF	; DG01 ----------
 
 ;-----------------------------------------------------------------------------
 ; Lookup table, table in HL, offset in A
 
-	IF DG01
+	IF FALSE
 
 LOOKUP:	PUSH DE
 	LD E,A
@@ -1559,18 +1577,8 @@ ERRIO:	LD A,1	; Fehler aufgetreten
 
 	IF DG01
 
-; mask for modulo (n = IOS mod mask)
-MSKTB:	DB 00000111B	; drive a: phys. sector = 1024, modulo 0..7
-	;DB 00000111B	; drive b: phys. sector = 1024, modulo 0..7
-	DB 00000011B	; drive b: phys. sector = 512, modulo 0..3
-	DB 00000111B	; drive c: phys. sector = 1024, modulo 0..7
-	DB 00000011B	; drive c: phys. sector = 512, modulo 0..3
-	DB 00000000B	; phys. sector = 128, modulo 0
-
 CALCPHS:
-	LD A,(DBANK)
-	LD HL,MSKTB
-	CALL LOOKUP
+	LD A,(BLMSK)
 	LD B,A
 
 	LD A,(IOS)	; logical sector number (0..n-1)
@@ -1954,7 +1962,7 @@ IDEWR6:	IN A,(IDESTAT)
 ;------------------------------------------------------------------------------
 ; Patch BDOS close function
 
-	IF DG01
+	IF FALSE
 
 PATFADR	EQU BDOSADR + 0CA8H
 
@@ -1969,6 +1977,7 @@ PATF:	LD IX,PATFADR
 	LD (IX+2),A
 	
 PATF1:	RET
+	ENDIF
 
 ;------------------------------------------------------------------------------
 ; Patch BDOS drive initialisation
@@ -2058,8 +2067,6 @@ PATB1:LD C,'-'
 	RET
 
 	ENDIF		; FALSE
-
-	ENDIF		; DG01
 
 ;------------------------------------------------------------------------------
 
@@ -2499,10 +2506,18 @@ IOPB:	DW 1		; address of DPB of selected disk
 IOT:	DB 4		; track number (offset des boot laufwerks???)
 IOS:	DB 1		; NUMMER DES GEWUENSCHTEN SEKTORS
 IOD:	DW BUFF		; DMA-ADRESSE
+
 	IF NOT DG01
 ALTDRV:	DB 1		; SYSTEM-SPEICHERSTELLEN (not used)
 INDADR:	DW 0		; not used
 INDAD2:	DW 0		; not used
+	ENDIF
+	
+	IF DG01
+	; deblocking parameters for current drive
+BLREG:	DB 1		; bits for special register (FLO+4)
+BLPOW:	DB 1		; power (shift) value
+BLMSK:	DB 1		; sector mask (modulo value)
 	ENDIF
 
 	IF DEBOUT
