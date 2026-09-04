@@ -109,11 +109,12 @@ MCONOUT	EQU 0F009h	; character in C
 ;------------------------------------------------------------------------------
 ; CPM and BIOS sizes and addresses
 
-;MSIZE 	EQU 60			; default memory size model (60K)
 MSIZE 	EQU 58			; actual memory size of this BIOS (58K)
+;MSIZE 	EQU 59			; actual memory size of this BIOS (58K)
+;MSIZE 	EQU 60			; default memory size model (60K)
 
 BIAS	EQU (MSIZE - 20) * 1024	; smallest memory model is 20K
-CCP	EQU 3400H + BIAS		; start of CCP (CP/M), smallest memory model starts at 3400h
+CCP	EQU 3400H + BIAS	; start of CCP (CP/M), smallest memory model starts at 3400h
 BDOS	EQU CCP + 806H		; BDOS entry behind 6 byte serial number, size of CCP is 800h
 CPML	EQU 1600H		; length of CP/M (CCP + BDOS)
 BIOS	EQU CCP + CPML		; start of BIOS
@@ -239,8 +240,6 @@ XLT0	EQU	0		;NO XLATE TABLE
 	
 	; DISKDEF 1,0	; LAUFWERK 1 WIE LAUFWERK 0 DEFINIERT
 DPB1	EQU	DPB0	;EQUIVALENT PARAMETERS
-;ALS1	EQU	ALS0	;SAME ALLOCATION VECTOR SIZE
-;CSS1	EQU	CSS0	;SAME CHECKSUM VECTOR SIZE
 XLT1	EQU	XLT0	;SAME TRANSLATE TABLE
 
 	; Disk 2 (C) --------------------------------------------------------
@@ -290,8 +289,6 @@ XLT1	EQU	XLT0	;SAME TRANSLATE TABLE
 	; Disk 3 (D), same as Disk 2 -----------------------------------------
 	; DISKDEF 3,2	; LAUFWERK 3 WIE LAUFWERK 2 DEFINIERT
 DPB3	EQU	DPB2	;EQUIVALENT PARAMETERS
-;ALS3	EQU	ALS2	;SAME ALLOCATION VECTOR SIZE
-;CSS3	EQU	CSS2	;SAME CHECKSUM VECTOR SIZE
 XLT3	EQU	XLT2	;SAME TRANSLATE TABLE
 
 	; Disk 4 (E), RAM Floppy 60K,120K,180K -------------------------------
@@ -399,8 +396,6 @@ XLT0	EQU	0	; NO XLATE TABLE
 	; Disk 1 (B), same as Disk A -----------------------------------------
 	; DISKDEF 1,0	; LAUFWERK 1 WIE LAUFWERK 0 DEFINIERT
 DPB1	EQU	DPB0	; EQUIVALENT PARAMETERS
-;ALS1	EQU	ALS0	; SAME ALLOCATION VECTOR SIZE
-;CSS1	EQU	CSS0	; SAME CHECKSUM VECTOR SIZE
 XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
 
 	ELSE
@@ -455,8 +450,6 @@ XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
 
 	; DISKDEF 2,0	; LAUFWERK 2 WIE LAUFWERK 0 DEFINIERT
 DPB2	EQU	DPB0	; EQUIVALENT PARAMETERS
-;ALS2	EQU	ALS0	; SAME ALLOCATION VECTOR SIZE
-;CSS2	EQU	CSS0	; SAME CHECKSUM VECTOR SIZE
 XLT2	EQU	XLT0	; SAME TRANSLATE TABLE
 
 	ELSE
@@ -546,7 +539,8 @@ DPB4:	;disk parameter block for all disks.
 	DW	0	; check size -- no checking, so zero
 	DW	1	; track offset -- first track for system
 	ELSE
-	; Disk size 2 MB, 128 Byte/Sector, 64 sectors, 256 tracks (0 to 255)
+	; Disk size 2 MB, 128 Byte/Sector, 64 sectors, 256 tracks (0 to 255), Blocksize 4096
+	; DISKDEF 0,1,64,0,4096,510,256,0,1
 	DW	64	; sectors per track
 	DB	5	; block shift factor
 	DB	31	; block mask - with block shift, sets block size to 1024
@@ -561,18 +555,12 @@ DPB4:	;disk parameter block for all disks.
 
 	; Disk 5 (F), IDE partition 1 ----------------------------------------
 DPB5	EQU	DPB4	; EQUIVALENT PARAMETERS
-;ALS3	EQU	ALS2	; SAME ALLOCATION VECTOR SIZE
-;CSS3	EQU	CSS2	; SAME CHECKSUM VECTOR SIZE
 
 	; Disk 6 (G), IDE partition 2 ----------------------------------------
 DPB6	EQU	DPB4	; EQUIVALENT PARAMETERS
-;ALS3	EQU	ALS2	; SAME ALLOCATION VECTOR SIZE
-;CSS3	EQU	CSS2	; SAME CHECKSUM VECTOR SIZE
 
 	; Disk 7 (H), IDE partition 3 ----------------------------------------
 DPB7	EQU	DPB4	; EQUIVALENT PARAMETERS
-;ALS3	EQU	ALS2	; SAME ALLOCATION VECTOR SIZE
-;CSS3	EQU	CSS2	; SAME CHECKSUM VECTOR SIZE
 
 	ENDIF	; DG01
 
@@ -580,7 +568,6 @@ DPB7	EQU	DPB4	; EQUIVALENT PARAMETERS
 ; CP/M message after cold start
 
 SIGNON:
-
 	IF NOT DG01
 
 	DB 26
@@ -597,7 +584,7 @@ SIGNON:
 	DB CPMVER/10+'0','.',CPMVER MOD 10+'0'
 	DB ' for MC-Computer '
 	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-	DB 'K NBIOS 260903-06'
+	DB 'K NBIOS 260904-01'
 	DB " BOOT=",BTDRV+'A',CR,LF
 
 	DB "A:NKC800"
@@ -605,8 +592,7 @@ SIGNON:
 	IF NOT DG_BHD
 	DB ",B:NKC800"
 	ELSE
-	;DB ",B:1.4MB"
-	DB ",B:NKC800"
+	DB ",B:1.4MB"
 	ENDIF
 
 	IF NOT DG_CHD
@@ -1099,7 +1085,7 @@ MAXCAL:
 MAXC1:	; drive E
 	LD C,10010100b	; -> drive 2, MAXI, single-density, side 1
 	RET
-	
+
 	ELSE		; DG01
 
 	; drive A,B,C,D -> 0001,0010,0100,1000
@@ -1125,7 +1111,7 @@ MAXC2:	RLA
 	LD C,A
 
 MAXC3:	RET
-	
+
 	ENDIF		; DG01
 
 ;-----------------------------------------------------------------------------
@@ -2568,14 +2554,14 @@ CSV4:	DS	16
 
 	ELSE
 
-ALV4:	DS	128	; size of each must be (DSM/8)+1
-CSV4:	DS	1	; Could probably remove these chk areas, but just made size small
-ALV5:	DS	128
-CSV5:	DS	1
-ALV6:	DS	128
-CSV6:	DS	1
-ALV7:	DS	128
-CSV7:	DS	1
+ALV4:	DS	64	; size of each must be (DSM/8)+1
+CSV4:	DS	0	; Could probably remove these chk areas, but just made size small
+ALV5:	DS	64
+CSV5:	DS	0
+ALV6:	DS	64
+CSV6:	DS	0
+ALV7:	DS	64
+CSV7:	DS	0
 
 	ENDIF	; DG01
 	
