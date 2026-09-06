@@ -8,13 +8,13 @@
 ; changed by Ulrich Haumann 04/2026
 ;
 ;*****************************************************************************
-;Image size is 6400 bytes, so need to save 6400/128 = 50 sectors
-;For system with 64-sector tracks, image can all be on track 0
-;Load and run from ROM monitor
-;Uses calls to cbios, in memory at EA00h
-;benuzt calls zum Monitor im oberen RAM F000h
-;Copies the memory image of CP/M loaded at CPM onto track 0 of the first CP/M disk
-;Writes track 0, sectors 1 to 50 (sector 0 has cpm loader)
+; Image size is 6400 bytes, so need to save 6400/128 = 50 sectors
+; For system with 64-sector tracks, image can all be on track 0
+; Load and run from ROM monitor
+; Uses calls to cbios, in memory at EA00h
+; benuzt calls zum Monitor im oberen RAM F000h
+; Copies the memory image of CP/M loaded at CPM onto track 0 of the first CP/M disk
+; Writes track 0, sectors 1 to 50 (sector 0 has cpm loader)
 ;
 ; PLEASE NOTE THE CHANGED CP/M & BIOS START ADDRESS AND CF/IDE DRIVES !!!
 ;
@@ -23,8 +23,16 @@
 ; 10.07.2026 *dg* Renamed to PUTSY-CF and reformatted
 ;                 Changed BIOS address to E200
 ;		  Changed for CF/IDE drives 4..7 (E..H)
-; 09.08.2026 *dg* Renamed to NPUTS-CF, Jump to BIOS because when finished,
+; 09.08.2026 *dg* Renamed to NPUTS-CF, Jump to BIOS when finished,
 ;		  because the program uses the BIOS and overwrites the monitor.
+
+FALSE	EQU 0
+TRUE	EQU NOT FALSE
+TEST	EQU TRUE
+CR	EQU 0DH
+LF	EQU 0AH
+
+NEWIDE	EQU TRUE	; new 8192 KB format
 
 CPM	EQU 0D400H-800H
 BIOS	EQU 0EA00H-800H
@@ -46,9 +54,12 @@ BOOTDRV	EQU 4		; first IDE/CF-drive
 
 ; sector count (1024 byte sectors)
 ; on a IDE/CF disk 1 track is reserved: 64 sectors
-;SECCNT	EQU (0F000h-CPM)/128
-SECCNT	EQU 63			; only 64 sectors per track
-
+	IF NOT NEWIDE
+SECCNT	EQU 63
+	ELSE
+SECCNT	EQU (0F000h-CPM) / 128
+	ENDIF
+	
 ;-----------------------------------------------------------------------------
 
 	ORG 100H	; program starts at 100H
@@ -109,10 +120,7 @@ WRSTR:	LD A,(HL)	; get char from string
 
 ;-----------------------------------------------------------------------------
 
-CR	EQU 0DH
-LF	EQU 0AH
-
-MSG1:	DEFB CR,LF,"NPUTS-CF V1.0 260809-01",CR,LF,0
+MSG1:	DEFB CR,LF,"NPUTS-CF V1.1 260905-02",CR,LF,0
 	
 MSG2:	DEFM "System written to drive ",BOOTDRV+'A'," on IDE/CF",CR,LF,LF,0
 

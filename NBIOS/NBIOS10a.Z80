@@ -1,8 +1,8 @@
 ;************************************************************************
 ;* NBIOS10.Z80								*
 ;*									*
-;* basiert direct auf der Version 3.1 1984 Rolf-Dieter Klein 841220     *
-;* Urspruengliche Version fuer 2 Mini und 2 Maxi Laufwerke		*
+;* basiert auf der Version 3.1 1984 Rolf-Dieter Klein 841220            *
+;* Ursprüngliche Version fuer 2 Mini und 2 Maxi Laufwerke		*
 ;*									*
 ;************************************************************************
 ;
@@ -73,7 +73,7 @@ LF	EQU 0AH		; line feed
 ; Variant switches
 
 ; aktiviert alle bisherigen Aenderungen gegenueber der Originalversion 3.1
-NEWIDE	EQU TRUE	; new IDE/CF format (8192 KB)
+;DG01	EQU TRUE
 DG_BHD	EQU FALSE	; drive B as HD drive (5 1/4 inch, 1.4 MB)
 DG_CHD	EQU TRUE	; drive C as HD drive (3 1/2 inch, 1.44 MB)
 DEBOUT	EQU TRUE	; debug outputs
@@ -96,8 +96,7 @@ BTSECN	EQU 64		; sector per track
 ;------------------------------------------------------------------------------
 ; Monitor functions
 
-;MCONOUT	EQU 0F009h	; console out, character in C
-MCONST	EQU 0F012H	; get console status
+MCONOUT	EQU 0F009h	; character in C
 
 ;------------------------------------------------------------------------------
 ; CPM and BIOS sizes and addresses
@@ -128,11 +127,6 @@ JBDOS	EQU 0005H	; JMP to BDOS
 JRST7	EQU 0038H	; JMP RST7 (7*8)
 BUFF	EQU 0080H	; buffer address
 RETRY	EQU 5		; Fehlerversuche bei BOOT und Maxi Read/Write
-
-;-----------------------------------------------------------------------------
-; Monitor addresses
-
-FEXEC	EQU 0F021h	; new Mini/Maxi routine
 
 ;-----------------------------------------------------------------------------
 
@@ -219,7 +213,7 @@ DPE7:	DW	0000h, 0000h
 	DW	CSV7, ALV7
 
 	; Disk 0 (A) ---------------------------------------------------------
-
+	
 	; *** DISKDEF BEDEUTUNG DER PARAMETER***
 	; 0 = NUMMER DES LAUFWERKS
 	; 0 = NUMMER DES ERSTEN SEKTORS EINER SPUR
@@ -247,8 +241,8 @@ DPB0	EQU	$	; DISK PARM BLOCK
 	DW	4	; OFFSET
 	; new parameters:
 	DB	00100000B ; Mini/DD
-	DB 	3	  ; 40 / 5 sectors = 8 -> 2^3
-	DB	00000111B ; 1024 bytes/sector -> modulo 8 (0..7)
+	DB 	3	  ; 40 / 5 Tracks = 8 -> 2^3
+	DB	00000111B ; 1024 bytes/sector -> modulo 0..7
 	
 XLT0	EQU	0	; NO XLATE TABLE
 
@@ -289,7 +283,7 @@ XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
  	DB	5	; BLOCK SHIFT
  	DB	31	; BLOCK MASK
  	DB	1	; EXTNT MASK
- 	;DW	275 ; 295 ; DISK SIZE-1
+ 	;DW	275 ; 295	; DISK SIZE-1
  	DW	295	; DISK SIZE-1
   	DW	255	; DIRECTORY MAX
  	DB	192	; ALLOC0
@@ -298,8 +292,8 @@ XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
  	DW	2	; OFFSET
 	; new parameters:
 	DB	00000000B ; Maxi/HD
-	DB 	2	  ; 60 / 15 = 4 -> 2^2
-	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
+	DB 	2	; 60 / 15 = 4 -> 2^2
+	DB	00000011B ; 512 bytes/sector -> modulo 0..3
 
  XLT1	EQU	0	; NO XLATE TABLE
 
@@ -329,8 +323,8 @@ XLT2	EQU	XLT0	; SAME TRANSLATE TABLE
  	DW	2	; OFFSET
 	; new parameters:
  	DB	00000000B ; Maxi/HD
-	DB 	3	  ; 72 / 9 = 8 -> 2^3
-	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
+	DB 	2	  ; 72 / 9 = 8 -> 2^3
+	DB	00000011B ; 512 bytes/sector -> modulo 0..3
 	
  XLT2	EQU	0	; NO XLATE TABLE
 	
@@ -354,9 +348,9 @@ DPB3	EQU	$	; DISK PARM BLOCK
  	DW	2	; OFFSET
 	; new parameters:
 	DB	00010000B ; Maxi/SD
-	DB	0	  ; 26 / 26 = 1 -> 2^0 (no deblocking)
-	DB	00000001B ; 128 bytes/sector -> modulo 1 (0) (no deblocking)
-
+	DB	0	; no deblocking
+	DB	0	; no deblocking
+	
 XLT3	EQU	$	; TRANSLATE TABLE
  	DB	1		
  	DB	7		
@@ -399,31 +393,7 @@ DPB4:	;disk parameter block for all disks.
 	DB	0	; alloc 1 -- no. bits = (directory max x 32)/block size	
 	DW	0	; check size -- no checking, so zero
 	DW	1	; track offset -- first track for system
-	; new parameters (not used):
-	DB	0,0,0
-	ENDIF
-	
-	IF NEWIDE
-	
-	; Disk size 8 MB, 256 Byte/Sector, 128 sectors, 268 tracks, Blocksize 8192
-	; DISKDEF d,1,256,0,4096,2040,256,0,1
-	DW	256
-	DB	6
-	DB	63
-	DB	3
-	DW	1019
-	DW	255
-	DB	128
-	DB	0
-	DW	0
-	DW	1
-	; new parameters (not used):
-	DB	0	  ; no used
-	DB	1	  ; 256 / 128 = 2 -> 2^1
-	DB	00000001B ; 128 bytes/sector -> modulo 2 (0..1)
-
-	ELSE	; NEWIDE
-
+	ELSE
 	; Disk size 2 MB, 128 Byte/Sector, 64 sectors, 256 tracks (0 to 255), Blocksize 4096
 	; DISKDEF 0,1,64,0,4096,510,256,0,1
 	DW	64	; sectors per track
@@ -436,10 +406,7 @@ DPB4:	;disk parameter block for all disks.
 	DB	0	; alloc 1 -- no. bits = (directory max x 32)/block size	
 	DW	0	; check size -- no checking, so zero
 	DW	1	; track offset -- first track for system
-	; new parameters (not used):
-	DB	0,0,0
-	
-	ENDIF	; NEWIDE
+	ENDIF
 
 	; Disk 5 (F), IDE partition 1 ----------------------------------------
 DPB5	EQU	DPB4	; EQUIVALENT PARAMETERS
@@ -458,7 +425,7 @@ SIGNON:	DB 26
 	DB CPMVER/10+'0','.',CPMVER MOD 10+'0'
 	DB ' for MC-Computer '
 	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-	DB 'K NBIOS 260905-11'
+	DB 'K NBIOS 260904-01'
 	DB " BOOT=",BTDRV+'A',CR,LF
 
 	DB "A:NKC800"
@@ -475,20 +442,14 @@ SIGNON:	DB 26
 	DB ",C:1.44MB"
 	ENDIF
 
-	DB ",D:IBM SS/SD,E..H:"
-	
-	IF NEWIDE
-	DB "NEWIDE"
-	ELSE
-	DB "IDE"
-	ENDIF
+	DB ",D:IBM SS/SD,E..H:IDE"
 
 	DB CR,LF,0
 
 ;-----------------------------------------------------------------------------
 ; get state of CONSOLE (if character is available)
 
-CONST	EQU 0F012H
+CONST:	JP 0F012H
 
 ;-----------------------------------------------------------------------------
 ; read one char from CONSOLE and clears parity bit
@@ -833,10 +794,9 @@ PRMSG: 	LD A,(HL)
 ; Sector in IOS (0..n-1)
 
 READ:
-	IF NEWIDE
-	XOR A
-	LD (ISIDE),A
-	ENDIF
+	;POP HL
+	;PUSH HL
+	;CALL DEBDRV	; debug output (DBANK)
 
 	LD A,(DBANK)	; drive 0..5
 	CP 3
@@ -849,15 +809,8 @@ READ:
 	; A >= 5, Read RAM disk
 
 	CP 8
-
-	if NOT NEWIDE
 	JP C,IDERD	; A < 8 -> IDE disks 4,5,6,7
-	ELSE
-	LD A,1
-	LD (ISIDE),A
-	JP C,MINIRD
-	ENDIF
-
+	
 	; error
 	LD A,1		; Fehler da, Bank nicht vorhanden,
 	RET		; wirkt wie BAD-Sektor
@@ -959,11 +912,16 @@ MAXIR1:	; retry loop
 ; Sector in IOS (0..n-1)
 ; BDOS-Flag in C (0 = standard sector, 1 = directory sector, 2 =  first sector in block)
 
-WRITE:
-	IF NEWIDE
-	XOR A
-	LD (ISIDE),A
+WRITE:	
+	IF DEBOUT
+	;LD A,1		; WRITE
+	;CALL DEBBUF
+
+	;POP HL
+	;PUSH HL
+	;CALL DEBDRV	; debug output (DBANK)
 	ENDIF
+
 
 	LD A,(DBANK)	; drive 0..5
 	CP 3
@@ -975,14 +933,7 @@ WRITE:
 	;---------------------------------------------------------------------
 	
 	CP 8
-
-	if NOT NEWIDE
 	JP C,IDEWR	; A < 8 -> IDE disks 4,5,6,7
-	ELSE
-	LD A,1
-	LD (ISIDE),A
-	JP C,MINIWR
-	ENDIF
 	
 	LD A,1		; Fehler ausgeben
 	RET
@@ -1085,21 +1036,6 @@ MINIC4:	; factor = 0
 MINIC5:	INC A		; sector number starts with 1
 	LD E,A		; save in E
 
-	IF NEWIDE
-	LD A,(ISIDE)
-	AND A
-	JR Z,MINC5A	; -> no IDE drive
-
-	; -> is IDE drive, no drive or track translation
-	LD A,(DBANK)
-	LD C,A
-	LD A,(IOT)
-	LD D,A
-	RET
-
-MINC5A:
-	ENDIF
-
 	; drive A,B,C,D -> 0001,0010,0100,1000
 	LD A,(DBANK)	; 0..3
 	INC A		; -> 1..4
@@ -1124,7 +1060,7 @@ MINIC6:	RLA
 	OR 10000000B	; side 1 flag
 	LD C,A
 	
-MINIC7:	; D=track, E=sector, C=drive-code + side
+MINIC7:	; D=track=D, E=sector, C=drive-code + side
 	RET
 
 ;-----------------------------------------------------------------------------
@@ -1168,6 +1104,11 @@ MINIR1:	; actual physical sector is now in buffer PHSBUF
 	EX DE,HL
 	LDIR		; (DE++) <- (HL++), BC--
 			; (IOD) <- (PHSBUF+offset), 128 Byte
+	
+	IF DEBOUT
+	;LD A,0		; READ
+	;CALL DEBBUF
+	ENDIF
 
 	XOR A
 	RET		; -> finished without error
@@ -1322,12 +1263,6 @@ GETPHS:	; reset buffer changed flag
 	XOR A		
 	LD (BUFCHG),A
 
-	IF NEWIDE
-	LD A,(ISIDE)
-	AND A
-	JR NZ,GETIDE
-	ENDIF
-
 	LD HL,PHSBUF	; buffer address for data
 	LD A,(CURSEC)
 	LD E,A
@@ -1348,43 +1283,6 @@ GETPHS:	; reset buffer changed flag
 	XOR A
 	RET
 
-	IF NEWIDE
-
-GETIDE:
-; NEWIDE (8192K):
-; LBA
-; 00000000 00000000 00000000
-; 0000000d dsssssss tttttttt
-;        E        B        C
-
-	; LBA0..7 -> C
-	LD A,(CURTRK)
-	LD C,A		; LBA0..7 -> B
-
-	LD A,(CURDRV)
-	SUB A,4		; drive 4..7 -> drive 0..3
-	LD E,A
-	SRL E		; drive bit 1 -> bit 0, bit 0 -> carry
-			; LBA16..23 -> E
-
-	LD B,0
-	RR B		; carry -> bit 7
-	LD A,(CURSEC)
-	DEC A		; phys sect. starts wird 1
-	OR B
-	LD B,A		; LBA8..15 -> B
-
-	LD HL,PHSBUF
-
-	;LD D,'R'
-	;CALL DEBIDE	; debug output
-
-	CALL MIDERD
-	AND 01h
-	RET
-
-	ENDIF
-
 ;-----------------------------------------------------------------------------
 
 PHSERR:	
@@ -1404,12 +1302,6 @@ PUTPHS:	; reset buffer changed flag
 	XOR A
 	LD (BUFCHG),A
 
-	IF NEWIDE
-	LD A,(ISIDE)
-	AND A
-	JR NZ,PUTIDE
-	ENDIF
-
 	LD HL,PHSBUF	; buffer address
 	LD A,(CURSEC)
 	LD E,A
@@ -1422,50 +1314,13 @@ PUTPHS:	; reset buffer changed flag
 	IF DEBOUT
 	CALL DEBPHY
 	ENDIF
-
+	
 	CALL FEXEC	; -> new floppy routine
 	JP C,PHSERR
-
+	
 	; no error
 	XOR A
 	RET
-
-	IF NEWIDE
-
-PUTIDE:
-; NEWIDE (8192K):
-; LBA
-; 00000000 00000000 00000000
-; 0000000d dsssssss tttttttt
-;        E        B        C
-
-	; LBA0..7 -> C
-	LD A,(CURTRK)
-	LD C,A		; LBA0..7 -> B
-
-	LD A,(CURDRV)
-	SUB A,4		; drive 4..7 -> drive 0..3
-	LD E,A
-	SRL E		; drive bit 1 -> bit 0, bit 0 -> carry
-			; LBA16..23 -> E
-
-	LD B,0
-	RR B		; carry -> bit 7
-	LD A,(CURSEC)
-	DEC A		; phys sect. starts wird 1
-	OR B
-	LD B,A		; LBA8..15 -> B
-
-	LD HL,PHSBUF
-
-	;LD D,'W'
-	;CALL DEBIDE	; debug output
-
-	CALL MIDEWR
-	AND 01h
-	RET
-
-	ENDIF
 
 ;-----------------------------------------------------------------------------
 
@@ -1479,80 +1334,109 @@ LBA23	EQU 01Dh	; LBA Bits 16-23
 IDEHEAD	EQU 01Eh	; IDE Drive Head Register
 IDESTAT	EQU 01Fh	; IDE Command/Status Register
 
-; IDE/CF physical format: 
-; 4 partitions
-; 8192 KB bytes/partition 
-; 128 bytes/sector
-; 256 sectors/track
-; 256 tracks
-; 128 * 256 * 256 / 1024 = 8192
+;-----------------------------------------------------------------------------
 
-; old (2048K):
+; Read one sector from disk.
+; Return a 00h in A if the operation completes properly, and 01h if an error occurs during the read.
+; Disk number in 'diskno' (4..7)
+; Track number in 'track' (0..255)
+; Sector number in 'sector' (0..63)
+; DMA address in 'dmaad' (0-65535)
+; 
 ; LBA
 ; 00000000 00000000 00000000
 ; 00000000 tttttttt ssssssdd
 ;        E        B        C
 
-; NEWIDE (8192K):
-; LBA
-; 00000000 00000000 00000000
-; 000000dd tttttttt ssssssss
-;        E        B        C
+HSTBUF	EQU PHSBUF	; buffer for phyiscal sector
+DISKNO	EQU DBANK
+TRACK	EQU IOT
+SECTOR	EQU IOS
+DMAAD	EQU IOD
 
 MIDERD	EQU 0F02Ah
 MIDEWR	EQU 0F02Dh
 
-;-----------------------------------------------------------------------------
-; Read one 256 byte sector from disk.
-; Return a 00h in A if the operation completes properly, and 01h if an error occurs during the read.
-; Disk number in DBANK  (4..7)
-; Track number in IOT
-; Sector number in IOS
-; DMA address in IOD
-
-	IF NOT NEWIDE
-
-IDERD:	
-	IF NOT NEWIDE
-
-	IF TRUE
-
-	LD HL,PHSBUF
+IDERD:	LD HL,HSTBUF
 
 	; LBA0..7 -> C
-	LD A,(IOS)
+	LD A,(SECTOR)
 	SLA A		; make room for 4 disks (0 to 3, 2 bits)
 	SLA A
 	LD B,A
-	LD A,(DBANK)
+	LD A,(DISKNO)
 	SUB A,4
 	OR B
 	LD C,A		; C = sector * 4 + (diskno - 4)
-
+	
 	; LBA8..15 -> B
-	LD A,(IOT)
+	LD A,(TRACK)
 	LD B,A
 	
 	; LBA16..23) -> E
 	LD E,0
 
+	;LD A,'R'
+	;CALL DEBIDE	; debug output
 	CALL MIDERD
+	
+	IF FALSE
 
-	PUSH AF
-	LD C,'*'
-	CALL CONOUT
-	LD C,'R'
-	CALL CONOUT
-	CALL DEBX16
-	LD C,'*'
-	CALL CONOUT
-	POP AF
+IDERD1:	; wait for not busy
+	IN A,(IDESTAT)	; check status
+	AND 80H		; check BSY bit
+	JP NZ,IDERD	; -> wait
+
+IDERD2:	; wait for ready
+	IN A,(IDESTAT)	; check status
+	AND 40H		; check DRDY bit
+	JP Z,IDERD2	; -> wait
+			
+	LD A,01H	; number of sectors = 1
+	OUT (SECCND),A	; sector count register
+	LD A,(SECTOR)	; CP/M sector (0 to 63, 6 bits)
+	SLA A		; make room for diskno (0 to 3, 2 bits)
+	SLA A
+	LD B,A
+	LD A,(DISKNO)	; CP/M disk (0 to 3)
+	ADD B		; diskno and sector now in one byte
+	OUT (LBA7),A	; LBA bits 0 - 7
+	LD A,(TRACK)	; CP/M track (0 to 255, 8 bits)
+	OUT (LBA15),A	; LBA bits 8 - 15
+	LD A,0		; upper bits zero
+	OUT (LBA23),A	; LBA bits 16 - 23
+	LD A,11100000B	; LBA mode, select host drive 0
+	OUT (IDEHEAD),A	; drive/head register
+	LD A,20H	; Read sector command
+	OUT (IDESTAT),A
+	
+IDERD3:	; wait for DRQ
+	IN A,(IDESTAT)	; read status
+	AND 08H		; DRQ bit
+	JP Z,IDERD3	; loop until bit set
+			
+IDERD4:	; wait for not busy
+	IN A,(IDESTAT)
+	AND 80H
+	JP NZ,IDERD4	; -> wait
+
+	IN A,(IDESTAT)	; clear INTRQ
+	LD HL,HSTBUF	; buffer to place disk sector (256 bytes)
+
+IDERD5:	IN A,(IDEDATA)	; get data
+	LD (HL),A
+	INC HL
+	IN A,(IDESTAT)	; check status
+	AND 08H		; DRQ bit
+	JP NZ,IDERD5	; -> loop until clear
+
+	ENDIF		; FALSE
 
 	AND 01H
 	RET NZ		; -> exit with error
 			
-	LD HL,(IOD)	; memory location to place data read from disk
-	LD DE,PHSBUF	; host buffer
+	LD HL,(DMAAD)	; memory location to place data read from disk
+	LD DE,HSTBUF	; host buffer
 
 	LD B,128	; size of CP/M sector
 IDERD6:	LD A,(DE)	; get byte from host buffer
@@ -1561,93 +1445,25 @@ IDERD6:	LD A,(DE)	; get byte from host buffer
 	INC DE
 	DJNZ IDERD6	; put 128 bytes into memory
 
-	; no error
-	XOR A
-	RET
-
-	ELSE		; FALSE
-
-	LD HL,(IOD)
-
-	; LBA0..7 -> C
-	LD A,(IOS)
-	SLA A		; make room for 4 disks (0 to 3, 2 bits)
-	SLA A
-	LD B,A
-	LD A,(DBANK)
-	SUB A,4
-	OR B
-	LD C,A		; C = sector * 4 + (diskno - 4)
-
-	; LBA8..15 -> B
-	LD A,(IOT)
-	LD B,A
-	
-	; LBA16..23) -> E
-	LD E,0
-
-	;LD D,'R'
-	;CALL DEBIDE	; debug output
-	CALL MIDERD
-	
-	CALL DELAY
-
-	AND 01H
-	RET NZ		; -> exit with error
+	;POP AF
+	;IN A,(IDESTAT)	; get status
+	;AND 01H		; error bit
 
 	; no error
 	XOR A
 	RET
-	
-	ENDIF		; FALSE
 
-	ELSE		; NEWIDE
-
-	LD HL,(IOD)
-
-	; LBA0..7 -> C (sectors)
-	LD A,(IOS)
-	LD C,A
-
-	; LBA8..15 -> B (tracks)
-	LD A,(IOT)
-	LD B,A
-
-	; LBA16..23 -> E (drives)
-	LD A,(DBANK)
-	SUB A,4		; drive 4..7 -> drive 0..3
-	LD E,A
-
-	;LD D,'R'
-	;CALL DEBIDE	; debug output
-	
-	CALL MIDERD
-
-	; status in A
-	AND 01H		; error flag
-	RET
-	
-	ENDIF		; NEWIDE
-
-	ENDIF		; NEWIDE
-	
 ;-----------------------------------------------------------------------------
-; Write one 26 byte sector to IDE
+
+; Write one sector to disk.
 ; Return a 00h in register A if the operation completes properly, and 0lh if an error occurs during the read or write
-; Disk number in DBANK (4..7)
-; Track number in IOT (0..n-1)
-; Sector number in IOS (0..n-1)
-; DMA address in IOD (0-65535)
+; Disk number in 'diskno'
+; Track number in 'track'
+; Sector number in 'sector'
+; DMA address in 'dmaad' (0-65535)
 
-	IF NOT NEWIDE
-
-IDEWR:	
-	IF NOT NEWIDE
-
-	IF TRUE
-
-	LD HL,(IOD)	; memory location of data to write
-	LD DE,PHSBUF	; host buffer
+IDEWR:	LD HL,(DMAAD)	; memory location of data to write
+	LD DE,HSTBUF	; host buffer
 	LD B,128	; size of CP/M sector
 
 IDEWR1:	LD A,(HL)	; get byte from memory
@@ -1656,117 +1472,84 @@ IDEWR1:	LD A,(HL)	; get byte from memory
 	INC DE
 	DJNZ IDEWR1	; put 128 bytes in host buffer
 
-	LD HL,PHSBUF
+	LD HL,HSTBUF
 
 	; LBA0..7 -> C
-	LD A,(IOS)
+	LD A,(SECTOR)
 	SLA A		; make room for 4 disks (0 to 3, 2 bits)
 	SLA A
 	LD B,A
-	LD A,(DBANK)
+	LD A,(DISKNO)
 	SUB A,4
 	OR B
 	LD C,A		; C = sector * 4 + (diskno - 4)
 	
 	; LBA8..15 -> B
-	LD A,(IOT)
+	LD A,(TRACK)
 	LD B,A
 	
 	; LBA16..23) -> E
 	LD E,0
 
+	;LD A,'W'
+	;CALL DEBIDE	; debug output
 	CALL MIDEWR
 
-	PUSH AF
-	LD C,'*'
-	CALL CONOUT
-	LD C,'W'
-	CALL CONOUT
-	CALL DEBX16
-	LD C,'*'
-	CALL CONOUT
-	POP AF
-
 	; status in A
-	AND 01h		; error flag
+	AND 01h		; notwendig ?
 	RET
 
-	ELSE		; FALSE
 
-	CALL DELAY
+	IF FALSE
 
-	LD HL,(IOD)
+	LD HL,HSTBUF	; location of data to write to disk
+IDEWR2:	IN A,(IDESTAT)	; check status
+	AND 80H		; check BSY bit
+	JP NZ,IDEWR2	; loop until not busy
 
-	; LBA0..7 -> C
-	LD A,(IOS)
-	SLA A		; make room for 4 disks (0 to 3, 2 bits)
+IDEWR3:	IN A,(IDESTAT)	; check	status
+	AND 40H		; check DRDY bit
+	JP Z,IDEWR3	; loop until ready
+
+	LD A,01H	; number of sectors = 1
+	OUT (SECCND),A	; sector count register
+	LD A,(SECTOR)	; CP/M sector (0 to 63, 6 bits)
+	SLA A		; make room for diskno
 	SLA A
 	LD B,A
-	LD A,(DBANK)
-	SUB A,4
-	OR B
-	LD C,A		; C = sector * 4 + (diskno - 4)
-	
-	; LBA8..15 -> B
-	LD A,(IOT)
-	LD B,A
+	LD A,(DISKNO)	; CP/M disk (0 to 3, two bits)
+	ADD B		; diskno and sector in one byte
+	OUT (LBA7),A	; LBA bits 0 - 7
+	LD A,(TRACK)	; CP/M track (0 to 255, 8 bits)
+	OUT (LBA15),A	; LBA bits 8 - 15
+	LD A,0		; upper bits zero
+	OUT (LBA23),A	; LBA bits 16 - 23
+	LD A,11100000B	; LBA mode, select drive 0
+	OUT (IDEHEAD),A	; drive/head register
+	LD A,30H	; Write sector command
+	OUT (IDESTAT),A
 
-	; LBA16..23) -> E
-	LD E,0
+IDEWR4:	IN A,(IDESTAT)	; read status
+	AND 08H		; DRQ bit
+	JP Z,IDEWR4	; loop until bit set
 
-	CALL MIDEWR
+IDEWR5:	LD A,(HL)
+	OUT (IDEDATA),A	; write data
+	INC HL
+	IN A,(IDESTAT)	; read status
+	AND 08H		; check DRQ bit
+	JP NZ,IDEWR5	; write until bit cleared
 
-	; status in A
-	AND 01h		; error flag
+IDEWR6:	IN A,(IDESTAT)
+	AND 80H
+	JP NZ,IDEWR6
+
+	IN A,(IDESTAT)	; clear INTRQ
+	AND 01H		; check for error
 	RET
 
 	ENDIF		; FALSE
 
-	ELSE		; NEWIDE
-
-	LD HL,(IOD)
-
-	; LBA0..7 -> C (sectors)
-	LD A,(IOS)
-	LD C,A
-
-	; LBA8..15 -> B (tracks)
-	LD A,(IOT)
-	LD B,A
-
-	; LBA16..23 -> E (drives)
-	LD A,(DBANK)
-	SUB A,4	; drive 4..7 -> drive 0..3
-	LD E,A
-
-	;LD D,'W'
-	;CALL DEBIDE	; debug output
-
-	CALL MIDEWR
-
-	; status in A
-	AND 01h		; error flag
-	RET
-
-	ENDIF		; NEWIDE
-
-	ENDIF		; NEWIDE
-	
-;-----------------------------------------------------------------------------
-; Delay loop 40ms..10ms (???)
-
-DELAY:	PUSH BC
-	;LD BC,0D05H
-	LD BC,2000H
-
-DELAY1:	DEC BC
-	LD A,C
-	OR B
-	JP NZ,DELAY1
-	
-	POP BC
-	RET
-	
 ;------------------------------------------------------------------------------
 ; Patch BDOS close function
 
@@ -1875,6 +1658,10 @@ PATB1:LD C,'-'
 	RET
 
 	ENDIF		; FALSE
+
+;------------------------------------------------------------------------------
+
+FEXEC:	JP 0F021h	; new Mini/Maxi routine
 
 ;=============================================================================
 ; Debuging routines
@@ -2057,57 +1844,66 @@ DEBSEL:	PUSH BC
 	ENDIF
 
 ;-----------------------------------------------------------------------------
-; Display drive, track, sector E,B,C
-; D = read, write
+; Display drive, track, sector C,B,E
 
-	IF TRUE
+	IF FALSE
 
-DEBIDE:	;LD A,(DEBACT)
-	;AND A,01H
-	;RET Z
-
-	PUSH HL
-	PUSH BC
+DEBIDE:	PUSH BC
 	PUSH DE
+	PUSH HL
 
-	LD L,D		; save D in L (read/write)
-	LD D,C		; save C in D (sector)
-
+	PUSH BC
+	PUSH AF
 	LD C,'['
 	CALL CONOUT
-
-	; Read / Write
-	LD C,L
+	POP AF
+	LD C,A
 	CALL CONOUT
-
-	; drive
-	LD A,E
-	CALL DEBX8
-
 	LD C,' '
 	CALL CONOUT
+	LD C,'D'
+	CALL CONOUT
+	POP BC
+	PUSH BC		; drive in C
+	LD A,C
+	AND 03H
+	LD L,A
+	LD H,0
+	CALL DEBDEC
 
-	; sectors
-	LD A,B
-	CALL DEBX8
+	LD C,','
+	CALL CONOUT
+	LD C,'S'
+	CALL CONOUT
+	POP BC		; sector in C
+	SRL C
+	SRL C
+	LD L,C
+	LD H,0
+	CALL DEBDEC
 	
-	LD C,' '
+	LD C,','
 	CALL CONOUT
+	LD C,'T'
+	CALL CONOUT
+	LD L,B
+	LD H,0
+	CALL DEBDEC
 
-	; tracks
-	LD A,D		; saved sector in D
-	CALL DEBX8
+	;LD C,','
+	;CALL CONOUT
+	;LD C,'S'
+	;CALL CONOUT
+	;LD L,E
+	;LD H,0
+	;CALL DEBDEC
 
 	LD C,']'
 	CALL CONOUT
-	LD C,CR
-	CALL CONOUT
-	LD C,LF
-	CALL CONOUT
 
+	POP HL
 	POP DE
 	POP BC
-	POP HL
 	RET
 
 	ENDIF
@@ -2277,9 +2073,10 @@ CURTRK:	DB 0		; TRACK
 CURSEC:	DB 0		; SEKTOR
 ISDIR:	DB 0		; 1 = is directory write
 
-DBANK:	DB 0		; selected disk
-;IOPB:	DW 1		; address of DPB of selected disk
-IOT:	DB 4		; track number (offset des boot laufwerks)
+DBANK:	DB 0		; disk bank (selected disk)
+
+IOPB:	DW 1		; address of DPB of selected disk
+IOT:	DB 4		; track number (offset des boot laufwerks???)
 IOS:	DB 1		; NUMMER DES GEWUENSCHTEN SEKTORS
 IOD:	DW BUFF		; DMA-ADRESSE
 	
@@ -2287,7 +2084,6 @@ IOD:	DW BUFF		; DMA-ADRESSE
 BLREG:	DB 1		; bits for special register (FLO+4)
 BLPOW:	DB 1		; power (shift) value
 BLMSK:	DB 1		; sector mask (modulo value)
-ISIDE	DB 1
 
 	IF DEBOUT
 DEBACT:	DB 0
@@ -2330,25 +2126,15 @@ CSV2:	DS	64
 ALV3:	DS	31
 CSV3:	DS	16
 
-	IF NOT NEWIDE
+
 ALV4:	DS	64	; size of each must be (DSM/8)+1
-CSV4:	DS	0
+CSV4:	DS	0	; Could probably remove these chk areas, but just made size small
 ALV5:	DS	64
 CSV5:	DS	0
 ALV6:	DS	64
 CSV6:	DS	0
 ALV7:	DS	64
 CSV7:	DS	0
-	ELSE
-ALV4:	DS	128	; size of each must be (DSM/8)+1
-CSV4:	DS	0
-ALV5:	DS	128
-CSV5:	DS	0
-ALV6:	DS	128
-CSV6:	DS	0
-ALV7:	DS	128
-CSV7:	DS	0
-	ENDIF
 	
 ENDDAT	EQU	$
 DATSIZ	EQU	$-BEGDAT

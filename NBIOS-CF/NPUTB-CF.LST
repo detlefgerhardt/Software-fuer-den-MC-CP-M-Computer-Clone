@@ -58,7 +58,7 @@ NPUTB-CFZ80
    55 0118  C3 F033     	JP MWARM
    56                   
    57                   ;-----------------------------------------------------------------------------
-   58                   ; Used monitor CONOUT to print 0-terminated string
+   58                   ; Uses monitor CONOUT to print 0-terminated string
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
 NPUTB-CFZ80
 
@@ -81,12 +81,13 @@ NPUTB-CFZ80
    75                   
    76 0126  0D 0A 4E 50 MSG1:	DEFB CR,LF,"NPUTB-CF V1.0 260809-01",CR,LF,0
    77                   
-   78 0142  42 6F 6F 74 MSG2:	DEFM "Bootloader written from 1000h to drive ",BOOTDRV+'A'," on IDE/CF",CR,LF,LF,0
+   78 0142  42 6F 6F 74 MSG2:	DEFM "Bootloader written from 1000h to drive ",BOOTDRV+'A'," on IDE/CF",CR,LF,0
    79                   
    80                   ;-----------------------------------------------------------------------------
    81                   
    82                   	END
  0 Error(s) Detected.
- 120 Absolute Bytes. 11 Symbols Detected.
-  63 011C  A7          	AND A		; check if 0
+ 119 Absolute Bytes. 11 Symbols Detected.
+
+   63 011C  A7          	AND A		; check if 0
    64 01
