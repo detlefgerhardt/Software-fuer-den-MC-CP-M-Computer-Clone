@@ -19,7 +19,12 @@
 ;
 ; 10.07.2026 *dg* Renamed to NBOOT-CF and reformatted
 ; 11.07.2026 *dg* Increased number of sectors to read to 63 because of larger BIOS
+; 05.09.2026 *dg* Adapted to new IDE/CF format NEWIDE (8192 KB)
 
+FALSE	EQU 0
+TRUE	EQU NOT FALSE
+
+NEWIDE	EQU TRUE
 
 HSTBUF	EQU 08100H		; will put 256-byte raw sector here
 BIOS	EQU 0EA00H-800H		; CP/M cold start entry
@@ -30,19 +35,21 @@ IDEREAD	EQU 0F02AH		; Monitor function IDEREAD
 
 IDESTAT	EQU 010+0FH		; Hardwareadresse IDE Statusregister
 
-; sector count (1024 byte sectors)
-; on a IDE/CF disk 1 track is reserved: 64 sectors
-;SECCNT	EQU (0F000h-CPM)/128
+	IF NOT NEWIDE
+	; on a IDE/CF disk 1 track is reserved: 64 sectors
 SECCNT	EQU 50
-
+	ELSE
+	; on a IDE/CF disk 1 track is reserved: 128 sectors
+SECCNT	EQU (0F000h-CPM)/128
+	ENDIF
+	
 ;-----------------------------------------------------------------------------
 
 	ORG 08000H
 
 ; read track 0, sectors 1 to SECCNT
 
-BOOT:	
-	LD HL,MSG
+BOOT:	LD HL,MSG
 	CALL WRSTR
 
 	LD A,1			; starting sector -- sector 0 has cpm_loader
@@ -51,7 +58,7 @@ BOOT:
 	LD (DMAAD),HL
 	LD A,0			; CP/M track
 	LD (TRACK),A
-		
+
 BOOT1:	; read track 0 loop
 	CALL RDSEC
 	LD A,(SECTOR)
@@ -79,7 +86,11 @@ BOOT2:	JP BIOS
 ; Sector number in (SECTOR)
 ; DMA address in (DMAAD), location in memory to place the CP/M sector
 
-RDSEC:	LD HL,HSTBUF	; buffer to place raw disk sector (256 bytes)
+RDSEC:	
+	IF NOT NEWIDE
+
+	LD HL,HSTBUF	; buffer to place raw disk sector (256 bytes)
+
 	LD A,(SECTOR)
 	SLA A		; shifts to match BIOS CP/M disk read routine
 	SLA A		; no parition number (partition = 0)
@@ -105,6 +116,43 @@ RDSEC1:	; read sector bytes loop
 	AND 01H		; error bit
 	RET
 
+	ELSE		; NEWIDE
+
+	; NEWIDE (8192K):
+	; LBA
+	; 00000000 00000000 00000000
+	; 0000000d dsssssss tttttttt
+	;        E        B        C
+
+	; LBA0..7 -> C
+	LD A,(TRACK)
+	LD C,A		; LBA0..7 -> B
+
+	;LD A,(CURDRV)
+	;SUB A,4	; drive 4..7 -> drive 0..3
+	;LD E,A
+	LD E,0		; partition 0
+	SRL E		; drive bit 1 -> bit 0, bit 0 -> carry
+			; LBA16..23 -> E
+
+	LD B,0
+	RR B		; carry -> bit 7
+	LD A,(SECTOR)
+	DEC A		; phys sect. starts wird 1
+	OR B
+	LD B,A		; LBA8..15 -> B
+
+	LD HL,HSTBUF	; buffer to place raw disk sector (256 bytes)
+
+	CALL IDEREAD	; ide read routine in Monitor
+			; Transfer top 128-bytes out of buffer to memory
+			
+	IN A,(IDESTAT)	; get status
+	AND 01H		; error bit
+	RET
+	
+	ENDIF		; NEWIDE
+
 ;-----------------------------------------------------------------------------
 
 WRSTR:	LD A,(HL)	; get char from string
@@ -119,13 +167,13 @@ WRSTR:	LD A,(HL)	; get char from string
 CR	EQU 0DH
 LF	EQU 0AH
 
-MSG:	DEFB CR,LF,"NBOOT-CF 1.0 260809",CR,LF,0
+MSG:	DEFB CR,LF,"NBOOT-CF 1.1 260906",CR,LF,0
 
 ;-----------------------------------------------------------------------------
 
-SECTOR:	DB	00H
-TRACK:	DB	00H
-DMAAD:	DW	0000H
+SECTOR:	DS	1
+TRACK:	DS	1
+DMAAD:	DS	2
 
 	END
 

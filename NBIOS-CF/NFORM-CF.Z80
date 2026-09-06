@@ -18,11 +18,11 @@
 ; 09.07.2026 *dg* Renamed to NFORM-CF and reformatted
 ;                 Replaced Monitor write_string function because it might
 ;                 be overwritten bei the BIOS
-; 05.09.2026 *dg* Adapted to new 8192KB format
+; 05.09.2026 *dg* Adapted to new 8192K B format and cleanup
+; 06.09.2026 *dg* More cleanup
 
 FALSE	EQU 0
 TRUE	EQU NOT FALSE
-
 
 BIOS	EQU 0EA00H-800H
 
