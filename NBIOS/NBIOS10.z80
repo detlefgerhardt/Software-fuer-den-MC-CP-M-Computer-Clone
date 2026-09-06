@@ -30,7 +30,9 @@
 ; 09.08.2026 *dg* Quick'n dirty fix for Warmboot from IDE/CF
 ;		  (Disk-Parameter immer hardcodiert beim Warmboot aber konfigurierbar)
 ; 03.09.2026 *dg* Deblocking-Parameter fuer jedes Laufwerk stehen jetzt direkt hinter den
-;		  DPBx Parameter-Bloecken                 
+;		  DPBx Parameter-Bloecken         
+; 05.09.2026 *dg* New 8192K format for CF/IDE with deblocking
+; 06.09.2026 *dg* Cleanup
 ;
 ; Verbesserung/Veraenderungen zu BIOS 3.1 seit Juni 2026
 ;
@@ -40,15 +42,16 @@
 ; Unterscheidung von den Original-Files.
 ; Laufwerksparameter geaendert, A ist 800KB (NDR/NKC), B und C unterschiedlich,
 ; D ist IBM 8 Zoll SS/SD.
-; IDE/CF eingebunden, Laufwerke E bis H, je 2 MB, E ist bootfaehig (geaenderte
-; BIOS-Parameter).
+; CF/IDE eingebunden, Laufwerke E bis H, je 8 MB, E ist bootfaehig (geaenderte
+; BIOS-Parameter)
 ; Blocking/Deblocking geaendert, ist jetzt flexibler und leichter zu
-; konfigurieren max. Steprate wird beim Warmstart gesetzt.
+; konfigurieren max.
+; max. Steprate wird beim Warmstart gesetzt.
 ; Debug-Ausgaben im BIOS ueber Compiler-Schalter und zur Laufzeit mit Ctrl-A
 ; ein- und ausschaltbar.
-; Diverse Laufwerksformate gestestet, test mit echten 8 Zoll Laufwerken steht
+; Diverse Laufwerksformate gestestet, Test mit echten 8 Zoll Laufwerken steht
 ; noch aus.
-; MOVCPM und SYSGEN funktionieren werden der geaenderten BIOS-Groesse
+; MOVCPM und SYSGEN funktionieren mit der geaenderten BIOS-Groesse
 ; vermutlich nicht mehr und muessen angasst werden (oder flexible Variante
 ; verwenden).
 ;
@@ -259,7 +262,7 @@ XLT0	EQU	0	; NO XLATE TABLE
 DPB1	EQU	DPB0	; EQUIVALENT PARAMETERS
 XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
 
-	ELSE
+	ELSE	; DG_BHD
 
 	IF FALSE
 	; Disk 1 (B): PHYSICAL FORMAT: 1.4 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 8 SECTORS/TRACK, 80 TRACKS
@@ -303,7 +306,7 @@ XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
 
  XLT1	EQU	0	; NO XLATE TABLE
 
-	ENDIF
+	ENDIF	; DG_BHD
 
 	IF NOT DG_CHD
 
@@ -313,7 +316,7 @@ XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
 DPB2	EQU	DPB0	; EQUIVALENT PARAMETERS
 XLT2	EQU	XLT0	; SAME TRANSLATE TABLE
 
-	ELSE
+	ELSE	; DG_CHD
 
 	; Disk 2 (C): PHYSICAL FORMAT: 1.44 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 9 SECTORS/TRACK, 80 TRACKS
  DPB2	EQU	$	; DISK PARM BLOCK
@@ -334,7 +337,7 @@ XLT2	EQU	XLT0	; SAME TRANSLATE TABLE
 	
  XLT2	EQU	0	; NO XLATE TABLE
 	
-	ENDIF
+	ENDIF	; DG_CHD
 
 
 	; Disk 3 (D) --------------------------------------------------------
@@ -405,8 +408,9 @@ DPB4:	;disk parameter block for all disks.
 	
 	IF NEWIDE
 	
-	; Disk size 8 MB, 256 Byte/Sector, 128 sectors, 268 tracks, Blocksize 8192
-	; DISKDEF d,1,256,0,4096,2040,256,0,1
+	; pyhs: Disk size 8 MB, 268 Byte/Sector, 128 sectors/track, 256 tracks
+	; BDOS: 256 Bytes/Sector, 256 sectors/track, blocksize 8192
+	; DISKDEF d,1,256,0,8192,1020,256,0,1
 	DW	256
 	DB	6
 	DB	63
@@ -458,7 +462,7 @@ SIGNON:	DB 26
 	DB CPMVER/10+'0','.',CPMVER MOD 10+'0'
 	DB ' for MC-Computer '
 	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-	DB 'K NBIOS 260905-11'
+	DB 'K NBIOS 260906-01'
 	DB " BOOT=",BTDRV+'A',CR,LF
 
 	DB "A:NKC800"
@@ -478,9 +482,9 @@ SIGNON:	DB 26
 	DB ",D:IBM SS/SD,E..H:"
 	
 	IF NEWIDE
-	DB "NEWIDE"
+	DB "8192KB"
 	ELSE
-	DB "IDE"
+	DB "2048KB"
 	ENDIF
 
 	DB CR,LF,0
@@ -851,12 +855,16 @@ READ:
 	CP 8
 
 	if NOT NEWIDE
+	
 	JP C,IDERD	; A < 8 -> IDE disks 4,5,6,7
-	ELSE
+	
+	ELSE		; NEWIDE
+	
 	LD A,1
 	LD (ISIDE),A
 	JP C,MINIRD
-	ENDIF
+	
+	ENDIF		; NEWIDE
 
 	; error
 	LD A,1		; Fehler da, Bank nicht vorhanden,
@@ -961,8 +969,11 @@ MAXIR1:	; retry loop
 
 WRITE:
 	IF NEWIDE
+
+	; reset CF/IDE flag
 	XOR A
 	LD (ISIDE),A
+	
 	ENDIF
 
 	LD A,(DBANK)	; drive 0..5
@@ -977,11 +988,15 @@ WRITE:
 	CP 8
 
 	if NOT NEWIDE
+	
 	JP C,IDEWR	; A < 8 -> IDE disks 4,5,6,7
+	
 	ELSE
+	
 	LD A,1
-	LD (ISIDE),A
+	LD (ISIDE),A	; set CF/IDE flag
 	JP C,MINIWR
+	
 	ENDIF
 	
 	LD A,1		; Fehler ausgeben
@@ -1086,11 +1101,12 @@ MINIC5:	INC A		; sector number starts with 1
 	LD E,A		; save in E
 
 	IF NEWIDE
+	
 	LD A,(ISIDE)
 	AND A
-	JR Z,MINC5A	; -> no IDE drive
+	JR Z,MINC5A	; -> no CF/IDE drive
 
-	; -> is IDE drive, no drive or track translation
+	; -> is CF/IDE drive, no drive or track translation
 	LD A,(DBANK)
 	LD C,A
 	LD A,(IOT)
@@ -1323,11 +1339,14 @@ GETPHS:	; reset buffer changed flag
 	LD (BUFCHG),A
 
 	IF NEWIDE
+	
 	LD A,(ISIDE)
 	AND A
-	JR NZ,GETIDE
+	JR NZ,GETIDE	; -> CF/IDE drive
+	
 	ENDIF
 
+	; floppy drive
 	LD HL,PHSBUF	; buffer address for data
 	LD A,(CURSEC)
 	LD E,A
@@ -1340,22 +1359,24 @@ GETPHS:	; reset buffer changed flag
 	CALL FEXEC	; -> new floppy routine
 	JP C,PHSERR
 
-	IF DEBOUT
-	CALL DEBPHY
-	ENDIF
+	;IF DEBOUT
+	;CALL DEBPHY
+	;ENDIF
 	
 	; no error
 	XOR A
 	RET
 
+	;---------------------------------------------------------------------
+
 	IF NEWIDE
 
-GETIDE:
-; NEWIDE (8192K):
-; LBA
-; 00000000 00000000 00000000
-; 0000000d dsssssss tttttttt
-;        E        B        C
+GETIDE:	; handle CD/IDE drive
+
+	; NEWIDE LBA assignment (8192K):
+	; 00000000 00000000 00000000
+	; 0000000d dsssssss tttttttt
+	;        E        B        C
 
 	; LBA0..7 -> C
 	LD A,(CURTRK)
@@ -1379,7 +1400,7 @@ GETIDE:
 	;LD D,'R'
 	;CALL DEBIDE	; debug output
 
-	CALL MIDERD
+	CALL MIDERD	; read sector to CD/IDE
 	AND 01h
 	RET
 
@@ -1388,10 +1409,10 @@ GETIDE:
 ;-----------------------------------------------------------------------------
 
 PHSERR:	
-	IF DEBOUT
+	;IF DEBOUT
 	;LD C,'*'
 	;CALL CONOUT
-	ENDIF
+	;ENDIF
 
 	SCF
 	RET
@@ -1405,11 +1426,15 @@ PUTPHS:	; reset buffer changed flag
 	LD (BUFCHG),A
 
 	IF NEWIDE
+	
 	LD A,(ISIDE)
 	AND A
-	JR NZ,PUTIDE
+	
+	JR NZ,PUTIDE	; -> CF/IDE drive
+	
 	ENDIF
-
+	
+	; floppy drive
 	LD HL,PHSBUF	; buffer address
 	LD A,(CURSEC)
 	LD E,A
@@ -1430,14 +1455,16 @@ PUTPHS:	; reset buffer changed flag
 	XOR A
 	RET
 
+	;---------------------------------------------------------------------
+
 	IF NEWIDE
 
-PUTIDE:
-; NEWIDE (8192K):
-; LBA
-; 00000000 00000000 00000000
-; 0000000d dsssssss tttttttt
-;        E        B        C
+PUTIDE:	; handle CD/IDE drive
+
+	; NEWIDE LBA assignment (8192K):
+	; 00000000 00000000 00000000
+	; 0000000d dsssssss tttttttt
+	;        E        B        C
 
 	; LBA0..7 -> C
 	LD A,(CURTRK)
@@ -1461,7 +1488,7 @@ PUTIDE:
 	;LD D,'W'
 	;CALL DEBIDE	; debug output
 
-	CALL MIDEWR
+	CALL MIDEWR	; write sector to CD/IDE
 	AND 01h
 	RET
 
@@ -1512,12 +1539,7 @@ MIDEWR	EQU 0F02Dh
 
 	IF NOT NEWIDE
 
-IDERD:	
-	IF NOT NEWIDE
-
-	IF TRUE
-
-	LD HL,PHSBUF
+IDERD:	LD HL,PHSBUF
 
 	; LBA0..7 -> C
 	LD A,(IOS)
@@ -1565,70 +1587,6 @@ IDERD6:	LD A,(DE)	; get byte from host buffer
 	XOR A
 	RET
 
-	ELSE		; FALSE
-
-	LD HL,(IOD)
-
-	; LBA0..7 -> C
-	LD A,(IOS)
-	SLA A		; make room for 4 disks (0 to 3, 2 bits)
-	SLA A
-	LD B,A
-	LD A,(DBANK)
-	SUB A,4
-	OR B
-	LD C,A		; C = sector * 4 + (diskno - 4)
-
-	; LBA8..15 -> B
-	LD A,(IOT)
-	LD B,A
-	
-	; LBA16..23) -> E
-	LD E,0
-
-	;LD D,'R'
-	;CALL DEBIDE	; debug output
-	CALL MIDERD
-	
-	CALL DELAY
-
-	AND 01H
-	RET NZ		; -> exit with error
-
-	; no error
-	XOR A
-	RET
-	
-	ENDIF		; FALSE
-
-	ELSE		; NEWIDE
-
-	LD HL,(IOD)
-
-	; LBA0..7 -> C (sectors)
-	LD A,(IOS)
-	LD C,A
-
-	; LBA8..15 -> B (tracks)
-	LD A,(IOT)
-	LD B,A
-
-	; LBA16..23 -> E (drives)
-	LD A,(DBANK)
-	SUB A,4		; drive 4..7 -> drive 0..3
-	LD E,A
-
-	;LD D,'R'
-	;CALL DEBIDE	; debug output
-	
-	CALL MIDERD
-
-	; status in A
-	AND 01H		; error flag
-	RET
-	
-	ENDIF		; NEWIDE
-
 	ENDIF		; NEWIDE
 	
 ;-----------------------------------------------------------------------------
@@ -1641,12 +1599,7 @@ IDERD6:	LD A,(DE)	; get byte from host buffer
 
 	IF NOT NEWIDE
 
-IDEWR:	
-	IF NOT NEWIDE
-
-	IF TRUE
-
-	LD HL,(IOD)	; memory location of data to write
+IDEWR:	LD HL,(IOD)	; memory location of data to write
 	LD DE,PHSBUF	; host buffer
 	LD B,128	; size of CP/M sector
 
@@ -1677,83 +1630,16 @@ IDEWR1:	LD A,(HL)	; get byte from memory
 
 	CALL MIDEWR
 
-	PUSH AF
-	LD C,'*'
-	CALL CONOUT
-	LD C,'W'
-	CALL CONOUT
-	CALL DEBX16
-	LD C,'*'
-	CALL CONOUT
-	POP AF
-
 	; status in A
 	AND 01h		; error flag
 	RET
-
-	ELSE		; FALSE
-
-	CALL DELAY
-
-	LD HL,(IOD)
-
-	; LBA0..7 -> C
-	LD A,(IOS)
-	SLA A		; make room for 4 disks (0 to 3, 2 bits)
-	SLA A
-	LD B,A
-	LD A,(DBANK)
-	SUB A,4
-	OR B
-	LD C,A		; C = sector * 4 + (diskno - 4)
-	
-	; LBA8..15 -> B
-	LD A,(IOT)
-	LD B,A
-
-	; LBA16..23) -> E
-	LD E,0
-
-	CALL MIDEWR
-
-	; status in A
-	AND 01h		; error flag
-	RET
-
-	ENDIF		; FALSE
-
-	ELSE		; NEWIDE
-
-	LD HL,(IOD)
-
-	; LBA0..7 -> C (sectors)
-	LD A,(IOS)
-	LD C,A
-
-	; LBA8..15 -> B (tracks)
-	LD A,(IOT)
-	LD B,A
-
-	; LBA16..23 -> E (drives)
-	LD A,(DBANK)
-	SUB A,4	; drive 4..7 -> drive 0..3
-	LD E,A
-
-	;LD D,'W'
-	;CALL DEBIDE	; debug output
-
-	CALL MIDEWR
-
-	; status in A
-	AND 01h		; error flag
-	RET
-
-	ENDIF		; NEWIDE
 
 	ENDIF		; NEWIDE
 	
 ;-----------------------------------------------------------------------------
 ; Delay loop 40ms..10ms (???)
+
+	IF FALSE
 
 DELAY:	PUSH BC
 	;LD BC,0D05H
@@ -1767,6 +1653,8 @@ DELAY1:	DEC BC
 	POP BC
 	RET
 	
+	ENDIF
+
 ;------------------------------------------------------------------------------
 ; Patch BDOS close function
 
@@ -1785,6 +1673,7 @@ PATF:	LD IX,PATFADR
 	LD (IX+2),A
 	
 PATF1:	RET
+
 	ENDIF
 
 ;------------------------------------------------------------------------------
@@ -2060,7 +1949,7 @@ DEBSEL:	PUSH BC
 ; Display drive, track, sector E,B,C
 ; D = read, write
 
-	IF TRUE
+	IF FALSE
 
 DEBIDE:	;LD A,(DEBACT)
 	;AND A,01H
