@@ -10,189 +10,224 @@ NFORM-CFZ80
     7                   ; based on FORM-CF by Uli Haumann 05/2026
     8                   ;
     9                   ;*****************************************************************************
-   10                   ; Writes E5h to 64 (256) sectors on tracks 1 to 255 of each disk (track 0 is reserved for system)
-   11                   ; Uses BIOS calls. Load a BIOS that supports CF-card to the BIOS address before starting the
-   12                   ; format program.
-   13                   ;
-   14                   ; PLEASE NOTE THE CHANGED BIOS START ADDRESS !!!
-   15                   ;
-   16                   ; Version history
-   17                   ;
-   18                   ; 09.07.2026 *dg* Renamed to NFORM-CF and reformatted
-   19                   ;                 Replaced Monitor write_string function because it might
-   20                   ;                 be overwritten bei the BIOS
-   21                   ; 05.09.2026 *dg* Adapted to new 8192KB format
-   22                   
-   23         0000      FALSE	EQU 0
-   24         FFFF      TRUE	EQU NOT FALSE
-   25                   
+   10                   ; Writes E5h to 64 (256) sectors on tracks 1 to 255 of each disk (track 0 is
+   11                   ; reserved for system). Uses BIOS calls, so sector size is 128 bytes.
+   12                   ; Load a BIOS that supports IDE/CF with the right format to the BIOS address
+   13                   ; before starting the format program.
+   14                   ;
+   15                   ; PLEASE NOTE THE CHANGED BIOS START ADDRESS AND NEW DISK FORMAT !!!
+   16                   ;
+   17                   ; Version history
+   18                   ;
+   19                   ; 09.07.2026 *dg* Renamed to NFORM-CF and reformatted
+   20                   ;                 Replaced Monitor write_string function because it might
+   21                   ;                 be overwritten bei the BIOS
+   22                   ; 05.09.2026 *dg* Adapted to new 8192K B format and cleanup (NEWIDE)
+   23                   ; 06.09.2026 *dg* More cleanup
+   24                   ; 07.09.2026 *dg* New start message, waits for ENTER,
+   25                   ;		  Ctrl-C aborts formatting
    26                   
-   27         E200      BIOS	EQU 0EA00H-800H
-   28                   
-   29         FFFF      NEWIDE	EQU TRUE
-   30                   
-   31                   ; BIOS functions
-   32         E21B      SELDSK	EQU BIOS+01BH		; pass disk no. in C
-   33         E21E      SETTRK	EQU BIOS+01EH		; pass track in reg C
-   34         E221      SETSEC	EQU BIOS+021H		; pass sector in reg C
-   35         E224      SETDMA	EQU BIOS+024H		; pass address in BC
-   36         E22A      WRITE	EQU BIOS+02AH		; write one CP/M sector to disk (128 bytes)
-   37                   
-   38                   ; Monitor functions
-   39         F009      CONOUT	EQU 0F009H		; print a character im Monitor
-   40         F033      MWARM	EQU 0F033H
-   41                   
-   42         0004      STRDSK	EQU 4			; first CF disk (E:)
-   43         0007      ENDDSK	EQU 7			; last CF disk (H:)
-   44                   
-   45         0100      	ORG 0100H
-   46                   
-   47 0100  31 0388     FORM:	LD SP,STACK
-   48                   
-   49 0103  21 01AC     	LD HL,STRMSG
-   50 0106  CD 01A2     	CALL WRSTR		; output start message
-   51                   
-   52 0109  3E 00       	LD A,0
-   53 010B  32 0208     	LD (CHAR_COUNT),A
-   54                   	
-   55 010E  3E 04       	LD A,STRDSK		; first ide/cf disk
-   56 0110  32 0205     	LD (CURDSK),A
-   57                   
-   58 0113              FORM1:	; disk loop
+   27         0000      FALSE	EQU 0
+   28         FFFF      TRUE	EQU NOT FALSE
+   29         000D      CR	EQU 13
+   30         000A      LF	EQU 10
+   31         0003      CTRLC	EQU 3
+   32                   
+   33         E200      BIOS	EQU 0EA00H-800H
+   34                   
+   35         FFFF      NEWIDE	EQU TRUE		; new 8196 KB format
+   36                   
+   37                   ; BIOS functions
+   38         E21B      SELDSK	EQU BIOS+01BH		; pass disk no. in C
+   39         E21E      SETTRK	EQU BIOS+01EH		; pass track in reg C
+   40         E221      SETSEC	EQU BIOS+021H		; pass sector in reg C
+   41         E224      SETDMA	EQU BIOS+024H		; pass address in BC
+   42         E22A      WRITE	EQU BIOS+02AH		; write one CP/M sector to disk (128 bytes)
+   43                   
+   44                   ; Monitor functions
+   45         F003      CONIN	EQU 0F003H		; get character from console -> A
+   46         F009      CONOUT	EQU 0F009H		; print a character im Monitor
+   47         F012      CONSTS	EQU 0F012H		; console status, A=0FFh if character available
+   48         F033      MWARM	EQU 0F033H
+   49                   
+   50         0004      STRDSK	EQU 4			; first CF disk (E:)
+   51         0007      ENDDSK	EQU 7			; last CF disk (H:)
+   52                   
+   53         0100      	ORG 0100H
+   54                   
+   55 0100  31 0421     FORM:	LD SP,STACK
+   56                   
+   57 0103  21 01D3     	LD HL,STRMSG
+   58 0106  CD 01C9     	CALL WRSTR		; output start message
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
 NFORM-CFZ80
 
-   59 0113  3A 0205     	LD A,(CURDSK)
-   60 0116  4F          	LD C,A			; set current disk
-   61 0117  CD E21B     	CALL SELDSK
-   62 011A  3E 01       	LD A,1			; starting track (offset = 1)
-   63 011C  32 0207     	LD (CURTRK),A
-   64                   
-   65 011F              FORM2:	; track loop
-   66 011F  3E 00       	LD A,0			; starting sector 0
-   67 0121  32 0206     	LD (CURSEC),A
-   68 0124  3A 0207     	LD A,(CURTRK)
-   69 0127  4F          	LD C,A			; set track
-   70 0128  CD E21E     	CALL SETTRK
-   71                   
-   72 012B              FORM3:	; sector loop
-   73 012B  3A 0206     	LD A,(CURSEC)
-   74 012E  4F          	LD C,A			; set sector
-   75 012F  CD E221     	CALL SETSEC
-   76 0132  01 0209     	LD BC,DIR_SECTOR
-   77 0135  CD E224     	CALL SETDMA
-   78 0138  CD E22A     	CALL WRITE
-   79 013B  E6 01       	AND 01h			; error flag
-   80 013D  20 5A       	JR NZ,ERROR
+   59                   
+   60 0109  CD F003     FORM0:	CALL CONIN
+   61 010C  FE 03       	CP CTRLC
+   62 010E  CA 01B9     	JP Z,ABORT
+   63 0111  FE 0D       	CP CR
+   64 0113  20 F4       	JR NZ,FORM0		; wait for CR or CTRL-C
+   65                   
+   66 0115  21 0264     	LD HL,FRMMSG
+   67 0118  CD 01C9     	CALL WRSTR		; output start message
+   68                   
+   69 011B  3E 00       	LD A,0
+   70 011D  32 02A1     	LD (CHRCNT),A
+   71                   	
+   72 0120  3E 04       	LD A,STRDSK		; first ide/cf disk
+   73 0122  32 029E     	LD (CURDSK),A
+   74                   
+   75 0125              FORM1:	; disk loop
+   76 0125  3A 029E     	LD A,(CURDSK)
+   77 0128  4F          	LD C,A			; set current disk
+   78 0129  CD E21B     	CALL SELDSK
+   79 012C  3E 01       	LD A,1			; starting track (offset = 1)
+   80 012E  32 02A0     	LD (CURTRK),A
    81                   
-   82 013F  3A 0206     	LD A,(CURSEC)
-   83         0000      	IF NOT NEWIDE
-   85                   	ELSE
-   86 0142  FE FF       	CP 255
-   87                   	ENDIF
-   88 0144  28 06       	JR Z,FORM4
-   89                   
-   90 0146  3C          	INC A
-   91 0147  32 0206     	LD (CURSEC),A
-   92 014A  18 DF       	JR FORM3		; -> next sector
-   93                   
-   94 014C              FORM4:	; next track
-   95 014C  3A 0207     	LD A,(CURTRK)
-   96 014F  FE FF       	CP 255
-   97 0151  28 26       	JR Z,FORM6		; -> next disk
-   98                   		
-   99 0153  3C          	INC A
-  100 0154  32 0207     	LD (CURTRK),A
-  101                   	;LD A,'.'		; print dot
-  102 0157  0E 2E       	LD C,'.'
-  103 0159  CD F009     	CALL CONOUT
-  104 015C  3A 0208     	LD A,(CHAR_COUNT)
-  105 015F  3C          	INC A
-  106 0160  FE 50       	CP 80
-  107 0162  28 05       	JR Z,FORM5
-  108                   	
-  109 0164  32 0208     	LD (CHAR_COUNT),A
-  110 0167  18 B6       	JR FORM2		; -> next track
-  111                   
-  112 0169  AF          FORM5:	XOR A
-  113 016A  32 0208     	LD (CHAR_COUNT),A
-  114                   	;LD A,0DH		; CR ausgeben
-  115 016D  0E 0D       	LD C,0DH
-  116 016F  CD F009     	CALL CONOUT
-  117                   	;LD A,0AH		; LF ausgeben
+   82 0131              FORM2:	; track loop
+   83                   	
+   84                   	; check for Ctrl-C
+   85 0131  CD F012     	CALL CONSTS
+   86 0134  A7          	AND A
+   87 0135  28 07       	JR Z,FORM2A		; -> no character available
+   88 0137  CD F003     	CALL CONIN		; get character -> A
+   89 013A  FE 03       	CP CTRLC
+   90 013C  28 7B       	JR Z,ABORT
+   91                   
+   92 013E  3E 00       FORM2A:	LD A,0			; starting sector 0
+   93 0140  32 029F     	LD (CURSEC),A
+   94 0143  3A 02A0     	LD A,(CURTRK)
+   95 0146  4F          	LD C,A			; set track
+   96 0147  CD E21E     	CALL SETTRK
+   97                   
+   98 014A              FORM3:	; sector loop
+   99 014A  3A 029F     	LD A,(CURSEC)
+  100 014D  4F          	LD C,A			; set sector
+  101 014E  CD E221     	CALL SETSEC
+  102 0151  01 02A2     	LD BC,SECBUF
+  103 0154  CD E224     	CALL SETDMA
+  104 0157  CD E22A     	CALL WRITE
+  105 015A  E6 01       	AND 01h			; error flag
+  106 015C  20 63       	JR NZ,ERROR
+  107                   
+  108 015E  3A 029F     	LD A,(CURSEC)
+  109                   	
+  110         0000      	IF NOT NEWIDE
+  112                   	ELSE
+  113 0161  FE FF       	CP 255			; new 8 MB format
+  114                   	ENDIF
+  115 0163  28 06       	JR Z,FORM4
+  116                   
+  117 0165  3C          	INC A
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   3
 NFORM-CFZ80
 
-  118 0172  0E 0A       	LD C,0Ah
-  119 0174  CD F009     	CALL CONOUT
-  120 0177  18 A6       	JR FORM2		; -> next track
-  121                   
-  122 0179              FORM6:	; next disk
-  123 0179  AF          	XOR A
-  124 017A  32 0208     	LD (CHAR_COUNT),A
-  125 017D  3A 0205     	LD A,(CURDSK)		;naechste virtuelle Diskette
-  126 0180  3C          	INC A
-  127 0181  FE 08       	CP ENDDSK+1		;fertig ?
-  128 0183  28 0B       	JR Z,FORM7		; -> done
-  129                   
-  130 0185  32 0205     	LD (CURDSK),A
-  131                   	;PUSH HL
-  132 0188  21 01ED     	LD HL,DISK_STRING	;next Disk ausgeben
-  133 018B  CD 01A2     	CALL WRSTR
-  134                   	;POP HL
-  135 018E  18 83       	JR FORM1		; -> next disk
-  136                   
-  137 0190              FORM7:	; done
-  138 0190  21 01D3     	LD HL,END_STRING	; success message
-  139 0193  CD 01A2     	CALL WRSTR
-  140                   	
-  141 0196  C3 F033     	JP MWARM
-  142                   
-  143                   
-  144 0199  21 01FB     ERROR:	LD HL,ERRMSG
-  145 019C  CD 01A2     	CALL WRSTR
-  146 019F  C3 F033     	JP MWARM
-  147                   
-  148                   ;-----------------------------------------------------------------------------
-  149                   ; Uses monitor CONOUT to print 0-terminated string
-  150                   ; address in HL
-  151                   ; 00h = string end
-  152                   
-  153 01A2  7E          WRSTR:	LD A,(HL)		; get char from string
-  154 01A3  A7          	AND A			; check if 0
-  155 01A4  C8          	RET Z			; -> end of string
-  156                   
-  157 01A5  4F          	LD C,A
-  158 01A6  CD F009     	CALL CONOUT
-  159 01A9  23          	INC HL			; next char in string
-  160                   	
-  161 01AA  18 F6       	JR WRSTR		; start over
-  162                   
-  163                   ;-----------------------------------------------------------------------------
-  164                   
-  165 01AC  0D 0A 0A 46 STRMSG:		DEFM	0dh,0ah,0ah,"Formating 4 virtual disks",0dh,0ah,"disk 1",0dh,0ah,0
-  166 01D3  0D 0A 46 6F END_STRING:	DEFM	0dh,0ah,'Formatting completed',0dh,0dh,0ah,0
-  167 01ED  0D 0A 4E 65 DISK_STRING:	DEFM	0dh,0ah,'Next disk',0dh,0ah,0
-  168                   
-  169 01FB  0D 0A 65 72 ERRMSG:		DEFM	0Dh,0Ah,"error",0Dh,0Ah,0
+  118 0166  32 029F     	LD (CURSEC),A
+  119 0169  18 DF       	JR FORM3		; -> next sector
+  120                   
+  121 016B              FORM4:	; next track
+  122 016B  3A 02A0     	LD A,(CURTRK)
+  123 016E  FE FF       	CP 255
+  124 0170  28 26       	JR Z,FORM6		; -> next disk
+  125                   		
+  126 0172  3C          	INC A
+  127 0173  32 02A0     	LD (CURTRK),A
+  128                   	;LD A,'.'		; print dot
+  129 0176  0E 2E       	LD C,'.'
+  130 0178  CD F009     	CALL CONOUT
+  131 017B  3A 02A1     	LD A,(CHRCNT)
+  132 017E  3C          	INC A
+  133 017F  FE 50       	CP 80
+  134 0181  28 05       	JR Z,FORM5
+  135                   	
+  136 0183  32 02A1     	LD (CHRCNT),A
+  137 0186  18 A9       	JR FORM2		; -> next track
+  138                   
+  139 0188  AF          FORM5:	XOR A
+  140 0189  32 02A1     	LD (CHRCNT),A
+  141 018C  0E 0D       	LD C,CR			; CR ausgeben
+  142 018E  CD F009     	CALL CONOUT
+  143 0191  0E 0A       	LD C,LF			; LF ausgeben
+  144 0193  CD F009     	CALL CONOUT
+  145 0196  18 99       	JR FORM2		; -> next track
+  146                   
+  147 0198              FORM6:	; next disk
+  148 0198  AF          	XOR A
+  149 0199  32 02A1     	LD (CHRCNT),A
+  150 019C  3A 029E     	LD A,(CURDSK)		; naechste virtuelle Diskette
+  151 019F  3C          	INC A
+  152 01A0  FE 08       	CP ENDDSK+1		; fertig ?
+  153 01A2  28 0C       	JR Z,FORM7		; -> done
+  154                   
+  155 01A4  32 029E     	LD (CURDSK),A
+  156 01A7  21 0256     	LD HL,NXTMSG		; next Disk ausgeben
+  157 01AA  CD 01C9     	CALL WRSTR
+  158 01AD  C3 0125     	JP FORM1		; -> next disk
+  159                   
+  160 01B0              FORM7:	; done
+  161 01B0  21 026F     	LD HL,CPLMSG		; success message
+  162 01B3  CD 01C9     	CALL WRSTR
+  163                   	
+  164 01B6  C3 F033     EXIT:	JP MWARM
+  165                   
+  166 01B9              ABORT:	; abort
+  167 01B9  21 0292     	LD HL,ABOMSG
+  168 01BC  CD 01C9     	CALL WRSTR
+  169 01BF  18 F5       	JR EXIT
   170                   
-  171 0205    0001      CURDSK:		DEFS	1
-  172 0206    0001      CURSEC:		DEFS	1
-  173 0207    0001      CURTRK:		DEFS	1
-  174                   ;ADDRESS:	DEFS	2
-  175 0208    0001      CHAR_COUNT:	DEFS	1
+  171 01C1              ERROR:	; error
+  172 01C1  21 0288     	LD HL,ERRMSG
+  173 01C4  CD 01C9     	CALL WRSTR
+  174 01C7  18 ED       	JR EXIT
+  175                   
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   4
 NFORM-CFZ80
 
-  176 0209  E5 E5 E5 E5 DIR_SECTOR:	DS	128,0E5h	;byte for empty directory
-  177 0289    00FF      		DS	0FFh		;stack space
-  178                   
-  179 0388              STACK:
-  180                   
-  181                   ;-----------------------------------------------------------------------------
-  182                   
-  183                   	END
+  176                   ;-----------------------------------------------------------------------------
+  177                   ; Uses monitor CONOUT to print 0-terminated string
+  178                   ; address in HL
+  179                   
+  180 01C9  7E          WRSTR:	LD A,(HL)		; get char from string
+  181 01CA  A7          	AND A			; check if 0
+  182 01CB  C8          	RET Z			; -> end of string
+  183                   
+  184 01CC  4F          	LD C,A
+  185 01CD  CD F009     	CALL CONOUT
+  186 01D0  23          	INC HL			; next char in string
+  187                   	
+  188 01D1  18 F6       	JR WRSTR		; start over
+  189                   
+  190                   ;-----------------------------------------------------------------------------
+  191                   
+  192 01D3  0D 0A 0A 4E STRMSG:		DEFM	CR,LF,LF,"NFORM-CF V1.1 260907 - Formating 4 virtual disks E..H",CR,LF
+  193 020D  41 6C 6C 20 		DEFM	"All data on IDE/CF will be erased!!!",CR,LF
+  194 0233  50 72 65 73 		DEFM	"Press ENTER to proceed or Ctrl-C",CR,LF,0
+  195                   
+  196 0256  0D 0A 4E 65 NXTMSG:		DEFM	CR,LF,'Next disk',CR,LF,0
+  197                   
+  198 0264  0D 0A 44 69 FRMMSG		DEFM	CR,LF,"Disk 1",CR,LF,0
+  199                   
+  200 026F  0D 0A 46 6F CPLMSG:		DEFM	CR,LF,'Formatting completed',CR,LF,0
+  201                   
+  202 0288  0D 0A 45 72 ERRMSG:		DEFM	CR,LF,"Error",CR,LF,0
+  203                   
+  204 0292  0D 0A 41 62 ABOMSG:		DEFM	CR,LF,"Aborted",CR,LF,0
+  205                   
+  206 029E    0001      CURDSK:		DEFS	1
+  207 029F    0001      CURSEC:		DEFS	1
+  208 02A0    0001      CURTRK:		DEFS	1
+  209 02A1    0001      CHRCNT:		DEFS	1
+  210 02A2  E5 E5 E5 E5 SECBUF:		DS	128,0E5h	; byte for empty directory / sector
+  211                   
+  212 0322    00FF      		DS	0FFh		; stack space
+  213         0421      STACK		EQU	$
+  214                   
+  215                   ;-----------------------------------------------------------------------------
+  216                   
+  217                   	END
  0 Error(s) Detected.
- 648 Absolute Bytes. 33 Symbols Detected.
-h,0ah,0
-  166 01D3  0D 0A 46 6F END_STRING:	DEFM	0dh,0ah,'Formatti
+ 801 Absolute Bytes. 44 Symbols Detected.
+xt disk',CR,LF,0
+  197                   
+  198 0264  0D 0A 

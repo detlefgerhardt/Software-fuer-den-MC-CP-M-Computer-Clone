@@ -7,22 +7,29 @@
 ; based on FORM-CF by Uli Haumann 05/2026
 ;
 ;*****************************************************************************
-; Writes E5h to 64 (256) sectors on tracks 1 to 255 of each disk (track 0 is reserved for system)
-; Uses BIOS calls. Load a BIOS that supports CF-card to the BIOS address before starting the
-; format program.
+; Tests and clears IDE/CF disk by writing E5h to 64 (256) sectors on tracks 1
+; to 255 of each disk (track 0 is reserved for system). Uses BIOS calls, so
+; sector size is 128 bytes.
+; Load a BIOS that supports IDE/CF with the right format to the BIOS address
+; before starting the format program.
 ;
-; PLEASE NOTE THE CHANGED BIOS START ADDRESS !!!
+; PLEASE NOTE THE CHANGED BIOS START ADDRESS AND NEW DISK FORMAT !!!
 ;
 ; Version history
 ;
 ; 09.07.2026 *dg* Renamed to NFORM-CF and reformatted
 ;                 Replaced Monitor write_string function because it might
 ;                 be overwritten bei the BIOS
-; 05.09.2026 *dg* Adapted to new 8192K B format and cleanup
+; 05.09.2026 *dg* Adapted to new 8192K B format and cleanup (NEWIDE)
 ; 06.09.2026 *dg* More cleanup
+; 07.09.2026 *dg* New start message, waits for ENTER,
+;		  Ctrl-C aborts formatting
 
 FALSE	EQU 0
 TRUE	EQU NOT FALSE
+CR	EQU 13
+LF	EQU 10
+CTRLC	EQU 3
 
 BIOS	EQU 0EA00H-800H
 
@@ -36,7 +43,9 @@ SETDMA	EQU BIOS+024H		; pass address in BC
 WRITE	EQU BIOS+02AH		; write one CP/M sector to disk (128 bytes)
 
 ; Monitor functions
+CONIN	EQU 0F003H		; get character from console -> A
 CONOUT	EQU 0F009H		; print a character im Monitor
+CONSTS	EQU 0F012H		; console status, A=0FFh if character available
 MWARM	EQU 0F033H
 
 STRDSK	EQU 4			; first CF disk (E:)
@@ -49,8 +58,17 @@ FORM:	LD SP,STACK
 	LD HL,STRMSG
 	CALL WRSTR		; output start message
 
+FORM0:	CALL CONIN
+	CP CTRLC
+	JP Z,ABORT
+	CP CR
+	JR NZ,FORM0		; wait for CR or CTRL-C
+
+	LD HL,FRMMSG
+	CALL WRSTR		; output start message
+
 	LD A,0
-	LD (CHAR_COUNT),A
+	LD (CHRCNT),A
 	
 	LD A,STRDSK		; first ide/cf disk
 	LD (CURDSK),A
@@ -63,7 +81,16 @@ FORM1:	; disk loop
 	LD (CURTRK),A
 
 FORM2:	; track loop
-	LD A,0			; starting sector 0
+	
+	; check for Ctrl-C
+	CALL CONSTS
+	AND A
+	JR Z,FORM2A		; -> no character available
+	CALL CONIN		; get character -> A
+	CP CTRLC
+	JR Z,ABORT
+
+FORM2A:	LD A,0			; starting sector 0
 	LD (CURSEC),A
 	LD A,(CURTRK)
 	LD C,A			; set track
@@ -73,17 +100,18 @@ FORM3:	; sector loop
 	LD A,(CURSEC)
 	LD C,A			; set sector
 	CALL SETSEC
-	LD BC,DIR_SECTOR
+	LD BC,SECBUF
 	CALL SETDMA
 	CALL WRITE
 	AND 01h			; error flag
 	JR NZ,ERROR
 
 	LD A,(CURSEC)
+	
 	IF NOT NEWIDE
-	CP 63
+	CP 63			; old 2 MB format
 	ELSE
-	CP 255
+	CP 255			; new 8 MB format
 	ENDIF
 	JR Z,FORM4
 
@@ -101,54 +129,54 @@ FORM4:	; next track
 	;LD A,'.'		; print dot
 	LD C,'.'
 	CALL CONOUT
-	LD A,(CHAR_COUNT)
+	LD A,(CHRCNT)
 	INC A
 	CP 80
 	JR Z,FORM5
 	
-	LD (CHAR_COUNT),A
+	LD (CHRCNT),A
 	JR FORM2		; -> next track
 
 FORM5:	XOR A
-	LD (CHAR_COUNT),A
-	;LD A,0DH		; CR ausgeben
-	LD C,0DH
+	LD (CHRCNT),A
+	LD C,CR			; CR ausgeben
 	CALL CONOUT
-	;LD A,0AH		; LF ausgeben
-	LD C,0Ah
+	LD C,LF			; LF ausgeben
 	CALL CONOUT
 	JR FORM2		; -> next track
 
 FORM6:	; next disk
 	XOR A
-	LD (CHAR_COUNT),A
-	LD A,(CURDSK)		;naechste virtuelle Diskette
+	LD (CHRCNT),A
+	LD A,(CURDSK)		; naechste virtuelle Diskette
 	INC A
-	CP ENDDSK+1		;fertig ?
+	CP ENDDSK+1		; fertig ?
 	JR Z,FORM7		; -> done
 
 	LD (CURDSK),A
-	;PUSH HL
-	LD HL,DISK_STRING	;next Disk ausgeben
+	LD HL,NXTMSG		; next Disk ausgeben
 	CALL WRSTR
-	;POP HL
-	JR FORM1		; -> next disk
+	JP FORM1		; -> next disk
 
 FORM7:	; done
-	LD HL,END_STRING	; success message
+	LD HL,CPLMSG		; success message
 	CALL WRSTR
 	
-	JP MWARM
+EXIT:	JP MWARM
 
-
-ERROR:	LD HL,ERRMSG
+ABORT:	; abort
+	LD HL,ABOMSG
 	CALL WRSTR
-	JP MWARM
+	JR EXIT
+
+ERROR:	; error
+	LD HL,ERRMSG
+	CALL WRSTR
+	JR EXIT
 
 ;-----------------------------------------------------------------------------
 ; Uses monitor CONOUT to print 0-terminated string
 ; address in HL
-; 00h = string end
 
 WRSTR:	LD A,(HL)		; get char from string
 	AND A			; check if 0
@@ -162,21 +190,28 @@ WRSTR:	LD A,(HL)		; get char from string
 
 ;-----------------------------------------------------------------------------
 
-STRMSG:		DEFM	0dh,0ah,0ah,"Formating 4 virtual disks",0dh,0ah,"disk 1",0dh,0ah,0
-END_STRING:	DEFM	0dh,0ah,'Formatting completed',0dh,0dh,0ah,0
-DISK_STRING:	DEFM	0dh,0ah,'Next disk',0dh,0ah,0
+STRMSG:		DEFM	CR,LF,LF,"NFORM-CF V1.1 260907 - Formating 4 virtual disks E..H",CR,LF
+		DEFM	"All data on IDE/CF will be erased!!!",CR,LF
+		DEFM	"Press ENTER to proceed or Ctrl-C",CR,LF,0
 
-ERRMSG:		DEFM	0Dh,0Ah,"error",0Dh,0Ah,0
+NXTMSG:		DEFM	CR,LF,'Next disk',CR,LF,0
+
+FRMMSG		DEFM	CR,LF,"Disk 1",CR,LF,0
+
+CPLMSG:		DEFM	CR,LF,'Formatting completed',CR,LF,0
+
+ERRMSG:		DEFM	CR,LF,"Error",CR,LF,0
+
+ABOMSG:		DEFM	CR,LF,"Aborted",CR,LF,0
 
 CURDSK:		DEFS	1
 CURSEC:		DEFS	1
 CURTRK:		DEFS	1
-;ADDRESS:	DEFS	2
-CHAR_COUNT:	DEFS	1
-DIR_SECTOR:	DS	128,0E5h	;byte for empty directory
-		DS	0FFh		;stack space
+CHRCNT:		DEFS	1
+SECBUF:		DS	128,0E5h	; byte for empty directory / sector
 
-STACK:
+		DS	0FFh		; stack space
+STACK		EQU	$
 
 ;-----------------------------------------------------------------------------
 

@@ -1,8 +1,8 @@
 ;************************************************************************
-;* NBIOS10.Z80								*
+;* NBIOS10.Z80		RDK/UH/*DG*	09/2026				*
 ;*									*
-;* basiert direct auf der Version 3.1 1984 Rolf-Dieter Klein 841220     *
-;* Urspruengliche Version fuer 2 Mini und 2 Maxi Laufwerke		*
+;* basiert direct auf der Version 3.1 841220 von Rolf-Dieter Klein	*
+;* Urspruengliche Version fuer 2 Mini- und 2 Maxi-Laufwerke		*
 ;*									*
 ;************************************************************************
 ;
@@ -33,6 +33,7 @@
 ;		  DPBx Parameter-Bloecken         
 ; 05.09.2026 *dg* New 8192K format for CF/IDE with deblocking
 ; 06.09.2026 *dg* Cleanup
+; 08.09.2026 *dg* Cleanup
 ;
 ; Verbesserung/Veraenderungen zu BIOS 3.1 seit Juni 2026
 ;
@@ -99,8 +100,18 @@ BTSECN	EQU 64		; sector per track
 ;------------------------------------------------------------------------------
 ; Monitor functions
 
-;MCONOUT	EQU 0F009h	; console out, character in C
+MCONIN	EQU 0F003H	; read one char from READER device -> A
+MREAD	EQU 0F006H	; read one char from READER device -> A
+MCONOUT	EQU 0F009H	; write one char to CONSOLE (C)
+MPUNCH	EQU 0F00CH	; write one char to PUNCH device (C)
+MLIST	EQU 0F00FH	; write one char to LIST device (C)			
 MCONST	EQU 0F012H	; get console status
+MSTART	EQU 0F01EH	; restart Monitor
+MFLOP	EQU 0F021H	; new Mini/Maxi routine in Monitor
+MIDERD	EQU 0F02AH	; read sector from mini/maxi floppy
+MIDEWR	EQU 0F02DH	; write sector to mini/maxi floppy
+MWARM	EQU 0F033H	; Monitor warm start, will be overwritten by BIOS
+MWRSTR	EQU 0F036H	; Write string, will be overwritten by BIOS (do no call!)
 
 ;------------------------------------------------------------------------------
 ; CPM and BIOS sizes and addresses
@@ -123,6 +134,7 @@ NSECTS	EQU CPML / 128		; Number of logical sectors ocupied by CP/M
 				; (used for for WBOOT)
 
 ;-----------------------------------------------------------------------------
+; Memory addresses below 0100h
 
 JWARM	EQU 0000H	; JMP to WBOOT
 IOBYTE	EQU 0003H	; Address of IOBYTE
@@ -131,11 +143,6 @@ JBDOS	EQU 0005H	; JMP to BDOS
 JRST7	EQU 0038H	; JMP RST7 (7*8)
 BUFF	EQU 0080H	; buffer address
 RETRY	EQU 5		; Fehlerversuche bei BOOT und Maxi Read/Write
-
-;-----------------------------------------------------------------------------
-; Monitor addresses
-
-FEXEC	EQU 0F021h	; new Mini/Maxi routine
 
 ;-----------------------------------------------------------------------------
 
@@ -149,12 +156,12 @@ STARTBIOS:
 	; --- start of offical BIOS calls ---
 	
 WBOOTE:	JP WBOOT	; Warm boot (CTRL-C)
-	JP CONST	; Get CONSOLE status -> A, 0FFh if character available
+	JP MCONST	; Get CONSOLE status -> A, 0FFh if character available
 	JP CONIN	; Input character from CONSOLE -> A
-	JP CONOUT	; Output character to CONSOLE (C)
-	JP LIST		; Output character to LIST device (C)
-	JP PUNCH	; Output character to PUNCH device (C)
-	JP READER	; Input character from READER device -> A
+	JP MCONOUT	; Output character to CONSOLE (C)
+	JP MLIST	; Output character to LIST device (C)
+	JP MPUNCH	; Output character to PUNCH device (C)
+	JP MREAD	; Input character from READER device -> A
 
 	JP HOME		; Select track home position (no execution)
 	JP SELDSK	; Select drive, drive 0..n-1 in C, returns disk parameter header block in HL
@@ -462,7 +469,7 @@ SIGNON:	DB 26
 	DB CPMVER/10+'0','.',CPMVER MOD 10+'0'
 	DB ' for MC-Computer '
 	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-	DB 'K NBIOS 260906-01'
+	DB 'K NBIOS 260908-01'
 	DB " BOOT=",BTDRV+'A',CR,LF
 
 	DB "A:NKC800"
@@ -490,14 +497,9 @@ SIGNON:	DB 26
 	DB CR,LF,0
 
 ;-----------------------------------------------------------------------------
-; get state of CONSOLE (if character is available)
-
-CONST	EQU 0F012H
-
-;-----------------------------------------------------------------------------
 ; read one char from CONSOLE and clears parity bit
 
-CONIN:	CALL 0F003H
+CONIN:	CALL MCONIN
 	AND 7FH
 
 	IF DEBOUT
@@ -515,41 +517,6 @@ CONIN:	CALL 0F003H
 	ENDIF
 	
 	RET
-
-;-----------------------------------------------------------------------------
-; read one char from READER device -> A
-
-READER	EQU 0F006H
-
-;-----------------------------------------------------------------------------
-; write one char to CONSOLE (C)
-
-CONOUT	EQU 0F009H
-
-;-----------------------------------------------------------------------------
-; write one char to PUNCH device (C)
-
-PUNCH	EQU 0F00CH
-
-;-----------------------------------------------------------------------------
-; write one char to LIST device (C)			
-
-LIST	EQU 0F00FH
-
-;-----------------------------------------------------------------------------
-; restart Monitor
-
-MSTART	EQU 0F01EH
-
-;-----------------------------------------------------------------------------
-; Monitor warm start
-
-MWARM	EQU 0F033H	; Monitor warm start, will be overwritten by BIOS
-
-;-----------------------------------------------------------------------------
-; Monitor write string
-
-MWRSTR	EQU 0F036H	; Write string, will be overwritten by BIOS
 
 ;-----------------------------------------------------------------------------
 ; Cold boot
@@ -583,7 +550,7 @@ BOOT:	LD SP,BUFF+80H	; set stack
 	; set steprate
 	LD D,00000000B	; max steprate 00b, no sso
 	LD B,0		; set steprate
-	CALL FEXEC
+	CALL MFLOP
 	
 	JP GOCPM	; start CP/M
 
@@ -621,7 +588,7 @@ WBOO2:	; loop, load CP/M
 			; to preserve patches.
 
 	;LD C,'1'
-	;CALL CONOUT
+	;CALL MCONOUT
 
 WBOO3:	; sector read loop
 	PUSH BC
@@ -713,7 +680,7 @@ HOME:	LD C,0		; aber nur anwaehlen, nicht
 
 ;-----------------------------------------------------------------------------
 ; Select disk (used by BDOS)
-; drive-code in C (0..3)
+; drive-code in C (0..n-1)
 
 SELDSK:	LD HL,0		; und pruefen ob gueltig
 	LD A,C		; wenn groesser als ndisks
@@ -820,13 +787,13 @@ PRMSG: 	LD A,(HL)
 	
 	PUSH HL
 	LD C,A
-	CALL CONOUT
+	CALL MCONOUT
 	POP HL
 	INC HL
 	JP PRMSG	; -> next char
 
 ;=============================================================================
-; Read and write sector using FEXEC into monitor
+; Read and write sector using MFLOP into monitor
 
 ;-----------------------------------------------------------------------------
 ; Read sector
@@ -948,7 +915,7 @@ MAXIR1:	; retry loop
 	LD E,A
 	LD B,1		; Lese-Befehlscode
 	CALL MAXCAL	; vorher Laufwerkscode umrechnen
-	CALL FEXEC	; und dann ausfuehren
+	CALL MFLOP	; und dann ausfuehren
 	POP BC		; Retry-Zaehler
 	RET Z		; kein Fehler, dann ok zurueck
 	DEC B		; sonst nochmals probieren
@@ -959,7 +926,7 @@ MAXIR1:	; retry loop
 	RET
 
 ;-----------------------------------------------------------------------------
-; Write sector using FEXEC into monitor
+; Write sector using MFLOP into monitor
 
 ; Buffer (DMA address) in IOD
 ; Drive in DBANK (0..n-1)
@@ -1019,7 +986,7 @@ MAXIW1:	PUSH BC		; Dazu Fehlerzaehler retten
 	
 	LD B,2		; Schreib-Befehlscode
 	CALL MAXCAL	; vorher Laufwerk umrechnen
-	CALL FEXEC	; und ausfuehren
+	CALL MFLOP	; und ausfuehren
 	POP BC	
 	RET Z		; -> no error
 	
@@ -1301,10 +1268,10 @@ CALCPHS:
 	
 	IF DEBOUT
 	;LD C,'['
-	;CALL CONOUT
+	;CALL MCONOUT
 	;CALL DEBX16
 	;LD C,']'
-	;CALL CONOUT
+	;CALL MCONOUT
 	ENDIF
 	
 	EX DE,HL
@@ -1356,7 +1323,7 @@ GETPHS:	; reset buffer changed flag
 	LD A,(CURTRK)
 	LD D,A
 	
-	CALL FEXEC	; -> new floppy routine
+	CALL MFLOP	; -> new floppy routine
 	JP C,PHSERR
 
 	;IF DEBOUT
@@ -1411,7 +1378,7 @@ GETIDE:	; handle CD/IDE drive
 PHSERR:	
 	;IF DEBOUT
 	;LD C,'*'
-	;CALL CONOUT
+	;CALL MCONOUT
 	;ENDIF
 
 	SCF
@@ -1448,7 +1415,7 @@ PUTPHS:	; reset buffer changed flag
 	CALL DEBPHY
 	ENDIF
 
-	CALL FEXEC	; -> new floppy routine
+	CALL MFLOP	; -> new floppy routine
 	JP C,PHSERR
 
 	; no error
@@ -1526,9 +1493,6 @@ IDESTAT	EQU 01Fh	; IDE Command/Status Register
 ; 000000dd tttttttt ssssssss
 ;        E        B        C
 
-MIDERD	EQU 0F02Ah
-MIDEWR	EQU 0F02Dh
-
 ;-----------------------------------------------------------------------------
 ; Read one 256 byte sector from disk.
 ; Return a 00h in A if the operation completes properly, and 01h if an error occurs during the read.
@@ -1562,12 +1526,12 @@ IDERD:	LD HL,PHSBUF
 
 	PUSH AF
 	LD C,'*'
-	CALL CONOUT
+	CALL MCONOUT
 	LD C,'R'
-	CALL CONOUT
+	CALL MCONOUT
 	CALL DEBX16
 	LD C,'*'
-	CALL CONOUT
+	CALL MCONOUT
 	POP AF
 
 	AND 01H
@@ -1703,7 +1667,7 @@ PATA:	LD IX,PATAADR
 	LD (IX+3),HIGH PATACL
 
 	;LD C,'+'
-	;CALL CONOUT
+	;CALL MCONOUT
 
 	;---------------------------------------------------------------------
 	; BDOS patch: init BDOS active drive
@@ -1714,16 +1678,16 @@ PATACL:	LD HL,(BDACT)
 
 	;PUSH BC
 	;LD C,'!'
-	;CALL CONOUT
+	;CALL MCONOUT
 	;LD A,(ACTIVE)
 	;ADD '0'
 	;LD C,A
-	;CALL CONOUT
+	;CALL MCONOUT
 	;POP BC
 	RET
 
 PATA1:	;LD C,'-'
-	;CALL CONOUT
+	;CALL MCONOUT
 	RET
 
 ;-----------------------------------------------------------------------------
@@ -1742,7 +1706,7 @@ PATB:	LD IX,PADBADR
 	LD (IX+2),HIGH PATBCL
 
 	LD C,'*'
-	CALL CONOUT
+	CALL MCONOUT
 
 	;---------------------------------------------------------------------
 	; BDOS patch
@@ -1750,17 +1714,17 @@ PATB:	LD IX,PADBADR
 ACTIVE	EQU 0D744h
 
 PATBCL:	LD C,'X'
-	CALL 0F009H
+	CALL MCONOUT
 	LD A,(ACTIVE)	
 	PUSH AF
 	ADD A,'0'
 	LD C,A
-	CALL 0F009H
+	CALL MCONOUT
 	POP AF
 	RET
 
 PATB1:LD C,'-'
-	CALL CONOUT
+	CALL MCONOUT
 	RET
 
 	ENDIF		; FALSE
@@ -1783,9 +1747,9 @@ DEBPHY:	LD A,(DEBACT)
 	LD L,C		; save drive code
 	
 	LD C,'['
-	CALL CONOUT
+	CALL MCONOUT
 	LD C,'P'
-	CALL CONOUT
+	CALL MCONOUT
 	
 	LD A,B
 	;PUSH AF
@@ -1799,10 +1763,10 @@ DEBPHY:	LD A,(DEBACT)
 DEBPH1:	; write
 	LD C,'W'
 
-DEBPH2:	CALL CONOUT
+DEBPH2:	CALL MCONOUT
 
 	LD C,','
-	CALL CONOUT
+	CALL MCONOUT
 
 	; drive code in L
 	LD A,L
@@ -1811,21 +1775,21 @@ DEBPH2:	CALL CONOUT
 	CALL DEBX8
 
 	LD C,','
-	CALL CONOUT
+	CALL MCONOUT
 
 	; track
 	LD A,D
 	CALL DEBX8
 
 	LD C,','
-	CALL CONOUT
+	CALL MCONOUT
 
 	; sector
 	LD A,E
 	CALL DEBX8
 
 	LD C,']'
-	CALL CONOUT
+	CALL MCONOUT
 
 	;POP AF
 	;CP 1		; read
@@ -1847,7 +1811,7 @@ DEBPH3:	POP HL
 DEBLK:	PUSH DE
 
 	LD C,'<'
-	CALL CONOUT
+	CALL MCONOUT
 
 	LD HL,PHSBUF
 	LD B,8
@@ -1856,19 +1820,19 @@ DEBLK1:	; loop B=8..1
 	LD A,(HL)
 	CALL DEBX8
 	LD C,'-'
-	CALL CONOUT
+	CALL MCONOUT
 
 	INC HL
 	LD A,(HL)
 	CALL DEBX8
 	LD C,'-'
-	CALL CONOUT
+	CALL MCONOUT
 	
 	INC HL
 	LD A,(HL)
 	CALL DEBX8
 	LD C,','
-	CALL CONOUT
+	CALL MCONOUT
 
 	DEC HL
 	DEC HL
@@ -1877,7 +1841,7 @@ DEBLK1:	; loop B=8..1
 	DJNZ DEBLK1
 	
 	LD C,'>'
-	CALL CONOUT
+	CALL MCONOUT
 
 	POP DE
 	
@@ -1895,20 +1859,20 @@ DEBDRV:	PUSH BC
 	PUSH HL
 
 	LD C,'['
-	CALL CONOUT
+	CALL MCONOUT
 	LD C,'F'
-	CALL CONOUT
+	CALL MCONOUT
 	LD A,(DBANK)
 	LD L,A
 	CALL DEBDEC
 	LD H,0
 	
 	LD C,','
-	CALL CONOUT
+	CALL MCONOUT
 	POP HL
 	CALL DEBDEC
 	LD C,']'
-	CALL CONOUT
+	CALL MCONOUT
 
 	POP BC
 	RET
@@ -1925,20 +1889,20 @@ DEBSEL:	PUSH BC
 	PUSH HL
 
 	LD C,'['
-	CALL CONOUT
+	CALL MCONOUT
 	LD C,'S'
-	CALL CONOUT
+	CALL MCONOUT
 	LD A,(DBANK)
 	LD L,A
 	LD H,0
 	CALL DEBDEC
 	
 	LD C,','
-	CALL CONOUT
+	CALL MCONOUT
 	POP HL
 	CALL DEBDEC
 	LD C,']'
-	CALL CONOUT
+	CALL MCONOUT
 
 	POP BC
 	RET
@@ -1963,36 +1927,36 @@ DEBIDE:	;LD A,(DEBACT)
 	LD D,C		; save C in D (sector)
 
 	LD C,'['
-	CALL CONOUT
+	CALL MCONOUT
 
 	; Read / Write
 	LD C,L
-	CALL CONOUT
+	CALL MCONOUT
 
 	; drive
 	LD A,E
 	CALL DEBX8
 
 	LD C,' '
-	CALL CONOUT
+	CALL MCONOUT
 
 	; sectors
 	LD A,B
 	CALL DEBX8
 	
 	LD C,' '
-	CALL CONOUT
+	CALL MCONOUT
 
 	; tracks
 	LD A,D		; saved sector in D
 	CALL DEBX8
 
 	LD C,']'
-	CALL CONOUT
+	CALL MCONOUT
 	LD C,CR
-	CALL CONOUT
+	CALL MCONOUT
 	LD C,LF
-	CALL CONOUT
+	CALL MCONOUT
 
 	POP DE
 	POP BC
@@ -2017,7 +1981,7 @@ DEBBUF:	PUSH HL
 	JR Z,DEBBU3
 
 	LD C,'['
-	CALL CONOUT
+	CALL MCONOUT
 	
 	LD A,B		; read/write
 	CP A,1		; -> write
@@ -2030,29 +1994,29 @@ DEBBUF:	PUSH HL
 DEBBU1:	; write
 	LD C,'W'
 
-DEBBU2:	CALL CONOUT
+DEBBU2:	CALL MCONOUT
 	LD C,','
-	CALL CONOUT
+	CALL MCONOUT
 	
 	LD HL,(IOD)
 	
 	LD A,(HL)
 	CALL DEBX8	
 	LD C,','
-	CALL CONOUT
+	CALL MCONOUT
 
 	INC HL
 	LD A,(HL)
 	CALL DEBX8	
 	LD C,','
-	CALL CONOUT
+	CALL MCONOUT
 
 	INC HL
 	LD A,(HL)
 	CALL DEBX8	
 
 	LD C,']'
-	CALL CONOUT
+	CALL MCONOUT
 
 DEBBU3:	POP BC
 	POP HL
@@ -2099,7 +2063,7 @@ DEBDE2:	INC A		; Zeichen um 1 erhoehen (ASCII-Code weiterzaehlen)
 	;PUSH BC	; Register sichern
 	;PUSH HL
 	LD C,A		; character to print
-	CALL CONOUT	; uses A
+	CALL MCONOUT	; uses A
 	;POP HL
 	;POP BC
 	RET
@@ -2149,7 +2113,7 @@ DEBXN:	AND 0Fh
 DEBXN1:	ADD A,'0'
 
 DEBXN2:	LD C,A
-	JP CONOUT
+	JP MCONOUT
 
 ;-----------------------------------------------------------------------------
 
