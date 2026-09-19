@@ -34,6 +34,7 @@
 ; 05.09.2026 *dg* New 8192K format for CF/IDE with deblocking
 ; 06.09.2026 *dg* Cleanup
 ; 08.09.2026 *dg* Cleanup
+; 19.09.2026 *dg* Change selection of disk formats (more defines)
 ;
 ; Verbesserung/Veraenderungen zu BIOS 3.1 seit Juni 2026
 ;
@@ -77,9 +78,24 @@ LF	EQU 0AH		; line feed
 ; Variant switches
 
 ; aktiviert alle bisherigen Aenderungen gegenueber der Originalversion 3.1
+DG_B800	EQU TRUE	; drive B is 800 KB (same as drive A)
+DG_B144	EQU FALSE	; drive B as HD drive (5 1/4 inch, 1.44 MB)
+DG_B14	EQU FALSE	; drive B as HD drive (5 1/4 inch, 1.4 MB)
+DG_B12	EQU FALSE	; drive B as HD drive (5 1/4 inch, 1.2 MB)
+
+DG_C800	EQU TRUE	; drive C is 800 KB (same as drive A)
+DG_C14	EQU FALSE	; drive C as HD drive (5 1/4 inch, 1.4 MB)
+DG_C12	EQU FALSE	; drive C as HD drive (5 1/4 inch, 1.2 MB)
+DG_CIBM	EQU FALSE	; drive C is IBM
+
+DG_D800	EQU FALSE	; drive D is 800 KB (same as drive A)
+DG_D144	EQU FALSE	; drive D as HD drive (5 1/4 inch, 1.44 MB)
+DG_D14	EQU FALSE	; drive D as HD drive (5 1/4 inch, 1.4 MB)
+DG_D12	EQU TRUE	; drive D as HD drive (5 1/4 inch, 1.2 MB)
+DG_DIBM	EQU FALSE	; drive D is IBM
+
 NEWIDE	EQU TRUE	; new IDE/CF format (8192 KB)
-DG_BHD	EQU FALSE	; drive B as HD drive (5 1/4 inch, 1.4 MB)
-DG_CHD	EQU TRUE	; drive C as HD drive (3 1/2 inch, 1.44 MB)
+
 DEBOUT	EQU TRUE	; debug outputs
 BTDRV	EQU 0		; drive A:
 ;BTDRV	EQU 4		; drive E: (IDE/CF)
@@ -262,18 +278,46 @@ DPB0	EQU	$	; DISK PARM BLOCK
 	
 XLT0	EQU	0	; NO XLATE TABLE
 
-	IF NOT DG_BHD
+	; Disk 1 (B)----------------------------------------------------------
 
-	; Disk 1 (B), same as Disk A -----------------------------------------
-	; DISKDEF 1,0	; LAUFWERK 1 WIE LAUFWERK 0 DEFINIERT
+	IF DG_B800
+
+	; same as Disk A
 DPB1	EQU	DPB0	; EQUIVALENT PARAMETERS
 XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
 
-	ELSE	; DG_BHD
+	ENDIF		; DG_B800
 
-	IF FALSE
-	; Disk 1 (B): PHYSICAL FORMAT: 1.4 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 8 SECTORS/TRACK, 80 TRACKS
- DPB1	EQU	$	; DISK PARM BLOCK
+	IF DG_B144
+
+	; PHYSICAL FORMAT: 1.44 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 9 SECTORS/TRACK, 80 TRACKS
+DPB1	EQU	$	; DISK PARM BLOCK
+ 	DW	72	; SEC PER TRACK
+ 	DB	5	; BLOCK SHIFT
+ 	DB	31	; BLOCK MASK
+ 	DB	1	; EXTNT MASK
+ 	DW	354	; DISK SIZE-1
+  	DW	255	; DIRECTORY MAX
+ 	DB	192	; ALLOC0
+ 	DB	0	; ALLOC1
+ 	DW	64	; CHECK SIZE
+ 	DW	2	; OFFSET
+	; new parameters:
+ 	DB	00000000B ; Maxi/HD
+	DB 	3	  ; 72 / 9 = 8 -> 2^3
+	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
+XLT1	EQU	0	; NO XLATE TABLE
+	; new parameters: PRUEFEN !!!
+	;DB	00100000B ; Mini/DD
+	;DB 	3	  ; 40 / 5 sectors = 8 -> 2^3
+	;DB	00000111B ; 1024 bytes/sector -> modulo 8 (0..7)
+
+	ENDIF
+	
+	IF DG_B14
+
+	; PHYSICAL FORMAT: 1.4 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 8 SECTORS/TRACK, 80 TRACKS
+DPB1	EQU	$	; DISK PARM BLOCK
  	DW	60	; SEC PER TRACK
  	DB	5	; BLOCK SHIFT
  	DB	31	; BLOCK MASK
@@ -288,13 +332,14 @@ XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
 	DB	00000000B ; Maxi/HD
 	DB 	2	  ; 60 / 15 = 4 -> 2^2
 	DB	00000011B ; 512 bytes/sector -> modulo 0..3
-
- XLT1	EQU	0	; NO XLATE TABLE
+XLT1	EQU	0	; NO XLATE TABLE
  
-	ENDIF	; FALSE
+	ENDIF	; DG_B14
 
-	; Disk 1 (B): PHYSICAL FORMAT: 1.2 MB, HD, DS, 512 BYTES/SECTOR, 4096 Bytes/Block, 15 SECTORS/TRACK, 80 TRACKS
- DPB1	EQU	$	; DISK PARM BLOCK
+	IF DG_B12
+
+	; PHYSICAL FORMAT: 1.2 MB, HD, DS, 512 BYTES/SECTOR, 4096 Bytes/Block, 15 SECTORS/TRACK, 80 TRACKS
+DPB1	EQU	$	; DISK PARM BLOCK
  	DW	60	; SEC PER TRACK
  	DB	5	; BLOCK SHIFT
  	DB	31	; BLOCK MASK
@@ -310,44 +355,75 @@ XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
 	DB	00000000B ; Maxi/HD
 	DB 	2	  ; 60 / 15 = 4 -> 2^2
 	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
+XLT1	EQU	0	; NO XLATE TABLE
 
- XLT1	EQU	0	; NO XLATE TABLE
+	ENDIF	; DG_B12
 
-	ENDIF	; DG_BHD
+	; Disk 2 (C) ---------------------------------------------------------
 
-	IF NOT DG_CHD
+	IF DG_C800
 
-	; Disk 2 (C), same as Disk A -----------------------------------------
-
-	; DISKDEF 2,0	; LAUFWERK 2 WIE LAUFWERK 0 DEFINIERT
 DPB2	EQU	DPB0	; EQUIVALENT PARAMETERS
 XLT2	EQU	XLT0	; SAME TRANSLATE TABLE
 
-	ELSE	; DG_CHD
+	ENDIF		; DG_C800
 
-	; Disk 2 (C): PHYSICAL FORMAT: 1.44 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 9 SECTORS/TRACK, 80 TRACKS
- DPB2	EQU	$	; DISK PARM BLOCK
- 	DW	72	; SEC PER TRACK
+	IF DG_C14
+
+	; PHYSICAL FORMAT: 1.4 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 8 SECTORS/TRACK, 80 TRACKS
+DPB2	EQU	$	; DISK PARM BLOCK
+ 	DW	60	; SEC PER TRACK
  	DB	5	; BLOCK SHIFT
  	DB	31	; BLOCK MASK
  	DB	1	; EXTNT MASK
- 	DW	354	; DISK SIZE-1
+ 	DW	354 ;315; 275	; DISK SIZE-1
   	DW	255	; DIRECTORY MAX
  	DB	192	; ALLOC0
  	DB	0	; ALLOC1
  	DW	64	; CHECK SIZE
  	DW	2	; OFFSET
 	; new parameters:
- 	DB	00000000B ; Maxi/HD
-	DB 	3	  ; 72 / 9 = 8 -> 2^3
-	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
-	
- XLT2	EQU	0	; NO XLATE TABLE
-	
-	ENDIF	; DG_CHD
+	DB	00000000B ; Maxi/HD
+	DB 	2	  ; 60 / 15 = 4 -> 2^2
+	DB	00000011B ; 512 bytes/sector -> modulo 0..3
+XLT2	EQU	0	; NO XLATE TABLE
+ 
+	ENDIF	; DG_C14
 
+	IF DG_C12
+
+	; PHYSICAL FORMAT: 1.2 MB, HD, DS, 512 BYTES/SECTOR, 4096 Bytes/Block, 15 SECTORS/TRACK, 80 TRACKS
+DPB2	EQU	$	; DISK PARM BLOCK
+ 	DW	60	; SEC PER TRACK
+ 	DB	5	; BLOCK SHIFT
+ 	DB	31	; BLOCK MASK
+ 	DB	1	; EXTNT MASK
+ 	;DW	275 ; 295 ; DISK SIZE-1
+ 	DW	295	; DISK SIZE-1
+  	DW	255	; DIRECTORY MAX
+ 	DB	192	; ALLOC0
+ 	DB	0	; ALLOC1
+ 	DW	64	; CHECK SIZE
+ 	DW	2	; OFFSET
+	; new parameters:
+	DB	00000000B ; Maxi/HD
+	DB 	2	  ; 60 / 15 = 4 -> 2^2
+	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
+XLT2	EQU	0	; NO XLATE TABLE
+
+	ENDIF	; DG_C12
 
 	; Disk 3 (D) --------------------------------------------------------
+
+	IF DG_D800
+
+DPB3	EQU	DPB0	; EQUIVALENT PARAMETERS
+XLT3	EQU	XLT0	; SAME TRANSLATE TABLE
+
+	ENDIF		; DG_D800
+	
+	IF DG_DIBM
+	
 	; physical format: 8 inch, SD, SS, 128 bytes/sector, 26 sectors/track, 77 tracks
 	; DISKDEF 3,1,26,6,1024,243,64,64,2 ; 8 ZOLL DEFINITION
 
@@ -362,7 +438,7 @@ DPB3	EQU	$	; DISK PARM BLOCK
  	DB	0	; ALLOC1
  	DW	16	; CHECK SIZE
  	DW	2	; OFFSET
-	; new parameters:
+	; new parameters PRUEFEN!!!:
 	DB	00010000B ; Maxi/SD
 	DB	0	  ; 26 / 26 = 1 -> 2^0 (no deblocking)
 	DB	00000001B ; 128 bytes/sector -> modulo 1 (0) (no deblocking)
@@ -393,9 +469,81 @@ XLT3	EQU	$	; TRANSLATE TABLE
  	DB	4		
  	DB	10		
  	DB	16		
- 	DB	22	
+ 	DB	22
+	
+	ENDIF		; DG_DIBM
+
+	IF DG_D144
+
+	; PHYSICAL FORMAT: 1.44 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 9 SECTORS/TRACK, 80 TRACKS
+DPB3	EQU	$	; DISK PARM BLOCK
+ 	DW	72	; SEC PER TRACK
+ 	DB	5	; BLOCK SHIFT
+ 	DB	31	; BLOCK MASK
+ 	DB	1	; EXTNT MASK
+ 	DW	354	; DISK SIZE-1
+  	DW	255	; DIRECTORY MAX
+ 	DB	192	; ALLOC0
+ 	DB	0	; ALLOC1
+ 	DW	64	; CHECK SIZE
+ 	DW	2	; OFFSET
+	; new parameters: PRUEFEN !!!
+ 	DB	00000000B ; Maxi/HD
+	DB 	3	  ; 72 / 9 = 8 -> 2^3
+	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
+XLT3	EQU	0	; NO XLATE TABLE
+
+	ENDIF		; DG_D144
+	
+	IF DG_D14
+
+	; PHYSICAL FORMAT: 1.4 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 8 SECTORS/TRACK, 80 TRACKS
+DPB3	EQU	$	; DISK PARM BLOCK
+ 	DW	60	; SEC PER TRACK
+ 	DB	5	; BLOCK SHIFT
+ 	DB	31	; BLOCK MASK
+ 	DB	1	; EXTNT MASK
+ 	DW	354 ;315; 275	; DISK SIZE-1
+  	DW	255	; DIRECTORY MAX
+ 	DB	192	; ALLOC0
+ 	DB	0	; ALLOC1
+ 	DW	64	; CHECK SIZE
+ 	DW	2	; OFFSET
+	; new parameters:
+	DB	00000000B ; Maxi/HD
+	DB 	2	  ; 60 / 15 = 4 -> 2^2
+	DB	00000011B ; 512 bytes/sector -> modulo 0..3
+XLT3	EQU	0	; NO XLATE TABLE
+ 
+	ENDIF		; DG_D14
+
+	IF DG_D12
+
+	; PHYSICAL FORMAT: 1.2 MB, HD, DS, 512 BYTES/SECTOR, 4096 Bytes/Block, 15 SECTORS/TRACK, 80 TRACKS
+DPB3	EQU	$	; DISK PARM BLOCK
+ 	DW	60	; SEC PER TRACK
+ 	DB	5	; BLOCK SHIFT
+ 	DB	31	; BLOCK MASK
+ 	DB	1	; EXTNT MASK
+ 	;DW	275 ; 295 ; DISK SIZE-1
+ 	DW	295	; DISK SIZE-1
+  	DW	255	; DIRECTORY MAX
+ 	DB	192	; ALLOC0
+ 	DB	0	; ALLOC1
+ 	DW	64	; CHECK SIZE
+ 	DW	2	; OFFSET
+	; new parameters:
+	DB	00000000B ; Maxi/HD
+	DB 	2	  ; 60 / 15 = 4 -> 2^2
+	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
+XLT3	EQU	0	; NO XLATE TABLE
+
+	ENDIF	; DG_D12
+
+
 
 	; Disk 4 (E), IDE partition 0 ----------------------------------------
+	
 DPB4:	;disk parameter block for all disks.
 	IF FALSE
 	; Disk size 2 mb, DSM 1023, yields 256 tracks (0 to 255)
@@ -469,24 +617,51 @@ SIGNON:	DB 26
 	DB CPMVER/10+'0','.',CPMVER MOD 10+'0'
 	DB ' for MC-Computer '
 	DB MSIZE/10+'0',MSIZE MOD 10+'0'
-	DB 'K NBIOS 260908-01'
+	DB 'K NBIOS 260919-04'
 	DB " BOOT=",BTDRV+'A',CR,LF
 
 	DB "A:NKC800"
 
-	IF NOT DG_BHD
+	IF DG_B800
 	DB ",B:NKC800"
-	ELSE
-	DB ",B:1.4MB"
+	ENDIF
+	IF DG_B144
+	DB ",B:1,44MB"
+	ENDIF
+	IF DG_B14
+	DB ",B:1,4MB"
+	ENDIF
+	IF DG_B12
+	DB ",B:1,2MB"
 	ENDIF
 
-	IF NOT DG_CHD
-	DB ", C:NKC800"
-	ELSE
-	DB ",C:1.44MB"
+	IF DG_C800
+	DB ",C:NKC800"
+	ENDIF
+	IF DG_C14
+	DB ",C:1,4MB"
+	ENDIF
+	IF DG_C12
+	DB ",C:1,2MB"
 	ENDIF
 
-	DB ",D:IBM SS/SD,E..H:"
+	IF DG_D800
+	DB ",D:NKC800"
+	ENDIF
+	IF DG_D144
+	DB ",D:1,44MB"
+	ENDIF
+	IF DG_D14
+	DB ",D:1,4MB"
+	ENDIF
+	IF DG_D12
+	DB ",D:1,2MB"
+	ENDIF
+	IF DG_DIBM
+	DB ",D:IBM"
+	ENDIF
+dir
+	DB " SS/SD,E..H:"
 	
 	IF NEWIDE
 	DB "8192KB"
@@ -548,7 +723,8 @@ BOOT:	LD SP,BUFF+80H	; set stack
 	;CALL PATB
 
 	; set steprate
-	LD D,00000000B	; max steprate 00b, no sso
+	;LD D,00000000B	; max steprate 00b, no sso
+	LD D,10000000B	; max steprate 00b, use sso
 	LD B,0		; set steprate
 	CALL MFLOP
 	
@@ -809,20 +985,26 @@ READ:
 	LD (ISIDE),A
 	ENDIF
 
-	LD A,(DBANK)	; drive 0..5
-	CP 3
-	JP C,MINIRD	; A < 3 -> drive 0,1,2 (Mini disks)
-	
-	CP 4
-	JP C,MAXIRD	; A < 4 -> drive 3 (Maxi disks)
-
-	;---------------------------------------------------------------------
-	; A >= 5, Read RAM disk
-
+	LD A,(DBANK)
 	CP 8
+	JR NC,RDERR	; DBANK >= 8 -> does not exist
+	
+	; DBANK < 8
+	LD A,(BLREG)
+	AND 00110000B
+	CP 00010000B
+	JP Z,MAXIRD	; -> Maxi disk
+
+	LD A,(DBANK)	; drive 0..5
+	CP 4
+	JP C,MINIRD	; A < 4 -> Mini disk
+	
+	;---------------------------------------------------------------------
+	; A >= 4, Read RAM disk
 
 	if NOT NEWIDE
 	
+	CP 8
 	JP C,IDERD	; A < 8 -> IDE disks 4,5,6,7
 	
 	ELSE		; NEWIDE
@@ -834,7 +1016,7 @@ READ:
 	ENDIF		; NEWIDE
 
 	; error
-	LD A,1		; Fehler da, Bank nicht vorhanden,
+RDERR:	LD A,1		; Fehler da, Bank nicht vorhanden,
 	RET		; wirkt wie BAD-Sektor
 
 	;---------------------------------------------------------------------
@@ -943,12 +1125,15 @@ WRITE:
 	
 	ENDIF
 
+	IF FALSE
+
 	LD A,(DBANK)	; drive 0..5
 	CP 3
 	JP C,MINIWR	; A < 3 -> drive 0,1,2 (Mini disks)
 	
 	CP 4
-	JP C,MAXIWR	; A < 4 -> drive 3 (Maxi disks)
+	;JP C,MAXIWR	; A < 4 -> drive 3 (Maxi disks)
+	JP C,MINIWR	; A < 3 -> drive 0,1,2 (Mini disks)
 	
 	;---------------------------------------------------------------------
 	
@@ -968,6 +1153,47 @@ WRITE:
 	
 	LD A,1		; Fehler ausgeben
 	RET
+
+	ELSE		; FALSE
+
+	;---------------------------------------------------------------------
+	
+	LD A,(DBANK)
+	CP 8
+	JR NC,WRERR	; DBANK >= 8 -> does not exist
+	
+	; DBANK < 8
+	LD A,(BLREG)
+	AND 00110000B
+	CP 00010000B
+	JP Z,MAXIWR	; -> Maxi disk
+
+	LD A,(DBANK)	; drive 0..3
+	CP 4
+	JP C,MINIWR	; A < 4 -> Mini disk
+	
+	;---------------------------------------------------------------------
+	; A >= 4, Write RAM disk
+
+	if NOT NEWIDE
+	
+	CP 8
+	JP C,IDEWR	; A < 8 -> IDE disks 4,5,6,7
+	
+	ELSE		; NEWIDE
+
+	LD A,1
+	LD (ISIDE),A
+	JP C,MINIWR
+	
+	ENDIF		; NEWIDE
+
+	; error
+WRERR:	LD A,1		; Fehler da, Bank nicht vorhanden,
+	RET		; wirkt wie BAD-Sektor
+
+	ENDIF		; FALSE
+	
 
 	;---------------------------------------------------------------------
 	; Write Maxi disk
@@ -2153,35 +2379,78 @@ DEBACT:	DB 0
 BEGDAT	EQU	$
 DIRBUF:	DS	128	;DIRECTORY ACCESS BUFFER
 
+	; drive 0
+
 ALV0:	DS	49
 CSV0:	DS	64
 
-	IF NOT DG_BHD
+	; drive 1
+
+	IF DG_B800
 ALV1:	DS	49
 CSV1:	DS	64
-	ELSE
-	IF FALSE
-;ALV1:	DS	45	;40	; 35
-ALV1:	DS	40
-CSV1:	DS	64
-	ELSE
-;ALV1:	DS	35	;37
-ALV1:	DS	37
-CSV1:	DS	64
-	ENDIF
 	ENDIF
 
-	IF NOT DG_CHD
+	IF DG_B144
+ALV1:	DS	45	; PRUEFEN !!!
+CSV1:	DS	64
+	ENDIF
+
+	IF DG_B14
+ALV1:	DS	45	; PRUEFEN !!!
+CSV1:	DS	64
+	ENDIF
+	
+	IF DG_B12
+ALV1:	DS	45	; PRUEFEN !!!
+CSV1:	DS	64
+	ENDIF
+
+	; drive 2
+
+	IF DG_C800
 ALV2:	DS	49
 CSV2:	DS	64
-	ELSE
-	; 1.44 MB
-ALV2:	DS	45
-CSV2:	DS	64
 	ENDIF
 
+	IF DG_C14
+ALV2:	DS	45	; PRUEFEN !!!
+CSV2:	DS	64
+	ENDIF
+	
+	IF DG_C12
+ALV2:	DS	45	; PRUEFEN !!!
+CSV2:	DS	64
+	ENDIF
+	
+	; drive 3
+
+	IF DG_D800
+ALV3:	DS	49
+CSV3:	DS	64
+	ENDIF
+
+	IF DG_D144
+ALV3:	DS	45
+CSV3:	DS	64
+	ENDIF
+
+	IF DG_D14
+ALV3:	DS	45	; PRUEFEN !!!
+CSV3:	DS	64
+	ENDIF
+	
+	IF DG_D12
+ALV3:	DS	45	; PRUEFEN !!!
+CSV3:	DS	64
+	ENDIF
+
+	IF DG_DIBM
 ALV3:	DS	31
 CSV3:	DS	16
+	ENDIF
+
+	; drive 4,5,6,7
 
 	IF NOT NEWIDE
 ALV4:	DS	64	; size of each must be (DSM/8)+1

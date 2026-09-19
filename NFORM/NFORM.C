@@ -15,6 +15,7 @@
  03.08.2026 *dg* added 1,2 MB format (1024 Byte/7 sectors/80 tracks)
 				 added more parametes
  04.08.2026 *dg* Formatierung repariert (side select Problem)
+ 19.09.2026 *dg* Changed format tables
  
 */
 
@@ -75,9 +76,9 @@ format FMNKC =
 };
 
 /* Format 1,44 MB 3,5 Zoll HD/DS 1024/9 */
-format HD35 =
+format FM144 =
 {
-	"HD3.5",
+	"HD1.44",
 	9,				/* 9 sectors */
 	1024,			/* 1024 bytes per sector */
 	80,				/* 80 tracks */
@@ -89,10 +90,10 @@ format HD35 =
 	0xE5			/* filler */
 };
 
-/* Format 1,4 MB 5,25 Zoll HD/DS 1024/7 */
-format HD525 =
+/* Format 1,4 MB 5,25 Zoll HD/DS 1024/8 */
+format FM140 =
 {
-	"HD5.25A",
+	"HD1.4",
 	8,				/* 8 sectors */
 	1024,			/* 1024 bytes per sector */
 	80,				/* 80 tracks */
@@ -104,10 +105,10 @@ format HD525 =
 	0xE5			/* filler */
 };
 
-/* Format 1,4 MB 5,25 Zoll HD/DS 1024/7 */
-format HD525B =
+/* Format 1,2 MB 5,25 Zoll HD/DS 512/15 */
+format FM120 =
 {
-	"HD5.25B",
+	"HD1.2",
 	15,				/* 15 sectors */
 	512,			/* 512 bytes per sector */
 	80,				/* 80 tracks */
@@ -134,8 +135,8 @@ format FMIBMS =
 	0xE5			/* filler */
 };
 
-#define FMTCNT 4
-format *fmtlist[] = {FMNKC, HD35, HD525, HD525B, FMIBMS};
+#define FMTCNT 5
+format *fmtlist[] = {FMNKC, FM144, FM140, FM120, FMIBMS};
 
 /****************************************************************************/
 
@@ -478,7 +479,7 @@ main(argc, argv)
 	
 	ChkRunCpm();
 
-	PutStr("\r\nNFORM 1.3 *dg* 26080-02\r\n");
+	PutStr("\r\nNFORM 1.3 *dg* 260919-01\r\n");
 	PutStr("Formatter for MC CP/M computer (FLO2)\r\n\n");
 
 #if DDTZ == 0
@@ -591,7 +592,16 @@ main(argc, argv)
 	{
 		PutStr("usage: NFORM <d>: -F<f> -I<i> -S<s> -T<t> -G<g> -M<m> -D<d>\r\n");
 		PutStr("  d = Drive A..D\r\n");
-		PutStr("  f = Format 1=NKC 800KB, 2=1,44MB, 3=5.25(1K) 4=5.25(512) 5=IBM SS/SD (default=1)\r\n");
+
+		PutStr("  f = Format"); 		
+		/* 1=NKC 800KB, 2=1,44MB, 3=5.25(1K) 4=5.25(512) 5=IBM SS/SD (default=1)\r\n");*/
+		for (p = 0; p < FMTCNT; p++)
+		{
+			sprintf(outbuf, " %d=%s", p+1, fmtlist[p]->Name);
+			PutStr(outbuf);
+		}
+		PutStr("default=1\r\n");
+		
 		PutStr("  i = Interleave/Skew (default=1)\r\n");
 		PutStr("  s = Sector count\r\n");
 		PutStr("  g = Gap3\r\n");
@@ -700,7 +710,6 @@ main(argc, argv)
 
 		if (verify)
 		{
-			
 			stat = VFYTRK(track);
 			sprintf(outbuf, "Track %02d Verify (%02x)\r", track + 1, stat);
 			PutStr(outbuf);
@@ -715,7 +724,6 @@ main(argc, argv)
 			STEPIN();
 	}
 
-	/*
 	if (verify && !error)
 	{
 		HOME();
@@ -743,7 +751,6 @@ main(argc, argv)
 				STEPIN();
 		}
 	}
-	*/
 
 	if (!error)
 		PutStr("\r\nfinished\r\n");
