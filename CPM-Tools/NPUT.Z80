@@ -172,7 +172,10 @@ EXIT:	LD	HL,(STACK)	; CP/M-Stapelzeiger holen
 ; Byte empfangen
 ;
 RECV:	PUSH	DE		; DE retten
-MSEC:	LD	DE,159 SHL 7	; 1s einstellen, hardwareabhaengig!
+MSEC:	; one second delay * B
+	;LD	DE,159 SHL 7	; orig (?)
+	;LD	DE,120 SHL 8	; 4 Mhz
+	LD	DE,180 SHL 8	; 6 MHz
 MWTI:	IN	A,(SIOACR)	;
 	AND	RCVMSK		; Byte vorhanden?
 	JR	NZ,MCHAR	; ja

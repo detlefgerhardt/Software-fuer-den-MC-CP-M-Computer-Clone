@@ -39,9 +39,9 @@ NGET    Z80
    36         0021      SIOBCR	EQU	021H		; SIO port B control register
    37         0020      SIOBDR	EQU	020H		; SIO port B data register
    38                   
-   39         0001      XMTMASK 	EQU	1	; MASK TO ISOLATE XMIT READY BIT
-   40         0001      XMTRDY  	EQU	1	; VALUE WHEN READY
-   41         0002      RCVMASK 	EQU	2	; MASK TO ISOLATE RECEIVE READY BIT
+   39         0001      XMTMASK EQU	1	; MASK TO ISOLATE XMIT READY BIT
+   40         0001      XMTRDY  EQU	1	; VALUE WHEN READY
+   41         0002      RCVMASK EQU	2	; MASK TO ISOLATE RECEIVE READY BIT
    42         0002      RCVRDY	EQU	2		; BIT ON WHEN READY
    43                   ;
    44                   ;  Transfer related equates
@@ -264,187 +264,191 @@ NGET    Z80
   249                   ; MODEM RECV
   250                   ;-------------------------------------
   251 028E  D5          RECV:	PUSH	DE		; SAVE
-  252 028F              MSEC:
-  253                   	;LD	DE,159 SHL 7	; 4 MHZ *)	
-  254 028F  11 9F00     	LD	DE,159 SHL 8	; 49 cycle loop, 6.272ms/wrap * 159 = 1 second
-  255 0292  3A 0406     	LD	A,(FPORTB)	; Using port B?
-  256 0295  B7          	OR	A		;
-  257 0296  C2 02BA     	JP	NZ,MWTIB	;
-  258                   ;
-  259                   ;  port A input
-  260                   ;
-  261 0299  DB 21       MWTI:	IN	A,(SIOACR)	;
-  262 029B  E6 02       	AND	RCVMASK		;
-  263 029D  FE 02       	CP	RCVRDY		;
-  264 029F  CA 02B1     	JP	Z,MCHAR		; GOT CHAR
-  265 02A2  1D          	DEC	E		; COUNT DOWN
-  266 02A3  C2 0299     	JP	NZ,MWTI		; FOR TIMEOUT
-  267 02A6  15          	DEC	D		;
-  268 02A7  C2 0299     	JP	NZ,MWTI		;
-  269 02AA  05          	DEC	B		; DCR # OF SECONDS
-  270 02AB  C2 028F     	JP	NZ,MSEC		;
-  271                   ;
-  272                   ; MODEM TIMED OUT RECEIVING
-  273                   ;
-  274 02AE  D1          	POP	DE		; RESTORE D,E
-  275 02AF  37          	SCF			; CARRY SHOWS TIMEOUT
-  276 02B0  C9          	RET			;
-  277                   ;
-  278                   ; GOT MODEM CHAR
-  279                   ;
-  280 02B1  DB 20       MCHAR:	IN	A,(SIOADR)	;
-  281 02B3  D1          	POP	DE		; RESTORE DE
-  282 02B4  F5          	PUSH	AF		; CALC CHECKSUM
-  283 02B5  81          	ADD	A,C		;
-  284 02B6  4F          	LD	C,A		;
-  285 02B7  F1          	POP	AF		;
-  286 02B8  B7          	OR	A		; TURN OFF CARRY TO SHOW NO TIMEOUT
-  287 02B9  C9          	RET			;
-  288                   ;
-  289                   ;  port B input. Look for Ctrl-C on port A to abort
-  290                   ;
+  252                   
+  253 028F              MSEC:	; one second delay * B
+  254                   	;LD	DE,159 SHL 7	; orig (?)
+  255                   	;LD	DE,120 SHL 8	; 4 Mhz
+  256 028F  11 B400     	LD	DE,180 SHL 8	; 6 MHz
+  257                   
+  258 0292  3A 0406     	LD	A,(FPORTB)	; Using port B?
+  259 0295  B7          	OR	A		;
+  260 0296  C2 02BA     	JP	NZ,MWTIB	;
+  261                   ;
+  262                   ;  port A input
+  263                   ;
+  264 0299  DB 21       MWTI:	IN	A,(SIOACR)	;
+  265 029B  E6 02       	AND	RCVMASK		;
+  266 029D  FE 02       	CP	RCVRDY		;
+  267 029F  CA 02B1     	JP	Z,MCHAR		; GOT CHAR
+  268 02A2  1D          	DEC	E		; COUNT DOWN
+  269 02A3  C2 0299     	JP	NZ,MWTI		; FOR TIMEOUT
+  270 02A6  15          	DEC	D		;
+  271 02A7  C2 0299     	JP	NZ,MWTI		;
+  272 02AA  05          	DEC	B		; DCR # OF SECONDS
+  273 02AB  C2 028F     	JP	NZ,MSEC		;
+  274                   ;
+  275                   ; MODEM TIMED OUT RECEIVING
+  276                   ;
+  277 02AE  D1          	POP	DE		; RESTORE D,E
+  278 02AF  37          	SCF			; CARRY SHOWS TIMEOUT
+  279 02B0  C9          	RET			;
+  280                   ;
+  281                   ; GOT MODEM CHAR
+  282                   ;
+  283 02B1  DB 20       MCHAR:	IN	A,(SIOADR)	;
+  284 02B3  D1          	POP	DE		; RESTORE DE
+  285 02B4  F5          	PUSH	AF		; CALC CHECKSUM
+  286 02B5  81          	ADD	A,C		;
+  287 02B6  4F          	LD	C,A		;
+  288 02B7  F1          	POP	AF		;
+  289 02B8  B7          	OR	A		; TURN OFF CARRY TO SHOW NO TIMEOUT
+  290 02B9  C9          	RET			;
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   6
 NGET    Z80
 
-  291 02BA  DB 21       MWTIB:	IN	A,(SIOBCR)	;
-  292 02BC  E6 02       	AND	RCVMASK		;
-  293 02BE  FE 02       	CP	RCVRDY		;
-  294 02C0  CA 02E1     	JP	Z,MCHARB	; GOT CHAR
-  295 02C3  1D          	DEC	E		; COUNT DOWN
-  296 02C4  C2 02BA     	JP	NZ,MWTIB	; FOR TIMEOUT
-  297 02C7  DB 21       	IN	A,(SIOACR)	; See if a ctrl-c pressed on console
-  298 02C9  0F          	RRCA			; Character present?
-  299 02CA  D2 02D6     	JP	NC,NOCTRLC	; No
-  300 02CD  DB 20       	IN	A,(SIOADR)	;
-  301 02CF  FE 03       	CP	CTRLC		; Is it a Ctrl-C?
-  302 02D1  C2 02D6     	JP	NZ,NOCTRLC	; No
-  303 02D4  D1          	POP	DE		; Restore d,e
-  304 02D5  C9          	RET			; Carry is clear (no timeout), exit
-  305                   ;
-  306 02D6  15          NOCTRLC:DEC	D		;
-  307 02D7  C2 02BA     	JP	NZ,MWTIB	;
-  308 02DA  05          	DEC	B		; DCR # OF SECONDS
-  309 02DB  C2 028F     	JP	NZ,MSEC		;
-  310                   ;
-  311                   ; MODEM TIMED OUT RECEIVING
-  312                   ;
-  313 02DE  D1          	POP	DE		; RESTORE D,E
-  314 02DF  37          	SCF			; CARRY SHOWS TIMEOUT
-  315 02E0  C9          	RET
-  316                   ;
-  317                   ; GOT MODEM CHAR
-  318                   ;
-  319 02E1  DB 20       MCHARB:	IN	A,(SIOBDR)	;
-  320 02E3  D1          	POP	DE		; RESTORE DE
-  321 02E4  F5          	PUSH	AF		; CALC CHECKSUM
-  322 02E5  81          	ADD	A,C		;
-  323 02E6  4F          	LD	C,A		;
-  324 02E7  F1          	POP	AF		;
-  325 02E8  B7          	OR	A		; TURN OFF CARRY TO SHOW NO TIMEOUT
-  326 02E9  C9          	RET			;
-  327                   ;
-  328                   ; - - - - - - - - - - - - - - -
-  329                   ; MODEM SEND CHAR ROUTINE
-  330                   ;----------------------------------
-  331                   ;
-  332 02EA  F5          SEND:	PUSH	AF		; CHECK IF MONITORING OUTPUT
-  333 02EB  81          	ADD	A,C		; CALC CKSUM
-  334 02EC  4F          	LD	C,A		;
-  335 02ED  3A 0406     	LD	A,(FPORTB)	; Using port B?
-  336 02F0  B7          	OR	A		;
-  337 02F1  C2 0301     	JP	NZ,SENDWB	;
-  338                   ;
-  339                   ; Use port A
-  340                   ;
-  341 02F4  DB 21       SENDW:	IN	A,(SIOACR)	;
-  342 02F6  E6 01       	AND	XMTMASK		;
-  343 02F8  FE 01       	CP	XMTRDY		;
-  344 02FA  C2 02F4     	JP	NZ,SENDW	;
-  345 02FD  F1          	POP	AF		; GET CHAR
-  346 02FE  D3 20       	OUT	(SIOADR),A	;
-  347 0300  C9          	RET
-  348                   ;
+  291                   ;
+  292                   ;  port B input. Look for Ctrl-C on port A to abort
+  293                   ;
+  294 02BA  DB 21       MWTIB:	IN	A,(SIOBCR)	;
+  295 02BC  E6 02       	AND	RCVMASK		;
+  296 02BE  FE 02       	CP	RCVRDY		;
+  297 02C0  CA 02E1     	JP	Z,MCHARB	; GOT CHAR
+  298 02C3  1D          	DEC	E		; COUNT DOWN
+  299 02C4  C2 02BA     	JP	NZ,MWTIB	; FOR TIMEOUT
+  300 02C7  DB 21       	IN	A,(SIOACR)	; See if a ctrl-c pressed on console
+  301 02C9  0F          	RRCA			; Character present?
+  302 02CA  D2 02D6     	JP	NC,NOCTRLC	; No
+  303 02CD  DB 20       	IN	A,(SIOADR)	;
+  304 02CF  FE 03       	CP	CTRLC		; Is it a Ctrl-C?
+  305 02D1  C2 02D6     	JP	NZ,NOCTRLC	; No
+  306 02D4  D1          	POP	DE		; Restore d,e
+  307 02D5  C9          	RET			; Carry is clear (no timeout), exit
+  308                   ;
+  309 02D6  15          NOCTRLC:DEC	D		;
+  310 02D7  C2 02BA     	JP	NZ,MWTIB	;
+  311 02DA  05          	DEC	B		; DCR # OF SECONDS
+  312 02DB  C2 028F     	JP	NZ,MSEC		;
+  313                   ;
+  314                   ; MODEM TIMED OUT RECEIVING
+  315                   ;
+  316 02DE  D1          	POP	DE		; RESTORE D,E
+  317 02DF  37          	SCF			; CARRY SHOWS TIMEOUT
+  318 02E0  C9          	RET
+  319                   ;
+  320                   ; GOT MODEM CHAR
+  321                   ;
+  322 02E1  DB 20       MCHARB:	IN	A,(SIOBDR)	;
+  323 02E3  D1          	POP	DE		; RESTORE DE
+  324 02E4  F5          	PUSH	AF		; CALC CHECKSUM
+  325 02E5  81          	ADD	A,C		;
+  326 02E6  4F          	LD	C,A		;
+  327 02E7  F1          	POP	AF		;
+  328 02E8  B7          	OR	A		; TURN OFF CARRY TO SHOW NO TIMEOUT
+  329 02E9  C9          	RET			;
+  330                   ;
+  331                   ; - - - - - - - - - - - - - - -
+  332                   ; MODEM SEND CHAR ROUTINE
+  333                   ;----------------------------------
+  334                   ;
+  335 02EA  F5          SEND:	PUSH	AF		; CHECK IF MONITORING OUTPUT
+  336 02EB  81          	ADD	A,C		; CALC CKSUM
+  337 02EC  4F          	LD	C,A		;
+  338 02ED  3A 0406     	LD	A,(FPORTB)	; Using port B?
+  339 02F0  B7          	OR	A		;
+  340 02F1  C2 0301     	JP	NZ,SENDWB	;
+  341                   ;
+  342                   ; Use port A
+  343                   ;
+  344 02F4  DB 21       SENDW:	IN	A,(SIOACR)	;
+  345 02F6  E6 01       	AND	XMTMASK		;
+  346 02F8  FE 01       	CP	XMTRDY		;
+  347 02FA  C2 02F4     	JP	NZ,SENDW	;
+  348 02FD  F1          	POP	AF		; GET CHAR
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   7
 NGET    Z80
 
-  349                   ; Use port B
-  350                   ;
-  351 0301  DB 21       SENDWB:	IN	A,(SIOBCR)	;
-  352 0303  E6 01       	AND	XMTMASK		;
-  353 0305  FE 01       	CP	XMTRDY		;
-  354 0307  C2 0301     	JP	NZ,SENDWB	;
-  355 030A  F1          	POP	AF		; GET CHAR
-  356 030B  D3 20       	OUT	(SIOBDR),A	;
-  357 030D  C9          	RET			;
-  358                   ;
-  359                   ; INITITIALIZE THE SERIAL PORT
-  360                   ;
-  361 030E              INIT$ACIA:
-  362 030E  3A 0406     	LD	A,(FPORTB)	; Using port B?
-  363 0311  B7          	OR	A		;
-  364 0312  C2 031A     	JP	NZ,INITB	; Yes
-  365                   ;	mvi	a,003h		;don't reset console port
-  366                   ;	out	SIOACR		;
-  367 0315  3E 15       	LD	A,015H		; Rts on, 8N1
-  368 0317  D3 21       	OUT	(SIOACR),A	;
-  369 0319  C9          	RET			;
-  370                   ;
-  371                   ; initB - init port B instead
-  372                   ;
-  373 031A  3E 03       INITB:	LD	A,3		;
-  374 031C  D3 21       	OUT	(SIOBCR),A	;
-  375 031E  3E 15       	LD	A,015H		; Rts on, 8N1
-  376 0320  D3 21       	OUT	(SIOBCR),A	;
-  377 0322  C9          	RET			;
-  378                   ;
-  379 0323  53 65 6E 64 MSENDA:	DEFB	'Send the file now using XMODEM...$'
-  380 0345  53 65 6E 64 MSENDB:	DEFB	'Send the file now using XMODEM on Port B...$'
-  381 0371  0D 0A 4E 47 MHELP:	DEFB	CR,LF,'NGET V1.0 for SYS80/S-CPU',CR,LF,LF
-  382 038F  55 73 61 67 	DEFB	'Usage: NGET file.ext ',CR,LF,'$'
-  383                   ;
-  384                   ; DONE - CLOSE UP SHOP
-  385                   ;
-  386 03A7              XFER$CPLT:
-  387 03A7  CD 0283     	CALL	ERXIT		;
-  388 03AA  0D 0A 0A 54 	DEFB	13,10,10,'Transfer Complete',13,10,'$'
-  389                   ;
-  390 03C1  CD 0283     ABORT:	CALL	ERXIT		;
-  391 03C4  0D 0A 0A 54 	DEFB	13,10,10,'Transfer Aborted',13,10,'$'
+  349 02FE  D3 20       	OUT	(SIOADR),A	;
+  350 0300  C9          	RET
+  351                   ;
+  352                   ; Use port B
+  353                   ;
+  354 0301  DB 21       SENDWB:	IN	A,(SIOBCR)	;
+  355 0303  E6 01       	AND	XMTMASK		;
+  356 0305  FE 01       	CP	XMTRDY		;
+  357 0307  C2 0301     	JP	NZ,SENDWB	;
+  358 030A  F1          	POP	AF		; GET CHAR
+  359 030B  D3 20       	OUT	(SIOBDR),A	;
+  360 030D  C9          	RET			;
+  361                   ;
+  362                   ; INITITIALIZE THE SERIAL PORT
+  363                   ;
+  364 030E              INIT$ACIA:
+  365 030E  3A 0406     	LD	A,(FPORTB)	; Using port B?
+  366 0311  B7          	OR	A		;
+  367 0312  C2 031A     	JP	NZ,INITB	; Yes
+  368                   ;	mvi	a,003h		;don't reset console port
+  369                   ;	out	SIOACR		;
+  370 0315  3E 15       	LD	A,015H		; Rts on, 8N1
+  371 0317  D3 21       	OUT	(SIOACR),A	;
+  372 0319  C9          	RET			;
+  373                   ;
+  374                   ; initB - init port B instead
+  375                   ;
+  376 031A  3E 03       INITB:	LD	A,3		;
+  377 031C  D3 21       	OUT	(SIOBCR),A	;
+  378 031E  3E 15       	LD	A,015H		; Rts on, 8N1
+  379 0320  D3 21       	OUT	(SIOBCR),A	;
+  380 0322  C9          	RET			;
+  381                   ;
+  382 0323  53 65 6E 64 MSENDA:	DEFB	'Send the file now using XMODEM...$'
+  383 0345  53 65 6E 64 MSENDB:	DEFB	'Send the file now using XMODEM on Port B...$'
+  384 0371  0D 0A 4E 47 MHELP:	DEFB	CR,LF,'NGET V1.0 for SYS80/S-CPU',CR,LF,LF
+  385 038F  55 73 61 67 	DEFB	'Usage: NGET file.ext ',CR,LF,'$'
+  386                   ;
+  387                   ; DONE - CLOSE UP SHOP
+  388                   ;
+  389 03A7              XFER$CPLT:
+  390 03A7  CD 0283     	CALL	ERXIT		;
+  391 03AA  0D 0A 0A 54 	DEFB	13,10,10,'Transfer Complete',13,10,'$'
   392                   ;
-  393 03DA    0028      	DEFS	40		; STACK AREA
-  394 0402    0002      STACK:	DEFS	2		; STACK POINTER
-  395 0404    0001      RSECTNO:DEFS	1		; RECEIVED SECTOR NUMBER
-  396 0405    0001      SECTNO:	DEFS	1		; CURRENT SECTOR NUMBER 
-  397 0406    0001      FPORTB:	DEFS	1		; Flag to use 2SIO port B instead of A
-  398                   ;
-  399                   ; BDOS EQUATES (VERSION 2)
-  400                   ;
-  401         0001      RDCON	EQU	1		;
-  402         0002      WRCON	EQU	2		;
-  403         0009      PRINT	EQU	9		;
-  404         000B      CONST	EQU	11		; CONSOLE STAT
-  405         000F      OPEN	EQU	15		; 0FFH=NOT FOUND
-  406         0010      CLOSE	EQU	16		;   "	"
+  393 03C1  CD 0283     ABORT:	CALL	ERXIT		;
+  394 03C4  0D 0A 0A 54 	DEFB	13,10,10,'Transfer Aborted',13,10,'$'
+  395                   ;
+  396 03DA    0028      	DEFS	40		; STACK AREA
+  397 0402    0002      STACK:	DEFS	2		; STACK POINTER
+  398 0404    0001      RSECTNO:DEFS	1		; RECEIVED SECTOR NUMBER
+  399 0405    0001      SECTNO:	DEFS	1		; CURRENT SECTOR NUMBER 
+  400 0406    0001      FPORTB:	DEFS	1		; Flag to use 2SIO port B instead of A
+  401                   ;
+  402                   ; BDOS EQUATES (VERSION 2)
+  403                   ;
+  404         0001      RDCON	EQU	1		;
+  405         0002      WRCON	EQU	2		;
+  406         0009      PRINT	EQU	9		;
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   8
 NGET    Z80
 
-  407         0011      SRCHF	EQU	17		;   "	"
-  408         0012      SRCHN	EQU	18		;   "	"
-  409         0013      ERASE	EQU	19		; NO RET CODE
-  410         0014      READ	EQU	20		; 0=OK, 1=EOF
-  411         0015      WRITE	EQU	21		; 0=OK, 1=ERR, 2=?, 0FFH=NO DIR SPC
-  412         0016      MAKE	EQU	22		; 0FFH=BAD
-  413         0017      REN	EQU	23		; 0FFH=BAD
-  414         001A      STDMA	EQU	26		;
-  415         0005      BDOS	EQU	5		;
-  416         0000      REIPL	EQU	0		;
-  417         005C      FCB	EQU	5CH		; DEFAULT FCB
-  418         005D      PARAM1	EQU	FCB+1		; COMMAND LINE PARAMETER 1 IN FCB
-  419         006D      PARAM2	EQU	PARAM1+16	; COMMAND LINE PARAMETER 2
-  420                   
-  421                   ;-----------------------------------------------------------------------------
-  422                   
-  423                   	END
+  407         000B      CONST	EQU	11		; CONSOLE STAT
+  408         000F      OPEN	EQU	15		; 0FFH=NOT FOUND
+  409         0010      CLOSE	EQU	16		;   "	"
+  410         0011      SRCHF	EQU	17		;   "	"
+  411         0012      SRCHN	EQU	18		;   "	"
+  412         0013      ERASE	EQU	19		; NO RET CODE
+  413         0014      READ	EQU	20		; 0=OK, 1=EOF
+  414         0015      WRITE	EQU	21		; 0=OK, 1=ERR, 2=?, 0FFH=NO DIR SPC
+  415         0016      MAKE	EQU	22		; 0FFH=BAD
+  416         0017      REN	EQU	23		; 0FFH=BAD
+  417         001A      STDMA	EQU	26		;
+  418         0005      BDOS	EQU	5		;
+  419         0000      REIPL	EQU	0		;
+  420         005C      FCB	EQU	5CH		; DEFAULT FCB
+  421         005D      PARAM1	EQU	FCB+1		; COMMAND LINE PARAMETER 1 IN FCB
+  422         006D      PARAM2	EQU	PARAM1+16	; COMMAND LINE PARAMETER 2
+  423                   
+  424                   ;-----------------------------------------------------------------------------
+  425                   
+  426                   	END
  0 Error(s) Detected.
  775 Absolute Bytes. 75 Symbols Detected.
-st Reloc
+EN	EQU	15		; 0FFH=NOT FOUND
+  409         0010      

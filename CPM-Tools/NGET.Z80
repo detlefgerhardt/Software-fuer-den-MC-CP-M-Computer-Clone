@@ -36,9 +36,9 @@ SIOADR	EQU	020H		; SIO port A data register
 SIOBCR	EQU	021H		; SIO port B control register
 SIOBDR	EQU	020H		; SIO port B data register
 
-XMTMASK 	EQU	1	; MASK TO ISOLATE XMIT READY BIT
-XMTRDY  	EQU	1	; VALUE WHEN READY
-RCVMASK 	EQU	2	; MASK TO ISOLATE RECEIVE READY BIT
+XMTMASK EQU	1	; MASK TO ISOLATE XMIT READY BIT
+XMTRDY  EQU	1	; VALUE WHEN READY
+RCVMASK EQU	2	; MASK TO ISOLATE RECEIVE READY BIT
 RCVRDY	EQU	2		; BIT ON WHEN READY
 ;
 ;  Transfer related equates
@@ -249,9 +249,12 @@ EXIT:	LD	HL,(STACK)	; GET ORIGINAL STACK
 ; MODEM RECV
 ;-------------------------------------
 RECV:	PUSH	DE		; SAVE
-MSEC:
-	;LD	DE,159 SHL 7	; 4 MHZ *)	
-	LD	DE,159 SHL 8	; 49 cycle loop, 6.272ms/wrap * 159 = 1 second
+
+MSEC:	; one second delay * B
+	;LD	DE,159 SHL 7	; orig (?)
+	;LD	DE,120 SHL 8	; 4 Mhz
+	LD	DE,180 SHL 8	; 6 MHz
+
 	LD	A,(FPORTB)	; Using port B?
 	OR	A		;
 	JP	NZ,MWTIB	;

@@ -184,104 +184,108 @@ NPUT    Z80
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   4
 NPUT    Z80
 
-  175 01D1  11 4F80     MSEC:	LD	DE,159 SHL 7	; 1s einstellen, hardwareabhaengig!
-  176 01D4  DB 21       MWTI:	IN	A,(SIOACR)	;
-  177 01D6  E6 02       	AND	RCVMSK		; Byte vorhanden?
-  178 01D8  20 0C       	JR	NZ,MCHAR	; ja
-  179 01DA  1D          	DEC	E		; Zeit herunterzaehlen
-  180 01DB  20 F7       	JR	NZ,MWTI		;
-  181 01DD  15          	DEC	D		;
-  182 01DE  20 F4       	JR	NZ,MWTI		;
-  183 01E0  05          	DEC	B		; Sekunden abgelaufen?
-  184 01E1  20 EE       	JR	NZ,MSEC		; nein, warten
-  185                   ;
-  186                   ; Zeitueberschreitung
-  187                   ;
-  188 01E3  D1          	POP	DE		; DE wiederherstellen
-  189 01E4  37          	SCF			; Uebertrag signalisiert Zeitueberschreitung
-  190 01E5  C9          	RET			;
-  191                   ;
-  192                   ; Byte holen
-  193                   ;
-  194 01E6  DB 20       MCHAR:	IN	A,(SIOADR)	; Byte holen
-  195 01E8  D1          	POP	DE		; DE wiederherstellen
-  196 01E9  F5          	PUSH	AF		; Byte retten
-  197 01EA  81          	ADD	A,C		; zur Pruefsumme addieren
-  198 01EB  4F          	LD	C,A		;  und abspeichern
-  199 01EC  F1          	POP	AF		; Byte zurueckholen
-  200 01ED  B7          	OR	A		; Uebertrag loeschen (keine Zeitueberschreitung)
-  201 01EE  C9          	RET			;
-  202                   ;
-  203                   ; Byte senden
-  204                   ;
-  205 01EF  F5          SEND:	PUSH	AF		; Byte retten
-  206 01F0  81          	ADD	A,C		; Pruefsumme berechnen
-  207 01F1  4F          	LD	C,A		;  und merken
-  208 01F2  DB 21       SENDW:	IN	A,(SIOACR)	; Status holen
-  209 01F4  E6 01       	AND	XMTMSK		; Sendepuffer leer?
-  210 01F6  28 FA       	JR	Z,SENDW		; nein, warten
-  211 01F8  F1          	POP	AF		; Byte zurueckholen
-  212 01F9  D3 20       	OUT	(SIOADR),A	;  und senden
-  213 01FB  C9          	RET			;
-  214                   ;
-  215                   ; Block lesen
-  216                   ;
-  217 01FC  11 005C     RDSEC:	LD	DE,FCB		;
-  218 01FF  0E 14       	LD	C,READ		;
-  219 0201  CD 0005     	CALL	BDOS		;
-  220 0204  B7          	OR	A		; Fehler?
-  221 0205  C8          	RET	Z		; nein, zurueck
-  222 0206  3D          	DEC	A		; Dateiende?
-  223 0207  20 73       	JR	NZ,RDERR	; nein, Lesefehler
-  224                   ;
-  225                   ; Dateiende
-  226                   ;
-  227 0209  AF          	XOR	A		;
-  228 020A  32 0318     	LD	(ERRCNT),A	; Fehleranzahl loeschen
-  229 020D  3E 04       SEOT:	LD	A,EOT		; Ubertragungsende
-  230 020F  CD 01EF     	CALL	SEND		;  senden 
-  231 0212  06 03       	LD	B,3		; max. 3s warten
-  232 0214  CD 01D0     	CALL	RECV		; Byte empfangen
+  175 01D1              MSEC:	; one second delay * B
+  176                   	;LD	DE,159 SHL 7	; orig (?)
+  177                   	;LD	DE,120 SHL 8	; 4 Mhz
+  178 01D1  11 B400     	LD	DE,180 SHL 8	; 6 MHz
+  179 01D4  DB 21       MWTI:	IN	A,(SIOACR)	;
+  180 01D6  E6 02       	AND	RCVMSK		; Byte vorhanden?
+  181 01D8  20 0C       	JR	NZ,MCHAR	; ja
+  182 01DA  1D          	DEC	E		; Zeit herunterzaehlen
+  183 01DB  20 F7       	JR	NZ,MWTI		;
+  184 01DD  15          	DEC	D		;
+  185 01DE  20 F4       	JR	NZ,MWTI		;
+  186 01E0  05          	DEC	B		; Sekunden abgelaufen?
+  187 01E1  20 EE       	JR	NZ,MSEC		; nein, warten
+  188                   ;
+  189                   ; Zeitueberschreitung
+  190                   ;
+  191 01E3  D1          	POP	DE		; DE wiederherstellen
+  192 01E4  37          	SCF			; Uebertrag signalisiert Zeitueberschreitung
+  193 01E5  C9          	RET			;
+  194                   ;
+  195                   ; Byte holen
+  196                   ;
+  197 01E6  DB 20       MCHAR:	IN	A,(SIOADR)	; Byte holen
+  198 01E8  D1          	POP	DE		; DE wiederherstellen
+  199 01E9  F5          	PUSH	AF		; Byte retten
+  200 01EA  81          	ADD	A,C		; zur Pruefsumme addieren
+  201 01EB  4F          	LD	C,A		;  und abspeichern
+  202 01EC  F1          	POP	AF		; Byte zurueckholen
+  203 01ED  B7          	OR	A		; Uebertrag loeschen (keine Zeitueberschreitung)
+  204 01EE  C9          	RET			;
+  205                   ;
+  206                   ; Byte senden
+  207                   ;
+  208 01EF  F5          SEND:	PUSH	AF		; Byte retten
+  209 01F0  81          	ADD	A,C		; Pruefsumme berechnen
+  210 01F1  4F          	LD	C,A		;  und merken
+  211 01F2  DB 21       SENDW:	IN	A,(SIOACR)	; Status holen
+  212 01F4  E6 01       	AND	XMTMSK		; Sendepuffer leer?
+  213 01F6  28 FA       	JR	Z,SENDW		; nein, warten
+  214 01F8  F1          	POP	AF		; Byte zurueckholen
+  215 01F9  D3 20       	OUT	(SIOADR),A	;  und senden
+  216 01FB  C9          	RET			;
+  217                   ;
+  218                   ; Block lesen
+  219                   ;
+  220 01FC  11 005C     RDSEC:	LD	DE,FCB		;
+  221 01FF  0E 14       	LD	C,READ		;
+  222 0201  CD 0005     	CALL	BDOS		;
+  223 0204  B7          	OR	A		; Fehler?
+  224 0205  C8          	RET	Z		; nein, zurueck
+  225 0206  3D          	DEC	A		; Dateiende?
+  226 0207  20 73       	JR	NZ,RDERR	; nein, Lesefehler
+  227                   ;
+  228                   ; Dateiende
+  229                   ;
+  230 0209  AF          	XOR	A		;
+  231 020A  32 0318     	LD	(ERRCNT),A	; Fehleranzahl loeschen
+  232 020D  3E 04       SEOT:	LD	A,EOT		; Ubertragungsende
 Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   5
 NPUT    Z80
 
-  233 0217  38 1E       	JR	C,EOTERR	; EOT Zeitueberschreitung
-  234 0219  FE 06       	CP	ACK		;
-  235 021B  20 1A       	JR	NZ,EOTERR	;
-  236 021D  CD 01C5     	CALL	ERXIT		; Fertig!
-  237 0220  0D 0A 0A 54 	DEFB	13,10,10,'Transfer Complete',13,10,'$'
-  238                   ;
-  239                   ; ACK NOT RECIEVED
-  240                   ;
-  241 0237  3A 0318     EOTERR:	LD	A,(ERRCNT)	;
-  242 023A  3C          	INC	A		;
-  243 023B  32 0318     	LD	(ERRCNT),A	;
-  244 023E  FE 05       	CP	ERRLMT		;
-  245 0240  38 CB       	JR	C,SEOT		;
-  246 0242  CD 01C5     	CALL	ERXIT		;
-  247 0245  0D 0A 0A    	DEFB	13,10,10	;
-  248 0248  4E 6F 20 41 	DEFB	'No ACK received on EOT, but transfer is complete.',13,10,'$'
-  249                   ;
-  250                   ; Lesefehler
-  251                   ;
-  252 027C  CD 01C5     RDERR:	CALL	ERXIT		;
-  253 027F  0D 0A 46 69 	DEFB	13,10,'File Read Error',13,10,'$'
+  233 020F  CD 01EF     	CALL	SEND		;  senden 
+  234 0212  06 03       	LD	B,3		; max. 3s warten
+  235 0214  CD 01D0     	CALL	RECV		; Byte empfangen
+  236 0217  38 1E       	JR	C,EOTERR	; EOT Zeitueberschreitung
+  237 0219  FE 06       	CP	ACK		;
+  238 021B  20 1A       	JR	NZ,EOTERR	;
+  239 021D  CD 01C5     	CALL	ERXIT		; Fertig!
+  240 0220  0D 0A 0A 54 	DEFB	13,10,10,'Transfer Complete',13,10,'$'
+  241                   ;
+  242                   ; ACK NOT RECIEVED
+  243                   ;
+  244 0237  3A 0318     EOTERR:	LD	A,(ERRCNT)	;
+  245 023A  3C          	INC	A		;
+  246 023B  32 0318     	LD	(ERRCNT),A	;
+  247 023E  FE 05       	CP	ERRLMT		;
+  248 0240  38 CB       	JR	C,SEOT		;
+  249 0242  CD 01C5     	CALL	ERXIT		;
+  250 0245  0D 0A 0A    	DEFB	13,10,10	;
+  251 0248  4E 6F 20 41 	DEFB	'No ACK received on EOT, but transfer is complete.',13,10,'$'
+  252                   ;
+  253                   ; Lesefehler
   254                   ;
-  255                   ; Meldungen
-  256                   ;
-  257 0293  52 65 63 65 RCVMSG:	DEFB	'Receive the file now using XMODEM...$'
-  258                   
-  259 02B8  0D 0A 4E 50 HLPMSG:	DEFB	CR,LF,'NPUT V1.0 for SYS80/S-CPU',CR,LF,LF
-  260 02D6  55 73 61 67 	DEFB	'Usage: NPUT file.ext',CR,LF,'$'
-  261                   ;
-  262                   ; Data area
-  263                   ;
-  264 02ED    0028      	DEFS	40		; Stapelspeicher
-  265 0315    0002      STACK:	DEFS	2		; CP/M-Stapelzeiger
-  266 0317    0001      SECTNO:	DEFS	1		; aktuelle Blocknummer 
-  267 0318    0001      ERRCNT:	DEFS	1		; Fehleranzahl
-  268                   ;
-  269                   	END			;
+  255 027C  CD 01C5     RDERR:	CALL	ERXIT		;
+  256 027F  0D 0A 46 69 	DEFB	13,10,'File Read Error',13,10,'$'
+  257                   ;
+  258                   ; Meldungen
+  259                   ;
+  260 0293  52 65 63 65 RCVMSG:	DEFB	'Receive the file now using XMODEM...$'
+  261                   
+  262 02B8  0D 0A 4E 50 HLPMSG:	DEFB	CR,LF,'NPUT V1.0 for SYS80/S-CPU',CR,LF,LF
+  263 02D6  55 73 61 67 	DEFB	'Usage: NPUT file.ext',CR,LF,'$'
+  264                   ;
+  265                   ; Data area
+  266                   ;
+  267 02ED    0028      	DEFS	40		; Stapelspeicher
+  268 0315    0002      STACK:	DEFS	2		; CP/M-Stapelzeiger
+  269 0317    0001      SECTNO:	DEFS	1		; aktuelle Blocknummer 
+  270 0318    0001      ERRCNT:	DEFS	1		; Fehleranzahl
+  271                   ;
+  272                   	END			;
  0 Error(s) Detected.
  537 Absolute Bytes. 52 Symbols Detected.
 r is complete.',13,10,'$'
+  
