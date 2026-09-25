@@ -1,0 +1,33 @@
+; ndiskdef part2 created 25.09.26 1531 by NDiskDef 1.0
+; drive0
+ALV0:	DS 49
+CSV0:	DS 64
+
+; drive1
+ALV1:	DS 49
+CSV1:	DS 64
+
+; drive2
+ALV2:	DS 49
+CSV2:	DS 64
+
+; drive3
+ALV3:	DS 37
+CSV3:	DS 64
+
+; drive4
+ALV4:	DS 128
+CSV4:	DS 0
+
+; drive5
+ALV5:	DS 128
+CSV5:	DS 0
+
+; drive6
+ALV6:	DS 128
+CSV6:	DS 0
+
+; drive7
+ALV7:	DS 128
+CSV7:	DS 0
+

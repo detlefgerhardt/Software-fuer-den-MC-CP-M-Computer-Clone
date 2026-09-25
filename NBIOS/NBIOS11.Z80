@@ -1,5 +1,5 @@
 ;************************************************************************
-;* NBIOS10.Z80		RDK/UH/*DG*	09/2026				*
+;* NBIOS11.Z80		RDK/UH/*DG*	09/2026				*
 ;*									*
 ;* basiert direct auf der Version 3.1 841220 von Rolf-Dieter Klein	*
 ;* Urspruengliche Version fuer 2 Mini- und 2 Maxi-Laufwerke		*
@@ -38,6 +38,8 @@
 ; 21.09.2026 *dg* Die Ausmaskierung von Bit 7 bei CONIN herausgenommen, damit
 ;		  Binaer-Transfers wie zum Beispiel Xmodem ueber das BIOS
 ;		  funktionieren.
+; 25.09.2026 *dg* Laufwerktabelle als Includes, Erzeugung mit neuem Tool NDiskDef.exe
+;                 NBIOS10 umgenannt in NBIOS11
 ;
 ; Verbesserung/Veraenderungen zu BIOS 3.1 seit Juni 2026
 ;
@@ -81,6 +83,9 @@ LF	EQU 0AH		; line feed
 
 ;------------------------------------------------------------------------------
 ; Variant switches
+
+DG_NEW	EQU TRUE	; new drive tables (include files generated with
+			; NDiskDef)
 
 ; aktiviert alle bisherigen Aenderungen gegenueber der Originalversion 3.1
 DG_B800	EQU TRUE	; drive B is 800 KB (same as drive A)
@@ -253,6 +258,12 @@ DPE7:	DW	0000h, 0000h
 	DW	DIRBUF, DPB7
 	DW	CSV7, ALV7
 
+	IF DG_NEW
+
+	$INCLUDE NBIOS111.INC
+
+	ELSE	; DG_NEW
+
 	; Disk 0 (A) ---------------------------------------------------------
 
 	; *** DISKDEF BEDEUTUNG DER PARAMETER***
@@ -280,10 +291,10 @@ DPB0	EQU	$	; DISK PARM BLOCK
 	DB	0	; ALLOC1
 	DW	64	; CHECK SIZE
 	DW	4	; OFFSET
-	; additional parameters:
-	DB	00100000B ; Mini/DD
+	; blocking/deblocking parameters
 	DB 	3	  ; 40 / 5 sectors = 8 -> 2^3
 	DB	00000111B ; 1024 bytes/sector -> modulo 8 (0..7)
+	DB	00100000B ; Mini/DD
 	; phys. parameter
 	DW	1024	; bytes/sectors
 	DB	5-1	; max sectors/track
@@ -317,9 +328,9 @@ DPB1	EQU	$	; DISK PARM BLOCK
  	DW	64	; CHECK SIZE
  	DW	2	; OFFSET
 	; additional parameters:
- 	DB	00000000B ; Maxi/HD
 	DB 	3	  ; 72 / 9 = 8 -> 2^3
-	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
+	DB	00000111B ; 1024 bytes/sector -> modulo 8 (0..7)
+ 	DB	00000000B ; Maxi/HD
 	; phys. parameters
 	DW	1024	; bytes/sectors
 	DB	9-1	; highest sectors/track
@@ -334,20 +345,20 @@ XLT1	EQU	0	; NO XLATE TABLE
 
 	; PHYSICAL FORMAT: 1.4 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 8 SECTORS/TRACK, 80 TRACKS
 DPB1	EQU	$	; DISK PARM BLOCK
- 	DW	60	; SEC PER TRACK
+ 	DW	64	; SEC PER TRACK
  	DB	5	; BLOCK SHIFT
  	DB	31	; BLOCK MASK
  	DB	1	; EXTNT MASK
- 	DW	354 ;315; 275	; DISK SIZE-1
+ 	DW	315	; DISK SIZE-1
   	DW	255	; DIRECTORY MAX
  	DB	192	; ALLOC0
  	DB	0	; ALLOC1
  	DW	64	; CHECK SIZE
  	DW	2	; OFFSET
 	; additional parameters:
-	DB	00000000B ; Maxi/HD
 	DB 	2	  ; 60 / 15 = 4 -> 2^2
-	DB	00000011B ; 512 bytes/sector -> modulo 0..3
+	DB	00000011B ; 1024 bytes/sector -> modulo 4 (0..3)
+	DB	00000000B ; Maxi/HD
 	; phys. parameters
 	DW	1024	; bytes/sectors
 	DB	8-1	; highest sector/track
@@ -366,7 +377,6 @@ DPB1	EQU	$	; DISK PARM BLOCK
  	DB	5	; BLOCK SHIFT
  	DB	31	; BLOCK MASK
  	DB	1	; EXTNT MASK
- 	;DW	275 ; 295 ; DISK SIZE-1
  	DW	295	; DISK SIZE-1
   	DW	255	; DIRECTORY MAX
  	DB	192	; ALLOC0
@@ -374,9 +384,9 @@ DPB1	EQU	$	; DISK PARM BLOCK
  	DW	64	; CHECK SIZE
  	DW	2	; OFFSET
 	; additional parameters:
-	DB	00000000B ; Maxi/HD
 	DB 	2	  ; 60 / 15 = 4 -> 2^2
 	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
+	DB	00000000B ; Maxi/HD
 	; phys. parameters
 	DW	512	; bytes/sectors
 	DB	15-1	; highest sector/track
@@ -400,20 +410,20 @@ XLT2	EQU	XLT0	; SAME TRANSLATE TABLE
 
 	; PHYSICAL FORMAT: 1.4 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 8 SECTORS/TRACK, 80 TRACKS
 DPB2	EQU	$	; DISK PARM BLOCK
- 	DW	60	; SEC PER TRACK
+ 	DW	64	; SEC PER TRACK
  	DB	5	; BLOCK SHIFT
  	DB	31	; BLOCK MASK
  	DB	1	; EXTNT MASK
- 	DW	354 ;315; 275	; DISK SIZE-1
+ 	DW	315	; DISK SIZE-1
   	DW	255	; DIRECTORY MAX
  	DB	192	; ALLOC0
  	DB	0	; ALLOC1
  	DW	64	; CHECK SIZE
  	DW	2	; OFFSET
 	; additional parameters:
-	DB	00000000B ; Maxi/HD
 	DB 	2	  ; 60 / 15 = 4 -> 2^2
-	DB	00000011B ; 512 bytes/sector -> modulo 0..3
+	DB	00000111B ; 1024 bytes/sector -> modulo 8 (0..7)
+	DB	00000000B ; Maxi/HD
 	; phys. parameters
 	DW	1024	; bytes/sectors
 	DB	9-1	; highest sector/track
@@ -432,7 +442,6 @@ DPB2	EQU	$	; DISK PARM BLOCK
  	DB	5	; BLOCK SHIFT
  	DB	31	; BLOCK MASK
  	DB	1	; EXTNT MASK
- 	;DW	275 ; 295 ; DISK SIZE-1
  	DW	295	; DISK SIZE-1
   	DW	255	; DIRECTORY MAX
  	DB	192	; ALLOC0
@@ -440,9 +449,9 @@ DPB2	EQU	$	; DISK PARM BLOCK
  	DW	64	; CHECK SIZE
  	DW	2	; OFFSET
 	; additional parameters:
-	DB	00000000B ; Maxi/HD
 	DB 	2	  ; 60 / 15 = 4 -> 2^2
 	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
+	DB	00000000B ; Maxi/HD
 	; phys. parameters
 	DW	512	; bytes/sectors
 	DB	15-1	; highest sector/track
@@ -479,9 +488,9 @@ DPB3	EQU	$	; DISK PARM BLOCK
  	DW	16	; CHECK SIZE
  	DW	2	; OFFSET
 	; blocking/deblocking parameters PRUEFEN!!!:
-	DB	00010000B ; Maxi/SD
 	DB	0	  ; 26 / 26 = 1 -> 2^0 (no deblocking)
-	DB	00000001B ; 128 bytes/sector -> modulo 1 (0) (no deblocking)
+	DB	00000000B ; 128 bytes/sector -> modulo 1 (0) (no deblocking)
+	DB	01000000B ; Maxi/SD
 	; phys. parameters
 	DW	128	; bytes/sectors
 	DB	26-1	; highest sector/track
@@ -534,9 +543,9 @@ DPB3	EQU	$	; DISK PARM BLOCK
  	DW	64	; CHECK SIZE
  	DW	2	; OFFSET
 	; blocking/deblocking parameters: PRUEFEN !!!
- 	DB	00000000B ; Maxi/HD
 	DB 	3	  ; 72 / 9 = 8 -> 2^3
-	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
+	DB	00000111B ; 512 bytes/sector -> modulo 8 (0..7)
+ 	DB	00000000B ; Maxi/HD
 	; phys. parameters
 	DW	1024	; bytes/sectors
 	DB	9-1	; highest sector/track
@@ -551,20 +560,20 @@ XLT3	EQU	0	; NO XLATE TABLE
 
 	; PHYSICAL FORMAT: 1.4 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 8 SECTORS/TRACK, 80 TRACKS
 DPB3	EQU	$	; DISK PARM BLOCK
- 	DW	60	; SEC PER TRACK
+ 	DW	64	; SEC PER TRACK
  	DB	5	; BLOCK SHIFT
  	DB	31	; BLOCK MASK
  	DB	1	; EXTNT MASK
- 	DW	354 ;315; 275	; DISK SIZE-1
+ 	DW	315	; DISK SIZE-1
   	DW	255	; DIRECTORY MAX
  	DB	192	; ALLOC0
  	DB	0	; ALLOC1
  	DW	64	; CHECK SIZE
  	DW	2	; OFFSET
 	; blocking/deblocking parameters:
-	DB	00000000B ; Maxi/HD
 	DB 	2	  ; 60 / 15 = 4 -> 2^2
 	DB	00000011B ; 512 bytes/sector -> modulo 0..3
+	DB	00000000B ; Maxi/HD
 	; phys. parameters
 	DW	1024	; bytes/sectors
 	DB	8-1	; highest sector/track
@@ -583,7 +592,6 @@ DPB3	EQU	$	; DISK PARM BLOCK
  	DB	5	; BLOCK SHIFT
  	DB	31	; BLOCK MASK
  	DB	1	; EXTNT MASK
- 	;DW	275 ; 295 ; DISK SIZE-1
  	DW	295	; DISK SIZE-1
   	DW	255	; DIRECTORY MAX
  	DB	192	; ALLOC0
@@ -591,9 +599,9 @@ DPB3	EQU	$	; DISK PARM BLOCK
  	DW	64	; CHECK SIZE
  	DW	2	; OFFSET
 	; blocking/deblocking parameters:
-	DB	00000000B ; Maxi/HD
 	DB 	2	  ; 60 / 15 = 4 -> 2^2
 	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
+	DB	00000000B ; Maxi/HD
 	; phys. parameters
 	DW	512	; bytes/sectors
 	DB	15-1	; highest sector/track
@@ -645,9 +653,9 @@ DPB4:	;disk parameter block for all disks.
 	DW	0
 	DW	1
 	; blocking/deblocking parameters (not used):
-	DB	0	  ; no used
 	DB	1	  ; 256 / 128 = 2 -> 2^1
 	DB	00000001B ; 128 bytes/sector -> modulo 2 (0..1)
+	DB	0	  ; no used
 	; phys. parameters
 	DW	256	; bytes/sectors
 	DB	128-1	; highest sector/track
@@ -687,6 +695,8 @@ DPB6	EQU	DPB4	; EQUIVALENT PARAMETERS
 	; Disk 7 (H), IDE partition 3 ----------------------------------------
 DPB7	EQU	DPB4	; EQUIVALENT PARAMETERS
 
+	ENDIF	; DG_NEW
+
 ;-----------------------------------------------------------------------------
 ; CP/M message after cold start
 
@@ -698,8 +708,14 @@ SIGNON:	DB 26
 	DB 'K',CR,LF
 	DB 'NBIOS '
 	DB BIOSVER/10+'0','.',BIOSVER MOD 10+'0'
-	DB ' 260922-02'
+	DB ' 260925-04'
 	DB " BOOT=",BTDRV+'A',CR,LF
+
+	IF DG_NEW
+
+	$INCLUDE NBIOS113.INC
+
+	ELSE	; DG_NEW
 
 	DB "A:NKC800"
 
@@ -749,6 +765,8 @@ SIGNON:	DB 26
 	ELSE
 	DB "2048K"
 	ENDIF
+	
+	ENDIF	; DG_NEW
 
 	DB CR,LF,0
 
@@ -983,10 +1001,6 @@ SELDSK:	LD HL,0		; und pruefen ob gueltig
 	LD DE,15	; length of DPBx
 	ADD HL,DE
 	
-	; set blocking FLO register
-	LD A,(HL)
-	LD (BLREG),A
-	INC HL
 	; set blocking shift
 	LD A,(HL)
 	LD (BLPOW),A
@@ -994,6 +1008,10 @@ SELDSK:	LD HL,0		; und pruefen ob gueltig
 	; set blocking mask
 	LD A,(HL)
 	LD (BLMSK),A
+	INC HL
+	; set blocking FLO register
+	LD A,(HL)
+	LD (BLREG),A
 	INC HL
 
 	; set phys. bytes/sector
@@ -2460,9 +2478,9 @@ IOS:	DB 1		; NUMMER DES GEWUENSCHTEN SEKTORS
 IOD:	DW BUFF		; DMA-ADRESSE
 	
 	; deblocking parameters for current drive
-BLREG:	DB 1		; bits for special FLO register (FLO+4)
 BLPOW:	DB 1		; power (shift) value
 BLMSK:	DB 1		; sector mask (modulo value)
+BLREG:	DB 1		; bits for special FLO register (FLO+4)
 ISIDE	DB 1
 
 	; phys. parameters of current drive
@@ -2475,12 +2493,16 @@ PHYSIDS: DB 0		; sides (1..n)
 DEBACT:	DB 0
 	ENDIF
 
-	;ENDEF		; end macro
-
-	; floppy data area (from diskdef.lib)
+	; floppy data area
 
 BEGDAT	EQU	$
 DIRBUF:	DS	128	;DIRECTORY ACCESS BUFFER
+
+	IF DG_NEW
+
+	$INCLUDE NBIOS112.INC
+
+	ELSE	; DG_NEW
 
 	; drive 0
 
@@ -2574,6 +2596,8 @@ CSV6:	DS	0
 ALV7:	DS	128
 CSV7:	DS	0
 	ENDIF
+
+	ENDIF	; DG_NEW
 	
 ENDDAT	EQU	$
 DATSIZ	EQU	$-BEGDAT
