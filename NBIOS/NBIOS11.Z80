@@ -72,6 +72,8 @@
 ;
 ;------------------------------------------------------------------------------
 
+	.LFCOND
+
 BIOSVER EQU 11		; BIOS version 1.1
 
 CPMVER	EQU 22		; CP/M version 2.2
@@ -260,7 +262,7 @@ DPE7:	DW	0000h, 0000h
 
 	IF DG_NEW
 
-	$INCLUDE NBIOS111.INC
+	$INCLUDE NBIOS11.DPB
 
 	ELSE	; DG_NEW
 
@@ -708,12 +710,12 @@ SIGNON:	DB 26
 	DB 'K',CR,LF
 	DB 'NBIOS '
 	DB BIOSVER/10+'0','.',BIOSVER MOD 10+'0'
-	DB ' 260925-04'
+	DB ' 260926-01'
 	DB " BOOT=",BTDRV+'A',CR,LF
 
 	IF DG_NEW
 
-	$INCLUDE NBIOS113.INC
+	$INCLUDE NBIOS11.SIG
 
 	ELSE	; DG_NEW
 
@@ -2500,7 +2502,7 @@ DIRBUF:	DS	128	;DIRECTORY ACCESS BUFFER
 
 	IF DG_NEW
 
-	$INCLUDE NBIOS112.INC
+	$INCLUDE NBIOS11.ALV
 
 	ELSE	; DG_NEW
 

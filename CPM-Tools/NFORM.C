@@ -1,6 +1,6 @@
 /****************************************************************************/
 /*
-	NFORM.C  *dg*  07/2026 for MI-C compiler and MC CP/M clone
+	NFORM.C  *dg*  09/2026 for MI-C compiler and MC CP/M clone
 	
 	Format disk, for FLO2 and special formats, Skew support.
 	NFORM uses only Monitor routines and direct access to the floppy
@@ -16,6 +16,8 @@
 				 added more parametes
  04.08.2026 *dg* Formatierung repariert (side select Problem)
  19.09.2026 *dg* Changed format tables
+ 26.09.2026 *dg* Changed format tables to match NDiskDef-Outputs
+				 Use NDiskDef generated tables as include
  
 */
 
@@ -40,7 +42,7 @@ BOOL isruncpm;
 #define BUFFER_SIZE 1200 * 9
 char *buffer;
 char *skewbuf;
-char outbuf[80];
+char outbuf[120];
 
 extern int FRMTRK();
 extern int VFYTRK();
@@ -48,95 +50,122 @@ extern HOME();
 
 typedef struct
 {
-	char *Name;
-	char SecCnt;	/* sectors per track (1..n) */
 	int BytCnt;		/* sector byte count 128, 256, 512, 1024 */
+	char SecCnt;	/* sectors per track (1..n) */
 	char TrkCnt;	/* track cnt (0..n-1) */
-	char Density;	/* 0=SD, 1=DD */
 	char SSDS;		/* 0 = single sided, 1 = double-sided */
+	char Density;	/* 0=SD, 1=DD */
 	char MinMax;	/* 0 = Mini, 1 = Maxi */
 	char UseSSO;	/* 1 = use SSO */
 	char GapLen;	/* 54 = 3 ? */
 	char Filler;	/* 0xE5 */
-} format;
+} drvtab;
+
+typedef struct
+{
+	char *name;
+	int size; /* size in KB */
+	drvtab tab;
+} drvprm;
+
+#include "NBIOS11.FH"
+
+#IF FALSE
 
 /* Format NKC Mini-Disk 800K */
-format FMNKC =
+drvprm FMNKC =
 {
 	"NKC800",
-	5,				/* 5 sectors */
-	1024,			/* 1024 bytes per sector */
-	80,				/* 80 tracks */
-	1,				/* DD */
-	1,				/* DS */
-	0,				/* Mini (3.5/5.25 Zoll) */
-	1,				/* UseSSO */
-	54,				/* gap3 length */
-	0xE5			/* filler */
+	800,
+	{
+		1024,			/* 1024 bytes per sector */
+		5,				/* 5 sectors */
+		80,				/* 80 tracks */
+		1,				/* DS */
+		1,				/* DD */
+		0,				/* Mini (3.5/5.25 Zoll) */
+		1,				/* UseSSO */
+		54,				/* gap3 length */
+		0xE5			/* filler */
+	}
 };
 
 /* Format 1,44 MB 3,5 Zoll HD/DS 1024/9 */
-format FM144 =
+drvprm FM144 =
 {
 	"HD1.44",
-	9,				/* 9 sectors */
-	1024,			/* 1024 bytes per sector */
-	80,				/* 80 tracks */
-	1,				/* DD */
-	1,				/* DS */
-	1,				/* Maxi or HD */
-	1,				/* UseSSO */
-	40,				/* gap3 length */
-	0xE5			/* filler */
+	1440,
+	{
+		1024,			/* 1024 bytes per sector */
+		9,				/* 9 sectors */
+		80,				/* 80 tracks */
+		1,				/* DS */
+		1,				/* DD */
+		1,				/* Maxi or HD */
+		1,				/* UseSSO */
+		40,				/* gap3 length */
+		0xE5			/* filler */
+	}
 };
 
 /* Format 1,4 MB 5,25 Zoll HD/DS 1024/8 */
-format FM140 =
+drvprm FM140 =
 {
 	"HD1.4",
-	8,				/* 8 sectors */
-	1024,			/* 1024 bytes per sector */
-	80,				/* 80 tracks */
-	1,				/* DD */
-	1,				/* DS */
-	1,				/* Maxi or HD */
-	1,				/* UseSSO */
-	40,				/* gap3 length */
-	0xE5			/* filler */
+	1280,
+	{
+		1024,			/* 1024 bytes per sector */
+		8,				/* 8 sectors */
+		80,				/* 80 tracks */
+		1,				/* DS */
+		1,				/* DD */
+		1,				/* Maxi or HD */
+		1,				/* UseSSO */
+		40,				/* gap3 length */
+		0xE5			/* filler */
+	}
 };
 
 /* Format 1,2 MB 5,25 Zoll HD/DS 512/15 */
-format FM120 =
+drvprm FM120 =
 {
 	"HD1.2",
-	15,				/* 15 sectors */
-	512,			/* 512 bytes per sector */
-	80,				/* 80 tracks */
-	1,				/* DD */
-	1,				/* DS */
-	1,				/* Maxi or HD */
-	1,				/* UseSSO */
-	40,				/* gap3 length */
-	0xE5			/* filler */
+	1200,
+	{
+		512,			/* 512 bytes per sector */
+		15,				/* 15 sectors */
+		80,				/* 80 tracks */
+		1,				/* DS */
+		1,				/* DD */
+		1,				/* Maxi or HD */
+		1,				/* UseSSO */
+		40,				/* gap3 length */
+		0xE5			/* filler */
+	}
 };
 
 /* Format IBM 8" SD */
-format FMIBMS =
+drvprm FMIBMS =
 {
 	"IBM SS/SD",
-	26,				/* 26 sectors */
-	128,			/* 128 bytes per sector */
-	77,				/* 77 tracks */
-	0,				/* DD */
-	0,				/* DS */
-	1,				/* Maxi (8 Zoll) */
-	0,				/* no UseSSO */
-	27,				/* gap3 length */
-	0xE5			/* filler */
+	250,
+	{
+		128,			/* 128 bytes per sector */
+		26,				/* 26 sectors */
+		77,				/* 77 tracks */
+		0,				/* SS */
+		0,				/* DD */
+		1,				/* Maxi (8 Zoll) */
+		0,				/* no UseSSO */
+		27,				/* gap3 length */
+		0xE5			/* filler */
+	}
 };
 
 #define FMTCNT 5
-format *fmtlist[] = {FMNKC, FM144, FM140, FM120, FMIBMS};
+drvprm *fmtlist[] = {FMNKC, FM144, FM140, FM120, FMIBMS};
+
+#ENDIF
 
 /****************************************************************************/
 
@@ -425,22 +454,25 @@ ChkErr(err, track)
 
 ShowFmt(drive, fmt, skew)
 	int drive, skew;
-	format *fmt;
+	drvprm *fmt;
 {
 	char *str;
+	drvtab *tab;
+
+	tab = fmt->tab;
 	
 	/*str = "Format drive %c: %s [T=%d S=%d B=%d %s %s/%s I=%d %s]\r\n"; */
-	sprintf(outbuf, "Format drive %c: %s [T=%d S=%d B=%d GAP3=%d ",
-		drive+'A', fmt->Name, fmt->TrkCnt, fmt->SecCnt, fmt->BytCnt, fmt->GapLen);
+	sprintf(outbuf, "Format drive %c: %s %d [B=%d S=%d T=%d GAP3=%d ",
+		drive+'A', fmt->name, fmt->size, tab->BytCnt, tab->SecCnt, tab->TrkCnt, tab->GapLen);
 	PutStr(outbuf);
 
-	PutStr(fmt->MinMax == 0 ? "Mini" : "Maxi/HD");
-	PutChr(' ');
-
-	PutStr(fmt->SSDS == 0 ? "SS" : "DS");
+	PutStr(tab->SSDS == 0 ? "SS" : "DS");
 	PutChr(' ');
 	
-	PutStr(fmt->Density == 0 ? "SD" : "DD");
+	PutStr(tab->Density == 0 ? "SD" : "DD");
+	PutChr(' ');
+
+	PutStr(tab->MinMax == 0 ? "Mini" : "Maxi/HD");
 
 	sprintf(outbuf, " I=%d]\r\n", skew);
 	PutStr(outbuf);
@@ -474,12 +506,13 @@ main(argc, argv)
 	int drive, skew, gaplen, seccnt, trkcnt, minmax, density;
 	int heads, side, ctrl, addr; /* not implemented yet */
 	int fmtidx;
-	format *fmt;
+	drvprm *fmt;
+	drvtab *tab;
 	BOOL error, verify;
 	
 	ChkRunCpm();
 
-	PutStr("\r\nNFORM 1.3 *dg* 260919-01\r\n");
+	PutStr("\r\nNFORM 1.4 *dg* 260926-02\r\n");
 	PutStr("Formatter for MC CP/M computer (FLO2)\r\n\n");
 
 #if DDTZ == 0
@@ -488,6 +521,7 @@ main(argc, argv)
 
 	fmtidx = 0;
 	fmt = fmtlist[fmtidx];
+	tab = fmt->tab;
 	skew = 1;
 	gaplen = -1;
 	seccnt = -1;
@@ -529,7 +563,7 @@ main(argc, argv)
 			if (toupper(argv[p][1]) == 'I' && strlen(argv[p]) >= 2 && fmt != NULL )
 			{
 				skew = atoi(argv[p] + 2);
-				if (skew < 1 || skew > fmt->SecCnt)
+				if (skew < 1 || skew > tab->SecCnt)
 					error= TRUE;
 			}
 			/* gaplen -G<g> */
@@ -597,10 +631,17 @@ main(argc, argv)
 		/* 1=NKC 800KB, 2=1,44MB, 3=5.25(1K) 4=5.25(512) 5=IBM SS/SD (default=1)\r\n");*/
 		for (p = 0; p < FMTCNT; p++)
 		{
-			sprintf(outbuf, " %d=%s", p+1, fmtlist[p]->Name);
+			fmt = fmtlist[p];
+			/*
+			tab = fmt->tab;
+			sprintf(outbuf, " %d=%s %dK (%d/%d/%d/%d)", p+1, fmt->Name, fmt->Size,
+				fmt->BytCnt, fmt->SecCnt, fmt->TrkCnt, fmt->SSDS + 1);
+			*/
+			sprintf(outbuf, " %d=%s (%dK)", p+1, fmt->name, fmt->size);
 			PutStr(outbuf);
 		}
-		PutStr("default=1\r\n");
+		/*PutStr("default=1\r\n");*/
+		PutStr("\r\n");
 		
 		PutStr("  i = Interleave/Skew (default=1)\r\n");
 		PutStr("  s = Sector count\r\n");
@@ -632,38 +673,39 @@ main(argc, argv)
 #endif
 
 
+	tab = fmt->tab;
 	if (seccnt > 0)
 	{
 		sprintf(outbuf, "sectors=%d\r\n", seccnt);
 		PutStr(outbuf);
-		fmt->SecCnt = seccnt;
+		tab->SecCnt = seccnt;
 	}
 	if (gaplen > 0)
 	{
 		sprintf(outbuf, "gap3=%d\r\n", gaplen);
 		PutStr(outbuf);
-		fmt->GapLen = gaplen;
+		tab->GapLen = gaplen;
 	}
 	if (trkcnt > 0)
 	{
 		sprintf(outbuf, "tracks=%d\r\n", trkcnt);
 		PutStr(outbuf);
-		fmt->TrkCnt = trkcnt;
+		tab->TrkCnt = trkcnt;
 	}
 	if (minmax > 0)
 	{
 		sprintf(outbuf, "mini/maxi=%d\r\n", minmax);
 		PutStr(outbuf);
-		fmt->MinMax = minmax;
+		tab->MinMax = minmax;
 	}
 	if (density > 0)
 	{
 		sprintf(outbuf, "density=%d\r\n", density);
 		PutStr(outbuf);
-		fmt->Density = density;
+		tab->Density = density;
 	}
 
-	skewbuf = calloc(fmt->SecCnt, 1);
+	skewbuf = calloc(tab->SecCnt, 1);
 	buffer = calloc(BUFFER_SIZE, 1);
 	if (buffer == NULL || skewbuf == NULL)
 	{
@@ -673,10 +715,10 @@ main(argc, argv)
 
 	/* ----- parameter end ----- */
 
-	CalcSkew(skewbuf, fmt->SecCnt, skew);
+	CalcSkew(skewbuf, tab->SecCnt, skew);
 	ShowFmt(drive, fmt, skew, gaplen);
-	/*if (skew > 1)*/
-		ShowSkew(skewbuf, fmt->SecCnt);
+	if (skew > 1)
+		ShowSkew(skewbuf, tab->SecCnt);
 	
 	sprintf(outbuf, "\r\nInsert disk in drive %c: and press ENTER\r\n\r\n", drive + 'A');
 	PutStr(outbuf);
@@ -684,10 +726,11 @@ main(argc, argv)
 	ch = WaitCr();
 	if (ch == 3) return;
 
-	trkcnt = fmt->TrkCnt;
+	trkcnt = tab->TrkCnt;
 	
-	INIT(buffer, drive, skewbuf, fmt);
+	INIT(buffer, drive, skewbuf, tab);
 	HOME();
+	
 	error = FALSE;
 	for (track = 0; track < trkcnt; track++)
 	{

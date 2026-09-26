@@ -1,3 +1,4 @@
+echo off > nul
 CPM CCZ /SX NFORM
 CPM M80 =NFORM/Z/L
 CPM M80 =NFORMLL/Z/L

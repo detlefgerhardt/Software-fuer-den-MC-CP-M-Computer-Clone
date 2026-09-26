@@ -1,0 +1,201 @@
+/* ndiskdef NBIOS11.DH created 26.09.26 17:28 by NDiskDef 1.0 */
+/* format F800K 800KB  (1024/5/80/2) */
+drvprm F800K =
+{
+	"F800K",
+	800,
+	{
+		40,	/* spt */
+		4,	/* bsh */
+		15,	/* blm */
+		0,	/* exm */
+		389,	/* dsm */
+		255,	/* drm */
+		240,	/* al0 */
+		0,	/* al1 */
+		64,	/* cks */
+		4,	/* ofs */
+		/* blocking/deblocking and FLO reg */
+		3,	/* psh */
+		7,	/* phm */
+		32,	/* FLO reg */
+		/* physical params */
+		1024,	/* phylen */
+		4,	/* physec */
+		79,	/* phytrk */
+		2	/* sides */
+	}
+};
+
+/* format F1440K 1440KB  (1024/9/80/2) */
+drvprm F1440K =
+{
+	"F1440K",
+	1440,
+	{
+		72,	/* spt */
+		5,	/* bsh */
+		31,	/* blm */
+		1,	/* exm */
+		354,	/* dsm */
+		255,	/* drm */
+		192,	/* al0 */
+		0,	/* al1 */
+		64,	/* cks */
+		2,	/* ofs */
+		/* blocking/deblocking and FLO reg */
+		3,	/* psh */
+		7,	/* phm */
+		0,	/* FLO reg */
+		/* physical params */
+		1024,	/* phylen */
+		8,	/* physec */
+		79,	/* phytrk */
+		2	/* sides */
+	}
+};
+
+/* format F1280K 1280KB  (1024/8/80/2) */
+drvprm F1280K =
+{
+	"F1280K",
+	1280,
+	{
+		64,	/* spt */
+		5,	/* bsh */
+		31,	/* blm */
+		1,	/* exm */
+		315,	/* dsm */
+		255,	/* drm */
+		192,	/* al0 */
+		0,	/* al1 */
+		64,	/* cks */
+		2,	/* ofs */
+		/* blocking/deblocking and FLO reg */
+		3,	/* psh */
+		7,	/* phm */
+		0,	/* FLO reg */
+		/* physical params */
+		1024,	/* phylen */
+		7,	/* physec */
+		79,	/* phytrk */
+		2	/* sides */
+	}
+};
+
+/* format F1200K 1200KB  (512/15/80/2) */
+drvprm F1200K =
+{
+	"F1200K",
+	1200,
+	{
+		60,	/* spt */
+		5,	/* bsh */
+		31,	/* blm */
+		1,	/* exm */
+		295,	/* dsm */
+		255,	/* drm */
+		192,	/* al0 */
+		0,	/* al1 */
+		64,	/* cks */
+		2,	/* ofs */
+		/* blocking/deblocking and FLO reg */
+		2,	/* psh */
+		3,	/* phm */
+		0,	/* FLO reg */
+		/* physical params */
+		512,	/* phylen */
+		14,	/* physec */
+		79,	/* phytrk */
+		2	/* sides */
+	}
+};
+
+/* format IBMSD 250KB  (128/26/77/1) */
+drvprm IBMSD =
+{
+	"IBMSD",
+	250,
+	{
+		26,	/* spt */
+		3,	/* bsh */
+		7,	/* blm */
+		0,	/* exm */
+		242,	/* dsm */
+		63,	/* drm */
+		192,	/* al0 */
+		0,	/* al1 */
+		16,	/* cks */
+		2,	/* ofs */
+		/* blocking/deblocking and FLO reg */
+		0,	/* psh */
+		0,	/* phm */
+		16,	/* FLO reg */
+		/* physical params */
+		128,	/* phylen */
+		25,	/* physec */
+		76,	/* phytrk */
+		1	/* sides */
+	}
+};
+
+/* format CF2M 2048KB  (64/128/256/1) */
+drvprm CF2M =
+{
+	"CF2M",
+	2048,
+	{
+		0,	/* spt */
+		5,	/* bsh */
+		31,	/* blm */
+		1,	/* exm */
+		511,	/* dsm */
+		255,	/* drm */
+		192,	/* al0 */
+		0,	/* al1 */
+		0,	/* cks */
+		0,	/* ofs */
+		/* blocking/deblocking and FLO reg */
+		-2147483648,	/* psh */
+		-1,	/* phm */
+		4080,	/* FLO reg */
+		/* physical params */
+		64,	/* phylen */
+		127,	/* physec */
+		255,	/* phytrk */
+		1	/* sides */
+	}
+};
+
+/* format CF8M 8192KB  (256/128/256/1) */
+drvprm CF8M =
+{
+	"CF8M",
+	8192,
+	{
+		256,	/* spt */
+		6,	/* bsh */
+		63,	/* blm */
+		3,	/* exm */
+		1023,	/* dsm */
+		255,	/* drm */
+		128,	/* al0 */
+		0,	/* al1 */
+		0,	/* cks */
+		0,	/* ofs */
+		/* blocking/deblocking and FLO reg */
+		1,	/* psh */
+		1,	/* phm */
+		4080,	/* FLO reg */
+		/* physical params */
+		256,	/* phylen */
+		127,	/* physec */
+		255,	/* phytrk */
+		1	/* sides */
+	}
+};
+
+#define FMTCNT 5
+drvprm *fmtlist[] = {F800K,F1440K,F1280K,F1200K,IBMSD};
+
+/* end of NBIOS11.DH */ 

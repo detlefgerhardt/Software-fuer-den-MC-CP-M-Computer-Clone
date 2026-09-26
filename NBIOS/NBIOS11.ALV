@@ -1,4 +1,4 @@
-; ndiskdef part2 created 25.09.26 1531 by NDiskDef 1.0
+; ndiskdef NBIOS11.ALV created 26.09.26 14:55 by NDiskDef 1.0
 ; drive0
 ALV0:	DS 49
 CSV0:	DS 64
@@ -31,3 +31,4 @@ CSV6:	DS 0
 ALV7:	DS 128
 CSV7:	DS 0
 
+; end of NBIOS11.ALV

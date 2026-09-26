@@ -1,8 +1,3 @@
-echo off > nul
-CPM CCZ /SX NFORM
-CPM M80 =NFORM/Z/L
-CPM M80 =NFORMLL/Z/L
-CPM L80 NFORM/N,XXXMAIN,NFORM,NFORMLL,LIB/S/E/Y
-echo off > nul
-del nform.hex > nul
-IntelHex bh NFORM.COM > nul
+cpm z80asm NFORM/f,NFORM/h
+hexreset NFORM.HEX
+copy NFORM.HEX ..\SYS

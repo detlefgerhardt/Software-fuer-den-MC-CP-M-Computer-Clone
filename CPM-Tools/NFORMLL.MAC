@@ -1,4 +1,4 @@
-; NFORMLL.MAC *dg* 04.08.2026
+; NFORMLL.MAC *dg* 26.09.2026
 ;
 ; low-level assembly routines for NFORM.C
 ;
@@ -16,14 +16,14 @@ TRUE	EQU NOT FALSE
 FLO	EQU 0C0h	; controller base address
 
 DRIVE:	DB 0
-DENSIT:	DB 0	; 0 = SD, 1 = DD
 MINMAX:	DB 0	; 0 = Mini, 1 = Maxi
 BYTCNT:	DW 0
-GAPLEN:	DB 0
 SECCNT:	DB 0
-SSDS:	DB 0	; 0 = SS, 1 = DS
-USESSO:	DB 0
 TRKCNT:	DB 0
+SSDS:	DB 0	; 0 = SS, 1 = DS
+DENSIT:	DB 0	; 0 = SD, 1 = DD
+USESSO:	DB 0
+GAPLEN:	DB 0
 FILLER: DB 0	; for sector data
 
 TRKBUF:	DW 0	; pointer to buffer that can hold a complete track (more than 10.000 kb)
@@ -35,11 +35,11 @@ SIDSEL:	DB 1
 
 ;-----------------------------------------------------------------------------
 
-; Init(buffer, drive, skewtb, frm)
+; Init(buffer, drive, skewtb, tab)
 ;	unsigned buffer;
 ;	int drive;
 ;	char *skewtb
-;	struct format *frm;
+;	drvtab *tab;
 
 	GLOBAL INIT
 
@@ -63,34 +63,32 @@ INIT:	LD IX,2		; RET
 	PUSH HL
 	POP IX
 
-	; IX+0,IX+1 = Name
+	LD L,(IX+0)	; BytCnt
+	LD H,(IX+1)
+	LD (BYTCNT),HL
 	
 	LD A,(IX+2)	; SecCnt
 	LD (SECCNT),A
 	
-	LD L,(IX+3)	; BytCnt
-	LD H,(IX+4)
-	LD (BYTCNT),HL
-	
-	LD A,(IX+5)	; TrkCnt
+	LD A,(IX+3)	; TrkCnt
 	LD (TRKCNT),A
 	
-	LD A,(IX+6)	; Density
-	LD (DENSIT),A
-	
-	LD A,(IX+7)	; SS/DD
+	LD A,(IX+4)	; SS/DD
 	LD (SSDS),A
 	
-	LD A,(IX+8)	; Mini/Maxi
+	LD A,(IX+5)	; Density
+	LD (DENSIT),A
+	
+	LD A,(IX+6)	; Mini/Maxi
 	LD (MINMAX),A
 
-	LD A,(IX+9)	; UseSSO
+	LD A,(IX+7)	; UseSSO
 	LD (USESSO),A
 
-	LD A,(IX+10)	; GapLen
+	LD A,(IX+8)	; GapLen
 	LD (GAPLEN),A
 
-	LD A,(IX+11)	; Data filler
+	LD A,(IX+9)	; Data filler
 	LD (FILLER),A
 
 	; convert drive to binary drive code
@@ -222,7 +220,7 @@ FRMTR1:	; format loop (tracks)
 	CP 1
 	JR NZ,FRMTR3	; -> single sided
 
-	; --- double-sided,. format side 1 ---
+	; --- double-sided, format side 1 ---
 	
 	LD A,(DRIVE)	; Rueckseite setzen
 	OR 80H  	; aber kein Side-sel
@@ -236,8 +234,7 @@ FRMTR1:	; format loop (tracks)
 	LD A,80H 
 	LD (SIDSEL),A 	; setzen
 
-FRMTR2:
-	CALL GENTRK
+FRMTR2:	CALL GENTRK
 	CALL FMT
 	JR NZ,FRMTR9
 
@@ -362,20 +359,20 @@ GENT12:	LD (IX+0),0
 	INC IX
 	DEC B
 	JR NZ,GENT12
-	
+
 	LD B,3
 GENT13:	LD (IX+0),0F5H	; generate 0A1h without clock-bits
 	INC IX
 	DEC B
 	JR NZ,GENT13
-	
+
 	LD (IX+0),0FEH 	; generate ID address mark
 	INC IX
-	
+
 	LD A,(CURTRK)
 	LD (IX+0),A  	; track 0..n
 	INC IX
-	
+
 	LD A,(SIDSEL) 	; for side-sel SSO
 	AND 80H
 	OR A
@@ -764,8 +761,7 @@ VERTR9:	LD L,B
 ;-----------------------------------------------------------------------------
 ; Verify a track, one side
 	
-VFY:
-	CALL DELAY  	; head settle time
+VFY:	CALL DELAY  	; head settle time
 
 	LD A,1
 	LD (CURSEC),A

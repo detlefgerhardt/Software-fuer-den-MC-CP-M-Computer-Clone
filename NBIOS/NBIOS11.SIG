@@ -1,0 +1,10 @@
+; ndiskdef NBIOS11.SIG created 26.09.26 14:55 by NDiskDef 1.0
+DB 'A=F800KB'
+DB ',B=F800KB'
+DB ',C=F800KB'
+DB ',D=F1200KB'
+DB ',E=CF8MB'
+DB ',F=CF8MB'
+DB ',G=CF8MB'
+DB ',H=CF8MB'
+; end of NBIOS11.SIG
