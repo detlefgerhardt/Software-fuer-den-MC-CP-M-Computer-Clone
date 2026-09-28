@@ -1,0 +1,29 @@
+
+
+MI - C  v-3.18I  (C) COPYRIGHT  G. KERSTING / H. ROSE, 1983
+----------
+BiosAddr--
+IsRunCpm-
+InPort	--
+OutPort	--
+SelDrv	--
+SetTrk	--
+SetSec	--
+SetDma	--
+BiosRead--
+BiosWrit--
+InitDisk-
+BD_CoIn	-
+BD_CoOut-
+GetChr	-
+PutChr	E
+PutStr	-
+WaitCr	--
+Flop	--
+ReadSect--
+WriteSec--
+WriteDis----
+ReadDisk----------------
+ChkErr	---
+main	-----------
+;1 FEHLER
