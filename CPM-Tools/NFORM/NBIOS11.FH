@@ -1,0 +1,95 @@
+/* ndiskdef NBIOS11.FH created 26.09.26 17:28 by NDiskDef 1.0 */
+/* format F800K 800KB  (1024/5/80/2) */
+drvprm F800K =
+{
+	"F800K",
+	800,
+	{
+		1024,	/* bytes/sector */
+		5,	/* sectors/track */
+		80,	/* tracks/side */
+		1,	/* 0=SS/1=DS */
+		1,	/* 0=DD/1=SD */
+		0,	/* 0=Maxi/1=Mini */
+		1,	/* UseSSO */
+		54,	/* gap3 length */
+		0xE5	/* filler */
+	}
+};
+
+/* format F1440K 1440KB  (1024/9/80/2) */
+drvprm F1440K =
+{
+	"F1440K",
+	1440,
+	{
+		1024,	/* bytes/sector */
+		9,	/* sectors/track */
+		80,	/* tracks/side */
+		1,	/* 0=SS/1=DS */
+		1,	/* 0=DD/1=SD */
+		1,	/* 0=Maxi/1=Mini */
+		1,	/* UseSSO */
+		40,	/* gap3 length */
+		0xE5	/* filler */
+	}
+};
+
+/* format F1280K 1280KB  (1024/8/80/2) */
+drvprm F1280K =
+{
+	"F1280K",
+	1280,
+	{
+		1024,	/* bytes/sector */
+		8,	/* sectors/track */
+		80,	/* tracks/side */
+		1,	/* 0=SS/1=DS */
+		1,	/* 0=DD/1=SD */
+		1,	/* 0=Maxi/1=Mini */
+		1,	/* UseSSO */
+		40,	/* gap3 length */
+		0xE5	/* filler */
+	}
+};
+
+/* format F1200K 1200KB  (512/15/80/2) */
+drvprm F1200K =
+{
+	"F1200K",
+	1200,
+	{
+		512,	/* bytes/sector */
+		15,	/* sectors/track */
+		80,	/* tracks/side */
+		1,	/* 0=SS/1=DS */
+		1,	/* 0=DD/1=SD */
+		1,	/* 0=Maxi/1=Mini */
+		1,	/* UseSSO */
+		40,	/* gap3 length */
+		0xE5	/* filler */
+	}
+};
+
+/* format IBMSD 250KB  (128/26/77/1) */
+drvprm IBMSD =
+{
+	"IBMSD",
+	250,
+	{
+		128,	/* bytes/sector */
+		26,	/* sectors/track */
+		77,	/* tracks/side */
+		0,	/* 0=SS/1=DS */
+		0,	/* 0=DD/1=SD */
+		1,	/* 0=Maxi/1=Mini */
+		0,	/* UseSSO */
+		27,	/* gap3 length */
+		0xE5	/* filler */
+	}
+};
+
+#define FMTCNT 5
+drvprm *fmtlist[] = {F800K,F1440K,F1280K,F1200K,IBMSD};
+
+/* end of NBIOS11.FH */ 

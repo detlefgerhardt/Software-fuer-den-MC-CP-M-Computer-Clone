@@ -1,0 +1,30 @@
+; SYSGEN.TTL
+; TeraTerm Macro
+
+path = 'e:\Retro\MC und NKC\MC\Software\SYS\'
+sys = path
+strconcat sys 'CPM22.HEX'
+bios = path
+strconcat bios 'NBIOS11.HEX'
+putsys = path
+strconcat putsys 'NPUTSYS.HEX'
+
+sendln 'rcc00'
+pause 1
+sendfile sys 1
+wait '>FF*'
+
+pause 1
+sendln 're200'
+pause 1
+sendfile bios 1
+wait '>FF*'
+
+pause 1
+sendln 'r100'
+pause 1
+sendfile putsys 1
+wait '>FF*'
+
+pause 1
+sendln 'g100'

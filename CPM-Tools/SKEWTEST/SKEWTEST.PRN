@@ -1,0 +1,1620 @@
+	MSX.M-80 1.00	01-Apr-85	PAGE	1
+
+
+                        ;MI - C  v-3.18I  (C) COPYRIGHT  G. KERSTING / H. ROSE, 1983
+                        ;	HIER HAT BENUTZERTEXT PLATZ
+  0000'                 	DSEG
+  0000"                 SSTDIN:
+  0000"   006F          	DEFW	111
+  0002"                 	CSEG
+  0000'                 	DSEG
+  0002"                 SSTDOUT:
+  0002"   0070          	DEFW	112
+  0004"                 	CSEG
+  0000'                 	DSEG
+  0004"                 STDIN:
+  0004"   0000"         	DEFW	SSTDIN
+  0006"                 	CSEG
+  0000'                 	DSEG
+  0006"                 STDOUT:
+  0006"   0002"         	DEFW	SSTDOUT
+  0008"                 	CSEG
+  0000'   0000          BIOS:	DW	0
+  0002'                 BD_CoIn:
+  0002'   11 0006       	LD	DE,6
+  0005'   D5            	PUSH	DE
+  0006'   11 00FF       	LD	DE,255
+  0009'   D5            	PUSH	DE
+  000A'   CD 0000*      	CALL	BDOS
+  000D'   C1            	POP	BC
+  000E'   C1            	POP	BC
+  000F'   C9            	RET
+  0010'                 BD_CoOut:
+  0010'   11 0006       	LD	DE,6
+  0013'   D5            	PUSH	DE
+  0014'   21 0004       	LD	HL,4
+  0017'   39            	ADD	HL,SP
+  0018'   5E            	LD	E,(HL)
+  0019'   16 00         	LD	D,0
+  001B'   D5            	PUSH	DE
+  001C'   CD 0000*      	CALL	BDOS
+  001F'   C1            	POP	BC
+  0020'   C1            	POP	BC
+  0021'   C9            	RET
+  0022'                 GetChr:
+  0022'   CD 0002'      	CALL	BD_CoIn
+  0025'   C9            	RET
+  0026'                 PutChr:
+  0026'   21 0002       	LD	HL,2
+  0029'   39            	ADD	HL,SP
+  002A'   5E            	LD	E,(HL)
+  002B'   16 00         	LD	D,0
+  002D'   D5            	PUSH	DE
+  002E'   CD 0010'      	CALL	BD_CoOut
+  0031'   C1            	POP	BC
+  0032'   C9            	RET
+  0033'                 PutStr:
+  0033'                 C303:
+  0033'   C1            	POP	BC
+  0034'   D1            	POP	DE
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-1
+
+
+  0035'   D5            	PUSH	DE
+  0036'   C5            	PUSH	BC
+  0037'   1A            	LD	A,(DE)
+  0038'   26 00         	LD	H,0
+  003A'   6F            	LD	L,A
+  003B'   B4            	OR	H
+  003C'   CA 0051'      	JP	Z,C304
+  003F'   C1            	POP	BC
+  0040'   D1            	POP	DE
+  0041'   13            	INC	DE
+  0042'   D5            	PUSH	DE
+  0043'   C5            	PUSH	BC
+  0044'   1B            	DEC	DE
+  0045'   1A            	LD	A,(DE)
+  0046'   26 00         	LD	H,0
+  0048'   6F            	LD	L,A
+  0049'   E5            	PUSH	HL
+  004A'   CD 0010'      	CALL	BD_CoOut
+  004D'   C1            	POP	BC
+  004E'   C3 0033'      	JP	C303
+  0051'                 C304:
+  0051'   C9            	RET
+  0052'                 WrBlock:
+  0052'   EB            	EX	DE,HL
+  0053'   21 FFF8       	LD	HL,-8
+  0056'   39            	ADD	HL,SP
+  0057'   F9            	LD	SP,HL
+  0058'   EB            	EX	DE,HL
+  0059'   11 014D'      	LD	DE,C301+0
+  005C'   D5            	PUSH	DE
+  005D'   21 000C       	LD	HL,12
+  0060'   39            	ADD	HL,SP
+  0061'   5E            	LD	E,(HL)
+  0062'   23            	INC	HL
+  0063'   56            	LD	D,(HL)
+  0064'   D5            	PUSH	DE
+  0065'   CD 0000*      	CALL	fopen
+  0068'   C1            	POP	BC
+  0069'   C1            	POP	BC
+  006A'   EB            	EX	DE,HL
+  006B'   21 0006       	LD	HL,6
+  006E'   39            	ADD	HL,SP
+  006F'   73            	LD	(HL),E
+  0070'   23            	INC	HL
+  0071'   72            	LD	(HL),D
+  0072'   EB            	EX	DE,HL
+  0073'   21 0006       	LD	HL,6
+  0076'   39            	ADD	HL,SP
+  0077'   5E            	LD	E,(HL)
+  0078'   23            	INC	HL
+  0079'   56            	LD	D,(HL)
+  007A'   21 0000       	LD	HL,0
+  007D'   CD 0000*      	CALL	CCEQ
+  0080'   CA 008E'      	JP	Z,C306
+  0083'   21 0000       	LD	HL,0
+  0086'   EB            	EX	DE,HL
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-2
+
+
+  0087'   21 0008       	LD	HL,8
+  008A'   39            	ADD	HL,SP
+  008B'   F9            	LD	SP,HL
+  008C'   EB            	EX	DE,HL
+  008D'   C9            	RET
+  008E'                 C306:
+  008E'   11 014F'      	LD	DE,C301+2
+  0091'   D5            	PUSH	DE
+  0092'   CD 0000*      	CALL	printf
+  0095'   C1            	POP	BC
+  0096'   11 0000       	LD	DE,0
+  0099'   21 0004       	LD	HL,4
+  009C'   39            	ADD	HL,SP
+  009D'   73            	LD	(HL),E
+  009E'   23            	INC	HL
+  009F'   72            	LD	(HL),D
+  00A0'   C3 00AF'      	JP	C309
+  00A3'                 C307:
+  00A3'   21 0004       	LD	HL,4
+  00A6'   39            	ADD	HL,SP
+  00A7'   5E            	LD	E,(HL)
+  00A8'   23            	INC	HL
+  00A9'   56            	LD	D,(HL)
+  00AA'   2B            	DEC	HL
+  00AB'   13            	INC	DE
+  00AC'   73            	LD	(HL),E
+  00AD'   23            	INC	HL
+  00AE'   72            	LD	(HL),D
+  00AF'                 C309:
+  00AF'   21 000C       	LD	HL,12
+  00B2'   39            	ADD	HL,SP
+  00B3'   7E            	LD	A,(HL)
+  00B4'   23            	INC	HL
+  00B5'   66            	LD	H,(HL)
+  00B6'   6F            	LD	L,A
+  00B7'   CD 0000*      	CALL	CCLT
+  00BA'   CA 0125'      	JP	Z,C308
+  00BD'   CD 0022'      	CALL	GetChr
+  00C0'   F1            	POP	AF
+  00C1'   E5            	PUSH	HL
+  00C2'   11 0003       	LD	DE,3
+  00C5'   CD 0000*      	CALL	CCEQ
+  00C8'   CA 00D6'      	JP	Z,C311
+  00CB'   21 0000       	LD	HL,0
+  00CE'   EB            	EX	DE,HL
+  00CF'   21 0008       	LD	HL,8
+  00D2'   39            	ADD	HL,SP
+  00D3'   F9            	LD	SP,HL
+  00D4'   EB            	EX	DE,HL
+  00D5'   C9            	RET
+  00D6'                 C311:
+  00D6'   21 0004       	LD	HL,4
+  00D9'   39            	ADD	HL,SP
+  00DA'   5E            	LD	E,(HL)
+  00DB'   23            	INC	HL
+  00DC'   56            	LD	D,(HL)
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-3
+
+
+  00DD'   13            	INC	DE
+  00DE'   D5            	PUSH	DE
+  00DF'   11 0158'      	LD	DE,C301+11
+  00E2'   D5            	PUSH	DE
+  00E3'   CD 0000*      	CALL	printf
+  00E6'   C1            	POP	BC
+  00E7'   C1            	POP	BC
+  00E8'   21 0006       	LD	HL,6
+  00EB'   39            	ADD	HL,SP
+  00EC'   5E            	LD	E,(HL)
+  00ED'   23            	INC	HL
+  00EE'   56            	LD	D,(HL)
+  00EF'   D5            	PUSH	DE
+  00F0'   11 0020       	LD	DE,32
+  00F3'   D5            	PUSH	DE
+  00F4'   11 0400       	LD	DE,1024
+  00F7'   D5            	PUSH	DE
+  00F8'   2A 0059"      	LD	HL,(block)
+  00FB'   E5            	PUSH	HL
+  00FC'   CD 0000*      	CALL	fwrite
+  00FF'   EB            	EX	DE,HL
+  0100'   21 0008       	LD	HL,8
+  0103'   39            	ADD	HL,SP
+  0104'   F9            	LD	SP,HL
+  0105'   C1            	POP	BC
+  0106'   F1            	POP	AF
+  0107'   D5            	PUSH	DE
+  0108'   C5            	PUSH	BC
+  0109'   EB            	EX	DE,HL
+  010A'   C1            	POP	BC
+  010B'   D1            	POP	DE
+  010C'   D5            	PUSH	DE
+  010D'   C5            	PUSH	BC
+  010E'   21 0020       	LD	HL,32
+  0111'   CD 0000*      	CALL	CCNE
+  0114'   CA 0122'      	JP	Z,C313
+  0117'   21 0000       	LD	HL,0
+  011A'   EB            	EX	DE,HL
+  011B'   21 0008       	LD	HL,8
+  011E'   39            	ADD	HL,SP
+  011F'   F9            	LD	SP,HL
+  0120'   EB            	EX	DE,HL
+  0121'   C9            	RET
+  0122'                 C313:
+  0122'   C3 00A3'      	JP	C307
+  0125'                 C308:
+  0125'   21 000C       	LD	HL,12
+  0128'   39            	ADD	HL,SP
+  0129'   5E            	LD	E,(HL)
+  012A'   23            	INC	HL
+  012B'   56            	LD	D,(HL)
+  012C'   D5            	PUSH	DE
+  012D'   11 015C'      	LD	DE,C301+15
+  0130'   D5            	PUSH	DE
+  0131'   CD 0000*      	CALL	printf
+  0134'   C1            	POP	BC
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-4
+
+
+  0135'   C1            	POP	BC
+  0136'   21 0006       	LD	HL,6
+  0139'   39            	ADD	HL,SP
+  013A'   5E            	LD	E,(HL)
+  013B'   23            	INC	HL
+  013C'   56            	LD	D,(HL)
+  013D'   D5            	PUSH	DE
+  013E'   CD 0000*      	CALL	fclose
+  0141'   C1            	POP	BC
+  0142'   21 0001       	LD	HL,1
+  0145'   EB            	EX	DE,HL
+  0146'   21 0008       	LD	HL,8
+  0149'   39            	ADD	HL,SP
+  014A'   F9            	LD	SP,HL
+  014B'   EB            	EX	DE,HL
+  014C'   C9            	RET
+  014D'                 C301:
+                        
+  014D'   77 00 57      	DEFB	119,0,87,114,105,116,105,110,103,58
+  0150'   72 69 74      
+  0153'   69 6E 67      
+  0156'   3A            
+  0157'   00 20 25      	DEFB	0,32,37,100,0,13,10,37,100,32
+  015A'   64 00 0D      
+  015D'   0A 25 64      
+  0160'   20            
+  0161'   62 6C 6F      	DEFB	98,108,111,99,107,115,32,119,114,105
+  0164'   63 6B 73      
+  0167'   20 77 72      
+  016A'   69            
+  016B'   74 74 65      	DEFB	116,116,101,110,13,10,0
+  016E'   6E 0D 0A      
+  0171'   00            
+  0172'                 WrBl2:
+  0172'   EB            	EX	DE,HL
+  0173'   21 FFF8       	LD	HL,-8
+  0176'   39            	ADD	HL,SP
+  0177'   F9            	LD	SP,HL
+  0178'   EB            	EX	DE,HL
+  0179'   11 0001       	LD	DE,1
+  017C'   D5            	PUSH	DE
+  017D'   21 000C       	LD	HL,12
+  0180'   39            	ADD	HL,SP
+  0181'   5E            	LD	E,(HL)
+  0182'   23            	INC	HL
+  0183'   56            	LD	D,(HL)
+  0184'   D5            	PUSH	DE
+  0185'   CD 0000*      	CALL	creat
+  0188'   C1            	POP	BC
+  0189'   C1            	POP	BC
+  018A'   EB            	EX	DE,HL
+  018B'   21 0006       	LD	HL,6
+  018E'   39            	ADD	HL,SP
+  018F'   73            	LD	(HL),E
+  0190'   23            	INC	HL
+  0191'   72            	LD	(HL),D
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-5
+
+
+  0192'   EB            	EX	DE,HL
+  0193'   21 0006       	LD	HL,6
+  0196'   39            	ADD	HL,SP
+  0197'   5E            	LD	E,(HL)
+  0198'   23            	INC	HL
+  0199'   56            	LD	D,(HL)
+  019A'   21 FFFF       	LD	HL,-1
+  019D'   CD 0000*      	CALL	CCEQ
+  01A0'   CA 01AE'      	JP	Z,C316
+  01A3'   21 0000       	LD	HL,0
+  01A6'   EB            	EX	DE,HL
+  01A7'   21 0008       	LD	HL,8
+  01AA'   39            	ADD	HL,SP
+  01AB'   F9            	LD	SP,HL
+  01AC'   EB            	EX	DE,HL
+  01AD'   C9            	RET
+  01AE'                 C316:
+  01AE'   11 028F'      	LD	DE,C314+0
+  01B1'   D5            	PUSH	DE
+  01B2'   CD 0000*      	CALL	printf
+  01B5'   C1            	POP	BC
+  01B6'   11 0000       	LD	DE,0
+  01B9'   21 0004       	LD	HL,4
+  01BC'   39            	ADD	HL,SP
+  01BD'   73            	LD	(HL),E
+  01BE'   23            	INC	HL
+  01BF'   72            	LD	(HL),D
+  01C0'   C3 01CF'      	JP	C319
+  01C3'                 C317:
+  01C3'   21 0004       	LD	HL,4
+  01C6'   39            	ADD	HL,SP
+  01C7'   5E            	LD	E,(HL)
+  01C8'   23            	INC	HL
+  01C9'   56            	LD	D,(HL)
+  01CA'   2B            	DEC	HL
+  01CB'   13            	INC	DE
+  01CC'   73            	LD	(HL),E
+  01CD'   23            	INC	HL
+  01CE'   72            	LD	(HL),D
+  01CF'                 C319:
+  01CF'   21 000C       	LD	HL,12
+  01D2'   39            	ADD	HL,SP
+  01D3'   7E            	LD	A,(HL)
+  01D4'   23            	INC	HL
+  01D5'   66            	LD	H,(HL)
+  01D6'   6F            	LD	L,A
+  01D7'   CD 0000*      	CALL	CCLT
+  01DA'   CA 0267'      	JP	Z,C318
+  01DD'   CD 0022'      	CALL	GetChr
+  01E0'   F1            	POP	AF
+  01E1'   E5            	PUSH	HL
+  01E2'   11 0003       	LD	DE,3
+  01E5'   CD 0000*      	CALL	CCEQ
+  01E8'   CA 01F6'      	JP	Z,C321
+  01EB'   21 0000       	LD	HL,0
+  01EE'   EB            	EX	DE,HL
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-6
+
+
+  01EF'   21 0008       	LD	HL,8
+  01F2'   39            	ADD	HL,SP
+  01F3'   F9            	LD	SP,HL
+  01F4'   EB            	EX	DE,HL
+  01F5'   C9            	RET
+  01F6'                 C321:
+  01F6'   21 0004       	LD	HL,4
+  01F9'   39            	ADD	HL,SP
+  01FA'   5E            	LD	E,(HL)
+  01FB'   23            	INC	HL
+  01FC'   56            	LD	D,(HL)
+  01FD'   13            	INC	DE
+  01FE'   D5            	PUSH	DE
+  01FF'   11 0298'      	LD	DE,C314+9
+  0202'   D5            	PUSH	DE
+  0203'   CD 0000*      	CALL	printf
+  0206'   C1            	POP	BC
+  0207'   C1            	POP	BC
+  0208'   11 4000       	LD	DE,16384
+  020B'   D5            	PUSH	DE
+  020C'   2A 0059"      	LD	HL,(block)
+  020F'   E5            	PUSH	HL
+  0210'   21 000A       	LD	HL,10
+  0213'   39            	ADD	HL,SP
+  0214'   5E            	LD	E,(HL)
+  0215'   23            	INC	HL
+  0216'   56            	LD	D,(HL)
+  0217'   D5            	PUSH	DE
+  0218'   CD 0000*      	CALL	write
+  021B'   C1            	POP	BC
+  021C'   C1            	POP	BC
+  021D'   C1            	POP	BC
+  021E'   C1            	POP	BC
+  021F'   F1            	POP	AF
+  0220'   E5            	PUSH	HL
+  0221'   C5            	PUSH	BC
+  0222'   11 4000       	LD	DE,16384
+  0225'   CD 0000*      	CALL	CCNE
+  0228'   CA 0236'      	JP	Z,C323
+  022B'   21 0000       	LD	HL,0
+  022E'   EB            	EX	DE,HL
+  022F'   21 0008       	LD	HL,8
+  0232'   39            	ADD	HL,SP
+  0233'   F9            	LD	SP,HL
+  0234'   EB            	EX	DE,HL
+  0235'   C9            	RET
+  0236'                 C323:
+  0236'   11 4000       	LD	DE,16384
+  0239'   D5            	PUSH	DE
+  023A'   2A 0059"      	LD	HL,(block)
+  023D'   E5            	PUSH	HL
+  023E'   21 000A       	LD	HL,10
+  0241'   39            	ADD	HL,SP
+  0242'   5E            	LD	E,(HL)
+  0243'   23            	INC	HL
+  0244'   56            	LD	D,(HL)
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-7
+
+
+  0245'   D5            	PUSH	DE
+  0246'   CD 0000*      	CALL	write
+  0249'   C1            	POP	BC
+  024A'   C1            	POP	BC
+  024B'   C1            	POP	BC
+  024C'   C1            	POP	BC
+  024D'   F1            	POP	AF
+  024E'   E5            	PUSH	HL
+  024F'   C5            	PUSH	BC
+  0250'   11 4000       	LD	DE,16384
+  0253'   CD 0000*      	CALL	CCNE
+  0256'   CA 0264'      	JP	Z,C325
+  0259'   21 0000       	LD	HL,0
+  025C'   EB            	EX	DE,HL
+  025D'   21 0008       	LD	HL,8
+  0260'   39            	ADD	HL,SP
+  0261'   F9            	LD	SP,HL
+  0262'   EB            	EX	DE,HL
+  0263'   C9            	RET
+  0264'                 C325:
+  0264'   C3 01C3'      	JP	C317
+  0267'                 C318:
+  0267'   21 000C       	LD	HL,12
+  026A'   39            	ADD	HL,SP
+  026B'   5E            	LD	E,(HL)
+  026C'   23            	INC	HL
+  026D'   56            	LD	D,(HL)
+  026E'   D5            	PUSH	DE
+  026F'   11 029C'      	LD	DE,C314+13
+  0272'   D5            	PUSH	DE
+  0273'   CD 0000*      	CALL	printf
+  0276'   C1            	POP	BC
+  0277'   C1            	POP	BC
+  0278'   21 0006       	LD	HL,6
+  027B'   39            	ADD	HL,SP
+  027C'   5E            	LD	E,(HL)
+  027D'   23            	INC	HL
+  027E'   56            	LD	D,(HL)
+  027F'   D5            	PUSH	DE
+  0280'   CD 0000*      	CALL	close
+  0283'   C1            	POP	BC
+  0284'   21 0001       	LD	HL,1
+  0287'   EB            	EX	DE,HL
+  0288'   21 0008       	LD	HL,8
+  028B'   39            	ADD	HL,SP
+  028C'   F9            	LD	SP,HL
+  028D'   EB            	EX	DE,HL
+  028E'   C9            	RET
+  028F'                 C314:
+                        
+  028F'   57 72 69      	DEFB	87,114,105,116,105,110,103,58,0,32
+  0292'   74 69 6E      
+  0295'   67 3A 00      
+  0298'   20            
+  0299'   25 64 00      	DEFB	37,100,0,13,10,37,100,32,98,108
+  029C'   0D 0A 25      
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-8
+
+
+  029F'   64 20 62      
+  02A2'   6C            
+  02A3'   6F 63 6B      	DEFB	111,99,107,115,32,119,114,105,116,116
+  02A6'   73 20 77      
+  02A9'   72 69 74      
+  02AC'   74            
+  02AD'   65 6E 0D      	DEFB	101,110,13,10,0
+  02B0'   0A 00         
+  02B2'                 RdBlocks:
+  02B2'   EB            	EX	DE,HL
+  02B3'   21 FFF8       	LD	HL,-8
+  02B6'   39            	ADD	HL,SP
+  02B7'   F9            	LD	SP,HL
+  02B8'   EB            	EX	DE,HL
+  02B9'   11 03AD'      	LD	DE,C326+0
+  02BC'   D5            	PUSH	DE
+  02BD'   21 000C       	LD	HL,12
+  02C0'   39            	ADD	HL,SP
+  02C1'   5E            	LD	E,(HL)
+  02C2'   23            	INC	HL
+  02C3'   56            	LD	D,(HL)
+  02C4'   D5            	PUSH	DE
+  02C5'   CD 0000*      	CALL	fopen
+  02C8'   C1            	POP	BC
+  02C9'   C1            	POP	BC
+  02CA'   EB            	EX	DE,HL
+  02CB'   21 0006       	LD	HL,6
+  02CE'   39            	ADD	HL,SP
+  02CF'   73            	LD	(HL),E
+  02D0'   23            	INC	HL
+  02D1'   72            	LD	(HL),D
+  02D2'   EB            	EX	DE,HL
+  02D3'   21 0006       	LD	HL,6
+  02D6'   39            	ADD	HL,SP
+  02D7'   5E            	LD	E,(HL)
+  02D8'   23            	INC	HL
+  02D9'   56            	LD	D,(HL)
+  02DA'   21 0000       	LD	HL,0
+  02DD'   CD 0000*      	CALL	CCEQ
+  02E0'   CA 02EE'      	JP	Z,C328
+  02E3'   21 0000       	LD	HL,0
+  02E6'   EB            	EX	DE,HL
+  02E7'   21 0008       	LD	HL,8
+  02EA'   39            	ADD	HL,SP
+  02EB'   F9            	LD	SP,HL
+  02EC'   EB            	EX	DE,HL
+  02ED'   C9            	RET
+  02EE'                 C328:
+  02EE'   11 03AF'      	LD	DE,C326+2
+  02F1'   D5            	PUSH	DE
+  02F2'   CD 0000*      	CALL	printf
+  02F5'   C1            	POP	BC
+  02F6'   11 0000       	LD	DE,0
+  02F9'   21 0004       	LD	HL,4
+  02FC'   39            	ADD	HL,SP
+  02FD'   73            	LD	(HL),E
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-9
+
+
+  02FE'   23            	INC	HL
+  02FF'   72            	LD	(HL),D
+  0300'   C3 030F'      	JP	C331
+  0303'                 C329:
+  0303'   21 0004       	LD	HL,4
+  0306'   39            	ADD	HL,SP
+  0307'   5E            	LD	E,(HL)
+  0308'   23            	INC	HL
+  0309'   56            	LD	D,(HL)
+  030A'   2B            	DEC	HL
+  030B'   13            	INC	DE
+  030C'   73            	LD	(HL),E
+  030D'   23            	INC	HL
+  030E'   72            	LD	(HL),D
+  030F'                 C331:
+  030F'   21 000C       	LD	HL,12
+  0312'   39            	ADD	HL,SP
+  0313'   7E            	LD	A,(HL)
+  0314'   23            	INC	HL
+  0315'   66            	LD	H,(HL)
+  0316'   6F            	LD	L,A
+  0317'   CD 0000*      	CALL	CCLT
+  031A'   CA 0385'      	JP	Z,C330
+  031D'   CD 0022'      	CALL	GetChr
+  0320'   F1            	POP	AF
+  0321'   E5            	PUSH	HL
+  0322'   11 0003       	LD	DE,3
+  0325'   CD 0000*      	CALL	CCEQ
+  0328'   CA 0336'      	JP	Z,C333
+  032B'   21 0000       	LD	HL,0
+  032E'   EB            	EX	DE,HL
+  032F'   21 0008       	LD	HL,8
+  0332'   39            	ADD	HL,SP
+  0333'   F9            	LD	SP,HL
+  0334'   EB            	EX	DE,HL
+  0335'   C9            	RET
+  0336'                 C333:
+  0336'   21 0004       	LD	HL,4
+  0339'   39            	ADD	HL,SP
+  033A'   5E            	LD	E,(HL)
+  033B'   23            	INC	HL
+  033C'   56            	LD	D,(HL)
+  033D'   13            	INC	DE
+  033E'   D5            	PUSH	DE
+  033F'   11 03B8'      	LD	DE,C326+11
+  0342'   D5            	PUSH	DE
+  0343'   CD 0000*      	CALL	printf
+  0346'   C1            	POP	BC
+  0347'   C1            	POP	BC
+  0348'   21 0006       	LD	HL,6
+  034B'   39            	ADD	HL,SP
+  034C'   5E            	LD	E,(HL)
+  034D'   23            	INC	HL
+  034E'   56            	LD	D,(HL)
+  034F'   D5            	PUSH	DE
+  0350'   11 0020       	LD	DE,32
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-10
+
+
+  0353'   D5            	PUSH	DE
+  0354'   11 0400       	LD	DE,1024
+  0357'   D5            	PUSH	DE
+  0358'   2A 0059"      	LD	HL,(block)
+  035B'   E5            	PUSH	HL
+  035C'   CD 0000*      	CALL	fread
+  035F'   EB            	EX	DE,HL
+  0360'   21 0008       	LD	HL,8
+  0363'   39            	ADD	HL,SP
+  0364'   F9            	LD	SP,HL
+  0365'   C1            	POP	BC
+  0366'   F1            	POP	AF
+  0367'   D5            	PUSH	DE
+  0368'   C5            	PUSH	BC
+  0369'   EB            	EX	DE,HL
+  036A'   C1            	POP	BC
+  036B'   D1            	POP	DE
+  036C'   D5            	PUSH	DE
+  036D'   C5            	PUSH	BC
+  036E'   21 0020       	LD	HL,32
+  0371'   CD 0000*      	CALL	CCNE
+  0374'   CA 0382'      	JP	Z,C335
+  0377'   21 0000       	LD	HL,0
+  037A'   EB            	EX	DE,HL
+  037B'   21 0008       	LD	HL,8
+  037E'   39            	ADD	HL,SP
+  037F'   F9            	LD	SP,HL
+  0380'   EB            	EX	DE,HL
+  0381'   C9            	RET
+  0382'                 C335:
+  0382'   C3 0303'      	JP	C329
+  0385'                 C330:
+  0385'   21 000C       	LD	HL,12
+  0388'   39            	ADD	HL,SP
+  0389'   5E            	LD	E,(HL)
+  038A'   23            	INC	HL
+  038B'   56            	LD	D,(HL)
+  038C'   D5            	PUSH	DE
+  038D'   11 03BC'      	LD	DE,C326+15
+  0390'   D5            	PUSH	DE
+  0391'   CD 0000*      	CALL	printf
+  0394'   C1            	POP	BC
+  0395'   C1            	POP	BC
+  0396'   21 0006       	LD	HL,6
+  0399'   39            	ADD	HL,SP
+  039A'   5E            	LD	E,(HL)
+  039B'   23            	INC	HL
+  039C'   56            	LD	D,(HL)
+  039D'   D5            	PUSH	DE
+  039E'   CD 0000*      	CALL	close
+  03A1'   C1            	POP	BC
+  03A2'   21 0001       	LD	HL,1
+  03A5'   EB            	EX	DE,HL
+  03A6'   21 0008       	LD	HL,8
+  03A9'   39            	ADD	HL,SP
+  03AA'   F9            	LD	SP,HL
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-11
+
+
+  03AB'   EB            	EX	DE,HL
+  03AC'   C9            	RET
+  03AD'                 C326:
+                        
+  03AD'   72 00 52      	DEFB	114,0,82,101,97,100,105,110,103,58
+  03B0'   65 61 64      
+  03B3'   69 6E 67      
+  03B6'   3A            
+  03B7'   00 20 25      	DEFB	0,32,37,100,0,13,10,37,100,32
+  03BA'   64 00 0D      
+  03BD'   0A 25 64      
+  03C0'   20            
+  03C1'   62 6C 6F      	DEFB	98,108,111,99,107,115,32,114,101,97
+  03C4'   63 6B 73      
+  03C7'   20 72 65      
+  03CA'   61            
+  03CB'   64 0D 0A      	DEFB	100,13,10,0
+  03CE'   00            
+  03CF'                 RdBl2:
+  03CF'   EB            	EX	DE,HL
+  03D0'   21 FFF8       	LD	HL,-8
+  03D3'   39            	ADD	HL,SP
+  03D4'   F9            	LD	SP,HL
+  03D5'   EB            	EX	DE,HL
+  03D6'   11 0000       	LD	DE,0
+  03D9'   D5            	PUSH	DE
+  03DA'   21 000C       	LD	HL,12
+  03DD'   39            	ADD	HL,SP
+  03DE'   5E            	LD	E,(HL)
+  03DF'   23            	INC	HL
+  03E0'   56            	LD	D,(HL)
+  03E1'   D5            	PUSH	DE
+  03E2'   CD 0000*      	CALL	open
+  03E5'   C1            	POP	BC
+  03E6'   C1            	POP	BC
+  03E7'   EB            	EX	DE,HL
+  03E8'   21 0006       	LD	HL,6
+  03EB'   39            	ADD	HL,SP
+  03EC'   73            	LD	(HL),E
+  03ED'   23            	INC	HL
+  03EE'   72            	LD	(HL),D
+  03EF'   EB            	EX	DE,HL
+  03F0'   21 0006       	LD	HL,6
+  03F3'   39            	ADD	HL,SP
+  03F4'   5E            	LD	E,(HL)
+  03F5'   23            	INC	HL
+  03F6'   56            	LD	D,(HL)
+  03F7'   21 FFFF       	LD	HL,-1
+  03FA'   CD 0000*      	CALL	CCEQ
+  03FD'   CA 040B'      	JP	Z,C338
+  0400'   21 0000       	LD	HL,0
+  0403'   EB            	EX	DE,HL
+  0404'   21 0008       	LD	HL,8
+  0407'   39            	ADD	HL,SP
+  0408'   F9            	LD	SP,HL
+  0409'   EB            	EX	DE,HL
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-12
+
+
+  040A'   C9            	RET
+  040B'                 C338:
+  040B'   11 04EC'      	LD	DE,C336+0
+  040E'   D5            	PUSH	DE
+  040F'   CD 0000*      	CALL	printf
+  0412'   C1            	POP	BC
+  0413'   11 0000       	LD	DE,0
+  0416'   21 0004       	LD	HL,4
+  0419'   39            	ADD	HL,SP
+  041A'   73            	LD	(HL),E
+  041B'   23            	INC	HL
+  041C'   72            	LD	(HL),D
+  041D'   C3 042C'      	JP	C341
+  0420'                 C339:
+  0420'   21 0004       	LD	HL,4
+  0423'   39            	ADD	HL,SP
+  0424'   5E            	LD	E,(HL)
+  0425'   23            	INC	HL
+  0426'   56            	LD	D,(HL)
+  0427'   2B            	DEC	HL
+  0428'   13            	INC	DE
+  0429'   73            	LD	(HL),E
+  042A'   23            	INC	HL
+  042B'   72            	LD	(HL),D
+  042C'                 C341:
+  042C'   21 000C       	LD	HL,12
+  042F'   39            	ADD	HL,SP
+  0430'   7E            	LD	A,(HL)
+  0431'   23            	INC	HL
+  0432'   66            	LD	H,(HL)
+  0433'   6F            	LD	L,A
+  0434'   CD 0000*      	CALL	CCLT
+  0437'   CA 04C4'      	JP	Z,C340
+  043A'   CD 0022'      	CALL	GetChr
+  043D'   F1            	POP	AF
+  043E'   E5            	PUSH	HL
+  043F'   11 0003       	LD	DE,3
+  0442'   CD 0000*      	CALL	CCEQ
+  0445'   CA 0453'      	JP	Z,C343
+  0448'   21 0000       	LD	HL,0
+  044B'   EB            	EX	DE,HL
+  044C'   21 0008       	LD	HL,8
+  044F'   39            	ADD	HL,SP
+  0450'   F9            	LD	SP,HL
+  0451'   EB            	EX	DE,HL
+  0452'   C9            	RET
+  0453'                 C343:
+  0453'   21 0004       	LD	HL,4
+  0456'   39            	ADD	HL,SP
+  0457'   5E            	LD	E,(HL)
+  0458'   23            	INC	HL
+  0459'   56            	LD	D,(HL)
+  045A'   13            	INC	DE
+  045B'   D5            	PUSH	DE
+  045C'   11 04F5'      	LD	DE,C336+9
+  045F'   D5            	PUSH	DE
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-13
+
+
+  0460'   CD 0000*      	CALL	printf
+  0463'   C1            	POP	BC
+  0464'   C1            	POP	BC
+  0465'   11 4000       	LD	DE,16384
+  0468'   D5            	PUSH	DE
+  0469'   2A 0059"      	LD	HL,(block)
+  046C'   E5            	PUSH	HL
+  046D'   21 000A       	LD	HL,10
+  0470'   39            	ADD	HL,SP
+  0471'   5E            	LD	E,(HL)
+  0472'   23            	INC	HL
+  0473'   56            	LD	D,(HL)
+  0474'   D5            	PUSH	DE
+  0475'   CD 0000*      	CALL	read
+  0478'   C1            	POP	BC
+  0479'   C1            	POP	BC
+  047A'   C1            	POP	BC
+  047B'   C1            	POP	BC
+  047C'   F1            	POP	AF
+  047D'   E5            	PUSH	HL
+  047E'   C5            	PUSH	BC
+  047F'   11 4000       	LD	DE,16384
+  0482'   CD 0000*      	CALL	CCNE
+  0485'   CA 0493'      	JP	Z,C345
+  0488'   21 0000       	LD	HL,0
+  048B'   EB            	EX	DE,HL
+  048C'   21 0008       	LD	HL,8
+  048F'   39            	ADD	HL,SP
+  0490'   F9            	LD	SP,HL
+  0491'   EB            	EX	DE,HL
+  0492'   C9            	RET
+  0493'                 C345:
+  0493'   11 4000       	LD	DE,16384
+  0496'   D5            	PUSH	DE
+  0497'   2A 0059"      	LD	HL,(block)
+  049A'   E5            	PUSH	HL
+  049B'   21 000A       	LD	HL,10
+  049E'   39            	ADD	HL,SP
+  049F'   5E            	LD	E,(HL)
+  04A0'   23            	INC	HL
+  04A1'   56            	LD	D,(HL)
+  04A2'   D5            	PUSH	DE
+  04A3'   CD 0000*      	CALL	read
+  04A6'   C1            	POP	BC
+  04A7'   C1            	POP	BC
+  04A8'   C1            	POP	BC
+  04A9'   C1            	POP	BC
+  04AA'   F1            	POP	AF
+  04AB'   E5            	PUSH	HL
+  04AC'   C5            	PUSH	BC
+  04AD'   11 4000       	LD	DE,16384
+  04B0'   CD 0000*      	CALL	CCNE
+  04B3'   CA 04C1'      	JP	Z,C347
+  04B6'   21 0000       	LD	HL,0
+  04B9'   EB            	EX	DE,HL
+  04BA'   21 0008       	LD	HL,8
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-14
+
+
+  04BD'   39            	ADD	HL,SP
+  04BE'   F9            	LD	SP,HL
+  04BF'   EB            	EX	DE,HL
+  04C0'   C9            	RET
+  04C1'                 C347:
+  04C1'   C3 0420'      	JP	C339
+  04C4'                 C340:
+  04C4'   21 000C       	LD	HL,12
+  04C7'   39            	ADD	HL,SP
+  04C8'   5E            	LD	E,(HL)
+  04C9'   23            	INC	HL
+  04CA'   56            	LD	D,(HL)
+  04CB'   D5            	PUSH	DE
+  04CC'   11 04F9'      	LD	DE,C336+13
+  04CF'   D5            	PUSH	DE
+  04D0'   CD 0000*      	CALL	printf
+  04D3'   C1            	POP	BC
+  04D4'   C1            	POP	BC
+  04D5'   21 0006       	LD	HL,6
+  04D8'   39            	ADD	HL,SP
+  04D9'   5E            	LD	E,(HL)
+  04DA'   23            	INC	HL
+  04DB'   56            	LD	D,(HL)
+  04DC'   D5            	PUSH	DE
+  04DD'   CD 0000*      	CALL	close
+  04E0'   C1            	POP	BC
+  04E1'   21 0001       	LD	HL,1
+  04E4'   EB            	EX	DE,HL
+  04E5'   21 0008       	LD	HL,8
+  04E8'   39            	ADD	HL,SP
+  04E9'   F9            	LD	SP,HL
+  04EA'   EB            	EX	DE,HL
+  04EB'   C9            	RET
+  04EC'                 C336:
+                        
+  04EC'   52 65 61      	DEFB	82,101,97,100,105,110,103,58,0,32
+  04EF'   64 69 6E      
+  04F2'   67 3A 00      
+  04F5'   20            
+  04F6'   25 64 00      	DEFB	37,100,0,13,10,37,100,32,98,108
+  04F9'   0D 0A 25      
+  04FC'   64 20 62      
+  04FF'   6C            
+  0500'   6F 63 6B      	DEFB	111,99,107,115,32,114,101,97,100,13
+  0503'   73 20 72      
+  0506'   65 61 64      
+  0509'   0D            
+  050A'   0A 00         	DEFB	10,0
+  050C'                 main:
+  050C'   EB            	EX	DE,HL
+  050D'   21 FFEF       	LD	HL,-17
+  0510'   39            	ADD	HL,SP
+  0511'   F9            	LD	SP,HL
+  0512'   EB            	EX	DE,HL
+  0513'   11 0848'      	LD	DE,C348+0
+  0516'   D5            	PUSH	DE
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-15
+
+
+  0517'   CD 0033'      	CALL	PutStr
+  051A'   C1            	POP	BC
+  051B'   11 0020       	LD	DE,32
+  051E'   D5            	PUSH	DE
+  051F'   11 0867'      	LD	DE,C348+31
+  0522'   D5            	PUSH	DE
+  0523'   CD 0000*      	CALL	printf
+  0526'   C1            	POP	BC
+  0527'   C1            	POP	BC
+  0528'   11 0008"      	LD	DE,inpbuf
+  052B'   D5            	PUSH	DE
+  052C'   CD 0000*      	CALL	gets
+  052F'   C1            	POP	BC
+  0530'   EB            	EX	DE,HL
+  0531'   21 000F       	LD	HL,15
+  0534'   39            	ADD	HL,SP
+  0535'   73            	LD	(HL),E
+  0536'   23            	INC	HL
+  0537'   72            	LD	(HL),D
+  0538'   EB            	EX	DE,HL
+  0539'   21 000F       	LD	HL,15
+  053C'   39            	ADD	HL,SP
+  053D'   5E            	LD	E,(HL)
+  053E'   23            	INC	HL
+  053F'   56            	LD	D,(HL)
+  0540'   21 0000       	LD	HL,0
+  0543'   CD 0000*      	CALL	CCEQ
+  0546'   CA 0551'      	JP	Z,C350
+  0549'   EB            	EX	DE,HL
+  054A'   21 0011       	LD	HL,17
+  054D'   39            	ADD	HL,SP
+  054E'   F9            	LD	SP,HL
+  054F'   EB            	EX	DE,HL
+  0550'   C9            	RET
+  0551'                 C350:
+  0551'   11 0008"      	LD	DE,inpbuf
+  0554'   D5            	PUSH	DE
+  0555'   CD 0000*      	CALL	atoi
+  0558'   C1            	POP	BC
+  0559'   EB            	EX	DE,HL
+  055A'   21 000B       	LD	HL,11
+  055D'   39            	ADD	HL,SP
+  055E'   73            	LD	(HL),E
+  055F'   23            	INC	HL
+  0560'   72            	LD	(HL),D
+  0561'   EB            	EX	DE,HL
+  0562'   21 000B       	LD	HL,11
+  0565'   39            	ADD	HL,SP
+  0566'   5E            	LD	E,(HL)
+  0567'   23            	INC	HL
+  0568'   56            	LD	D,(HL)
+  0569'   21 0000       	LD	HL,0
+  056C'   CD 0000*      	CALL	CCLE
+  056F'   C2 0582'      	JP	NZ,C353
+  0572'   21 000B       	LD	HL,11
+  0575'   39            	ADD	HL,SP
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-16
+
+
+  0576'   5E            	LD	E,(HL)
+  0577'   23            	INC	HL
+  0578'   56            	LD	D,(HL)
+  0579'   21 0019       	LD	HL,25
+  057C'   CD 0000*      	CALL	CCGT
+  057F'   CA 0585'      	JP	Z,C354
+  0582'                 C353:
+  0582'   21 0001       	LD	HL,1
+  0585'                 C354:
+  0585'   CA 0590'      	JP	Z,C352
+  0588'   EB            	EX	DE,HL
+  0589'   21 0011       	LD	HL,17
+  058C'   39            	ADD	HL,SP
+  058D'   F9            	LD	SP,HL
+  058E'   EB            	EX	DE,HL
+  058F'   C9            	RET
+  0590'                 C352:
+  0590'   11 0887'      	LD	DE,C348+63
+  0593'   D5            	PUSH	DE
+  0594'   CD 0000*      	CALL	printf
+  0597'   C1            	POP	BC
+  0598'   11 0008"      	LD	DE,inpbuf
+  059B'   D5            	PUSH	DE
+  059C'   CD 0000*      	CALL	gets
+  059F'   C1            	POP	BC
+  05A0'   EB            	EX	DE,HL
+  05A1'   21 000F       	LD	HL,15
+  05A4'   39            	ADD	HL,SP
+  05A5'   73            	LD	(HL),E
+  05A6'   23            	INC	HL
+  05A7'   72            	LD	(HL),D
+  05A8'   EB            	EX	DE,HL
+  05A9'   21 000F       	LD	HL,15
+  05AC'   39            	ADD	HL,SP
+  05AD'   5E            	LD	E,(HL)
+  05AE'   23            	INC	HL
+  05AF'   56            	LD	D,(HL)
+  05B0'   21 0000       	LD	HL,0
+  05B3'   CD 0000*      	CALL	CCEQ
+  05B6'   CA 05C1'      	JP	Z,C356
+  05B9'   EB            	EX	DE,HL
+  05BA'   21 0011       	LD	HL,17
+  05BD'   39            	ADD	HL,SP
+  05BE'   F9            	LD	SP,HL
+  05BF'   EB            	EX	DE,HL
+  05C0'   C9            	RET
+  05C1'                 C356:
+  05C1'   3A 0008"      	LD	A,(inpbuf)
+  05C4'   16 00         	LD	D,0
+  05C6'   5F            	LD	E,A
+  05C7'   D5            	PUSH	DE
+  05C8'   CD 0000*      	CALL	toupper
+  05CB'   C1            	POP	BC
+  05CC'   EB            	EX	DE,HL
+  05CD'   21 0008       	LD	HL,8
+  05D0'   39            	ADD	HL,SP
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-17
+
+
+  05D1'   73            	LD	(HL),E
+  05D2'   EB            	EX	DE,HL
+  05D3'   21 0008       	LD	HL,8
+  05D6'   39            	ADD	HL,SP
+  05D7'   5E            	LD	E,(HL)
+  05D8'   16 00         	LD	D,0
+  05DA'   21 0041       	LD	HL,65
+  05DD'   CD 0000*      	CALL	CCLT
+  05E0'   C2 05F3'      	JP	NZ,C359
+  05E3'   21 0008       	LD	HL,8
+  05E6'   39            	ADD	HL,SP
+  05E7'   5E            	LD	E,(HL)
+  05E8'   16 00         	LD	D,0
+  05EA'   21 0050       	LD	HL,80
+  05ED'   CD 0000*      	CALL	CCGT
+  05F0'   CA 05F6'      	JP	Z,C360
+  05F3'                 C359:
+  05F3'   21 0001       	LD	HL,1
+  05F6'                 C360:
+  05F6'   CA 0601'      	JP	Z,C358
+  05F9'   EB            	EX	DE,HL
+  05FA'   21 0011       	LD	HL,17
+  05FD'   39            	ADD	HL,SP
+  05FE'   F9            	LD	SP,HL
+  05FF'   EB            	EX	DE,HL
+  0600'   C9            	RET
+  0601'                 C358:
+  0601'   11 08A2'      	LD	DE,C348+90
+  0604'   21 0006       	LD	HL,6
+  0607'   39            	ADD	HL,SP
+  0608'   73            	LD	(HL),E
+  0609'   23            	INC	HL
+  060A'   72            	LD	(HL),D
+  060B'   EB            	EX	DE,HL
+  060C'   21 0006       	LD	HL,6
+  060F'   39            	ADD	HL,SP
+  0610'   5E            	LD	E,(HL)
+  0611'   23            	INC	HL
+  0612'   56            	LD	D,(HL)
+  0613'   21 0008       	LD	HL,8
+  0616'   39            	ADD	HL,SP
+  0617'   6E            	LD	L,(HL)
+  0618'   26 00         	LD	H,0
+  061A'   7D            	LD	A,L
+  061B'   12            	LD	(DE),A
+  061C'   11 0400       	LD	DE,1024
+  061F'   D5            	PUSH	DE
+  0620'   11 0020       	LD	DE,32
+  0623'   D5            	PUSH	DE
+  0624'   CD 0000*      	CALL	calloc
+  0627'   C1            	POP	BC
+  0628'   C1            	POP	BC
+  0629'   22 0059"      	LD	(block),HL
+  062C'   11 0000       	LD	DE,0
+  062F'   CD 0000*      	CALL	CCEQ
+  0632'   CA 0648'      	JP	Z,C362
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-18
+
+
+  0635'   11 08B1'      	LD	DE,C348+105
+  0638'   D5            	PUSH	DE
+  0639'   CD 0033'      	CALL	PutStr
+  063C'   C1            	POP	BC
+  063D'   21 0000       	LD	HL,0
+  0640'   EB            	EX	DE,HL
+  0641'   21 0011       	LD	HL,17
+  0644'   39            	ADD	HL,SP
+  0645'   F9            	LD	SP,HL
+  0646'   EB            	EX	DE,HL
+  0647'   C9            	RET
+  0648'                 C362:
+  0648'   11 0000       	LD	DE,0
+  064B'   21 000F       	LD	HL,15
+  064E'   39            	ADD	HL,SP
+  064F'   73            	LD	(HL),E
+  0650'   23            	INC	HL
+  0651'   72            	LD	(HL),D
+  0652'   C3 0661'      	JP	C365
+  0655'                 C363:
+  0655'   21 000F       	LD	HL,15
+  0658'   39            	ADD	HL,SP
+  0659'   5E            	LD	E,(HL)
+  065A'   23            	INC	HL
+  065B'   56            	LD	D,(HL)
+  065C'   2B            	DEC	HL
+  065D'   13            	INC	DE
+  065E'   73            	LD	(HL),E
+  065F'   23            	INC	HL
+  0660'   72            	LD	(HL),D
+  0661'                 C365:
+  0661'   21 0020       	LD	HL,32
+  0664'   CD 0000*      	CALL	CCLT
+  0667'   CA 06B4'      	JP	Z,C364
+  066A'   11 0000       	LD	DE,0
+  066D'   21 000D       	LD	HL,13
+  0670'   39            	ADD	HL,SP
+  0671'   73            	LD	(HL),E
+  0672'   23            	INC	HL
+  0673'   72            	LD	(HL),D
+  0674'   C3 0683'      	JP	C368
+  0677'                 C366:
+  0677'   21 000D       	LD	HL,13
+  067A'   39            	ADD	HL,SP
+  067B'   5E            	LD	E,(HL)
+  067C'   23            	INC	HL
+  067D'   56            	LD	D,(HL)
+  067E'   2B            	DEC	HL
+  067F'   13            	INC	DE
+  0680'   73            	LD	(HL),E
+  0681'   23            	INC	HL
+  0682'   72            	LD	(HL),D
+  0683'                 C368:
+  0683'   21 8000       	LD	HL,8000H
+  0686'   CD 0000*      	CALL	CCLT
+  0689'   CA 06B1'      	JP	Z,C367
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-19
+
+
+  068C'   2A 0059"      	LD	HL,(block)
+  068F'   E5            	PUSH	HL
+  0690'   21 0011       	LD	HL,17
+  0693'   39            	ADD	HL,SP
+  0694'   5E            	LD	E,(HL)
+  0695'   23            	INC	HL
+  0696'   56            	LD	D,(HL)
+  0697'   21 0020       	LD	HL,32
+  069A'   CD 0000*      	CALL	CCMULT
+  069D'   EB            	EX	DE,HL
+  069E'   21 000F       	LD	HL,15
+  06A1'   39            	ADD	HL,SP
+  06A2'   7E            	LD	A,(HL)
+  06A3'   23            	INC	HL
+  06A4'   66            	LD	H,(HL)
+  06A5'   6F            	LD	L,A
+  06A6'   19            	ADD	HL,DE
+  06A7'   D1            	POP	DE
+  06A8'   19            	ADD	HL,DE
+  06A9'   11 0001       	LD	DE,1
+  06AC'   73            	LD	(HL),E
+  06AD'   EB            	EX	DE,HL
+  06AE'   C3 0677'      	JP	C366
+  06B1'                 C367:
+  06B1'   C3 0655'      	JP	C363
+  06B4'                 C364:
+  06B4'   21 000B       	LD	HL,11
+  06B7'   39            	ADD	HL,SP
+  06B8'   5E            	LD	E,(HL)
+  06B9'   23            	INC	HL
+  06BA'   56            	LD	D,(HL)
+  06BB'   CD 0000*      	CALL	CCSTOL
+  06BE'   21 0020       	LD	HL,32
+  06C1'   CD 0000*      	CALL	CCTOL
+  06C4'   CD 0000*      	CALL	CLMULT
+  06C7'   CD 0000*      	CALL	CLSWAP
+  06CA'   21 0002       	LD	HL,2
+  06CD'   39            	ADD	HL,SP
+  06CE'   CD 0000*      	CALL	CLSPIN
+  06D1'   CD 0000*      	CALL	CLSWAP
+  06D4'   21 0006       	LD	HL,6
+  06D7'   39            	ADD	HL,SP
+  06D8'   5E            	LD	E,(HL)
+  06D9'   23            	INC	HL
+  06DA'   56            	LD	D,(HL)
+  06DB'   D5            	PUSH	DE
+  06DC'   CD 0000*      	CALL	unlink
+  06DF'   C1            	POP	BC
+  06E0'   21 0008       	LD	HL,8
+  06E3'   39            	ADD	HL,SP
+  06E4'   5E            	LD	E,(HL)
+  06E5'   16 00         	LD	D,0
+  06E7'   D5            	PUSH	DE
+  06E8'   21 0004       	LD	HL,4
+  06EB'   39            	ADD	HL,SP
+  06EC'   CD 0000*      	CALL	CLSGPI
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-20
+
+
+  06EF'   CD 0000*      	CALL	CLSPUS
+  06F2'   21 0011       	LD	HL,17
+  06F5'   39            	ADD	HL,SP
+  06F6'   5E            	LD	E,(HL)
+  06F7'   23            	INC	HL
+  06F8'   56            	LD	D,(HL)
+  06F9'   D5            	PUSH	DE
+  06FA'   11 08CC'      	LD	DE,C348+132
+  06FD'   D5            	PUSH	DE
+  06FE'   CD 0000*      	CALL	printf
+  0701'   EB            	EX	DE,HL
+  0702'   21 000A       	LD	HL,10
+  0705'   39            	ADD	HL,SP
+  0706'   F9            	LD	SP,HL
+  0707'   EB            	EX	DE,HL
+  0708'                 C369:
+  0708'   CD 0022'      	CALL	GetChr
+  070B'   EB            	EX	DE,HL
+  070C'   21 0009       	LD	HL,9
+  070F'   39            	ADD	HL,SP
+  0710'   73            	LD	(HL),E
+  0711'   23            	INC	HL
+  0712'   72            	LD	(HL),D
+  0713'   EB            	EX	DE,HL
+  0714'   21 0009       	LD	HL,9
+  0717'   39            	ADD	HL,SP
+  0718'   5E            	LD	E,(HL)
+  0719'   23            	INC	HL
+  071A'   56            	LD	D,(HL)
+  071B'   21 0000       	LD	HL,0
+  071E'   CD 0000*      	CALL	CCEQ
+  0721'   CA 0727'      	JP	Z,C372
+  0724'   C3 0708'      	JP	C369
+  0727'                 C372:
+  0727'   21 0009       	LD	HL,9
+  072A'   39            	ADD	HL,SP
+  072B'   5E            	LD	E,(HL)
+  072C'   23            	INC	HL
+  072D'   56            	LD	D,(HL)
+  072E'   21 0079       	LD	HL,121
+  0731'   CD 0000*      	CALL	CCEQ
+  0734'   C2 0747'      	JP	NZ,C375
+  0737'   21 0009       	LD	HL,9
+  073A'   39            	ADD	HL,SP
+  073B'   5E            	LD	E,(HL)
+  073C'   23            	INC	HL
+  073D'   56            	LD	D,(HL)
+  073E'   21 0059       	LD	HL,89
+  0741'   CD 0000*      	CALL	CCEQ
+  0744'   CA 074A'      	JP	Z,C376
+  0747'                 C375:
+  0747'   21 0001       	LD	HL,1
+  074A'                 C376:
+  074A'   CA 0750'      	JP	Z,C374
+  074D'   C3 0758'      	JP	C370
+  0750'                 C374:
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-21
+
+
+  0750'   EB            	EX	DE,HL
+  0751'   21 0011       	LD	HL,17
+  0754'   39            	ADD	HL,SP
+  0755'   F9            	LD	SP,HL
+  0756'   EB            	EX	DE,HL
+  0757'   C9            	RET
+  0758'                 C370:
+  0758'   11 08FB'      	LD	DE,C348+179
+  075B'   D5            	PUSH	DE
+  075C'   CD 0033'      	CALL	PutStr
+  075F'   C1            	POP	BC
+  0760'   21 000B       	LD	HL,11
+  0763'   39            	ADD	HL,SP
+  0764'   5E            	LD	E,(HL)
+  0765'   23            	INC	HL
+  0766'   56            	LD	D,(HL)
+  0767'   D5            	PUSH	DE
+  0768'   21 0008       	LD	HL,8
+  076B'   39            	ADD	HL,SP
+  076C'   5E            	LD	E,(HL)
+  076D'   23            	INC	HL
+  076E'   56            	LD	D,(HL)
+  076F'   D5            	PUSH	DE
+  0770'   CD 0172'      	CALL	WrBl2
+  0773'   C1            	POP	BC
+  0774'   C1            	POP	BC
+  0775'   F1            	POP	AF
+  0776'   E5            	PUSH	HL
+  0777'   11 08FE'      	LD	DE,C348+182
+  077A'   D5            	PUSH	DE
+  077B'   CD 0033'      	CALL	PutStr
+  077E'   C1            	POP	BC
+  077F'   D1            	POP	DE
+  0780'   D5            	PUSH	DE
+  0781'   CD 0000*      	CALL	CCSLNO
+  0784'   CA 0797'      	JP	Z,C378
+  0787'   11 0902'      	LD	DE,C348+186
+  078A'   D5            	PUSH	DE
+  078B'   CD 0000*      	CALL	puts
+  078E'   C1            	POP	BC
+  078F'   EB            	EX	DE,HL
+  0790'   21 0011       	LD	HL,17
+  0793'   39            	ADD	HL,SP
+  0794'   F9            	LD	SP,HL
+  0795'   EB            	EX	DE,HL
+  0796'   C9            	RET
+  0797'                 C378:
+  0797'   21 0008       	LD	HL,8
+  079A'   39            	ADD	HL,SP
+  079B'   5E            	LD	E,(HL)
+  079C'   16 00         	LD	D,0
+  079E'   D5            	PUSH	DE
+  079F'   21 000D       	LD	HL,13
+  07A2'   39            	ADD	HL,SP
+  07A3'   5E            	LD	E,(HL)
+  07A4'   23            	INC	HL
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-22
+
+
+  07A5'   56            	LD	D,(HL)
+  07A6'   D5            	PUSH	DE
+  07A7'   11 090A'      	LD	DE,C348+194
+  07AA'   D5            	PUSH	DE
+  07AB'   CD 0000*      	CALL	printf
+  07AE'   C1            	POP	BC
+  07AF'   C1            	POP	BC
+  07B0'   C1            	POP	BC
+  07B1'                 C379:
+  07B1'   CD 0022'      	CALL	GetChr
+  07B4'   EB            	EX	DE,HL
+  07B5'   21 0009       	LD	HL,9
+  07B8'   39            	ADD	HL,SP
+  07B9'   73            	LD	(HL),E
+  07BA'   23            	INC	HL
+  07BB'   72            	LD	(HL),D
+  07BC'   EB            	EX	DE,HL
+  07BD'   21 0009       	LD	HL,9
+  07C0'   39            	ADD	HL,SP
+  07C1'   5E            	LD	E,(HL)
+  07C2'   23            	INC	HL
+  07C3'   56            	LD	D,(HL)
+  07C4'   21 0000       	LD	HL,0
+  07C7'   CD 0000*      	CALL	CCEQ
+  07CA'   CA 07D0'      	JP	Z,C382
+  07CD'   C3 07B1'      	JP	C379
+  07D0'                 C382:
+  07D0'   21 0009       	LD	HL,9
+  07D3'   39            	ADD	HL,SP
+  07D4'   5E            	LD	E,(HL)
+  07D5'   23            	INC	HL
+  07D6'   56            	LD	D,(HL)
+  07D7'   21 0079       	LD	HL,121
+  07DA'   CD 0000*      	CALL	CCEQ
+  07DD'   C2 07F0'      	JP	NZ,C385
+  07E0'   21 0009       	LD	HL,9
+  07E3'   39            	ADD	HL,SP
+  07E4'   5E            	LD	E,(HL)
+  07E5'   23            	INC	HL
+  07E6'   56            	LD	D,(HL)
+  07E7'   21 0059       	LD	HL,89
+  07EA'   CD 0000*      	CALL	CCEQ
+  07ED'   CA 07F3'      	JP	Z,C386
+  07F0'                 C385:
+  07F0'   21 0001       	LD	HL,1
+  07F3'                 C386:
+  07F3'   CA 07F9'      	JP	Z,C384
+  07F6'   C3 0801'      	JP	C380
+  07F9'                 C384:
+  07F9'   EB            	EX	DE,HL
+  07FA'   21 0011       	LD	HL,17
+  07FD'   39            	ADD	HL,SP
+  07FE'   F9            	LD	SP,HL
+  07FF'   EB            	EX	DE,HL
+  0800'   C9            	RET
+  0801'                 C380:
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-23
+
+
+  0801'   11 092F'      	LD	DE,C348+231
+  0804'   D5            	PUSH	DE
+  0805'   CD 0033'      	CALL	PutStr
+  0808'   C1            	POP	BC
+  0809'   21 000B       	LD	HL,11
+  080C'   39            	ADD	HL,SP
+  080D'   5E            	LD	E,(HL)
+  080E'   23            	INC	HL
+  080F'   56            	LD	D,(HL)
+  0810'   D5            	PUSH	DE
+  0811'   21 0008       	LD	HL,8
+  0814'   39            	ADD	HL,SP
+  0815'   5E            	LD	E,(HL)
+  0816'   23            	INC	HL
+  0817'   56            	LD	D,(HL)
+  0818'   D5            	PUSH	DE
+  0819'   CD 03CF'      	CALL	RdBl2
+  081C'   C1            	POP	BC
+  081D'   C1            	POP	BC
+  081E'   F1            	POP	AF
+  081F'   E5            	PUSH	HL
+  0820'   11 0932'      	LD	DE,C348+234
+  0823'   D5            	PUSH	DE
+  0824'   CD 0033'      	CALL	PutStr
+  0827'   C1            	POP	BC
+  0828'   D1            	POP	DE
+  0829'   D5            	PUSH	DE
+  082A'   CD 0000*      	CALL	CCSLNO
+  082D'   CA 0840'      	JP	Z,C388
+  0830'   11 0936'      	LD	DE,C348+238
+  0833'   D5            	PUSH	DE
+  0834'   CD 0000*      	CALL	puts
+  0837'   C1            	POP	BC
+  0838'   EB            	EX	DE,HL
+  0839'   21 0011       	LD	HL,17
+  083C'   39            	ADD	HL,SP
+  083D'   F9            	LD	SP,HL
+  083E'   EB            	EX	DE,HL
+  083F'   C9            	RET
+  0840'                 C388:
+  0840'   EB            	EX	DE,HL
+  0841'   21 0011       	LD	HL,17
+  0844'   39            	ADD	HL,SP
+  0845'   F9            	LD	SP,HL
+  0846'   EB            	EX	DE,HL
+  0847'   C9            	RET
+  0848'                 C348:
+                        
+  0848'   0D 0A 53      	DEFB	13,10,83,75,69,87,84,69,83,84
+  084B'   4B 45 57      
+  084E'   54 45 53      
+  0851'   54            
+  0852'   20 56 31      	DEFB	32,86,49,46,49,32,102,111,114,32
+  0855'   2E 31 20      
+  0858'   66 6F 72      
+  085B'   20            
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-24
+
+
+  085C'   4D 43 20      	DEFB	77,67,32,67,80,47,77,13,10,10
+  085F'   43 50 2F      
+  0862'   4D 0D 0A      
+  0865'   0A            
+  0866'   00 48 6F      	DEFB	0,72,111,119,32,109,97,110,121,32
+  0869'   77 20 6D      
+  086C'   61 6E 79      
+  086F'   20            
+  0870'   25 64 6B      	DEFB	37,100,107,98,32,98,108,111,99,107
+  0873'   62 20 62      
+  0876'   6C 6F 63      
+  0879'   6B            
+  087A'   73 20 74      	DEFB	115,32,116,111,32,119,114,105,116,101
+  087D'   6F 20 77      
+  0880'   72 69 74      
+  0883'   65            
+  0884'   3F 20 00      	DEFB	63,32,0,68,101,115,116,105,110,97
+  0887'   44 65 73      
+  088A'   74 69 6E      
+  088D'   61            
+  088E'   74 69 6F      	DEFB	116,105,111,110,32,100,114,105,118,101
+  0891'   6E 20 64      
+  0894'   72 69 76      
+  0897'   65            
+  0898'   20 5B 41      	DEFB	32,91,65,46,46,80,93,63,32,0
+  089B'   2E 2E 50      
+  089E'   5D 3F 20      
+  08A1'   00            
+  08A2'   58 3A 53      	DEFB	88,58,83,75,69,87,84,69,88,84
+  08A5'   4B 45 57      
+  08A8'   54 45 58      
+  08AB'   54            
+  08AC'   2E 44 41      	DEFB	46,68,65,84,0,69,114,114,111,114
+  08AF'   54 00 45      
+  08B2'   72 72 6F      
+  08B5'   72            
+  08B6'   3A 20 6E      	DEFB	58,32,110,111,116,32,101,110,111,117
+  08B9'   6F 74 20      
+  08BC'   65 6E 6F      
+  08BF'   75            
+  08C0'   67 68 20      	DEFB	103,104,32,109,101,109,111,114,121,13
+  08C3'   6D 65 6D      
+  08C6'   6F 72 79      
+  08C9'   0D            
+  08CA'   0A 00 57      	DEFB	10,0,87,114,105,116,101,32,37,100
+  08CD'   72 69 74      
+  08D0'   65 20 25      
+  08D3'   64            
+  08D4'   20 62 6C      	DEFB	32,98,108,111,99,107,115,32,40,37
+  08D7'   6F 63 6B      
+  08DA'   73 20 28      
+  08DD'   25            
+  08DE'   6C 64 20      	DEFB	108,100,32,75,66,121,116,101,115,41
+  08E1'   4B 42 79      
+  08E4'   74 65 73      
+  08E7'   29            
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-25
+
+
+  08E8'   20 74 6F      	DEFB	32,116,111,32,100,114,105,118,101,32
+  08EB'   20 64 72      
+  08EE'   69 76 65      
+  08F1'   20            
+  08F2'   25 63 20      	DEFB	37,99,32,91,89,93,63,32,0,13
+  08F5'   5B 59 5D      
+  08F8'   3F 20 00      
+  08FB'   0D            
+  08FC'   0A 00 07      	DEFB	10,0,7,7,7,0,69,114,114,111
+  08FF'   07 07 00      
+  0902'   45 72 72      
+  0905'   6F            
+  0906'   72 0D 0A      	DEFB	114,13,10,0,13,10,82,101,97,100
+  0909'   00 0D 0A      
+  090C'   52 65 61      
+  090F'   64            
+  0910'   20 25 64      	DEFB	32,37,100,32,98,108,111,99,107,115
+  0913'   20 62 6C      
+  0916'   6F 63 6B      
+  0919'   73            
+  091A'   20 66 72      	DEFB	32,102,114,111,109,32,100,114,105,118
+  091D'   6F 6D 20      
+  0920'   64 72 69      
+  0923'   76            
+  0924'   65 20 25      	DEFB	101,32,37,99,32,91,89,93,63,32
+  0927'   63 20 5B      
+  092A'   59 5D 3F      
+  092D'   20            
+  092E'   00 0D 0A      	DEFB	0,13,10,0,7,7,7,0,69,114
+  0931'   00 07 07      
+  0934'   07 00 45      
+  0937'   72            
+  0938'   72 6F 72      	DEFB	114,111,114,13,10,0
+  093B'   0D 0A 00      
+                        	GLOBAL	BD_CoIn
+                        	GLOBAL	WrBlock
+                        	EXTERNAL	read
+                        	GLOBAL	main
+                        	EXTERNAL	BDOS
+                        	EXTERNAL	atoi
+                        	EXTERNAL	toupper
+                        	EXTERNAL	open
+                        	EXTERNAL	gets
+                        	EXTERNAL	calloc
+                        	EXTERNAL	puts
+                        	EXTERNAL	fclose
+                        	GLOBAL	GetChr
+                        	GLOBAL	inpbuf
+                        	EXTERNAL	fwrite
+                        	EXTERNAL	unlink
+                        	EXTERNAL	printf
+                        	GLOBAL	PutChr
+                        	GLOBAL	PutStr
+                        	EXTERNAL	fread
+                        	GLOBAL	block
+                        	EXTERNAL	creat
+	MSX.M-80 1.00	01-Apr-85	PAGE	1-26
+
+
+                        	EXTERNAL	close
+                        	GLOBAL	RdBl2
+                        	EXTERNAL	fopen
+                        	GLOBAL	WrBl2
+                        	EXTERNAL	write
+                        	GLOBAL	RdBlocks
+                        	GLOBAL	BD_CoOut
+  093E'                 	DSEG
+  0008"                 inpbuf:	DEFS	81
+  0059"                 block:	DEFS	2
+                        
+                        ;0 FEHLER
+                        	EXTERNAL	CCEQ
+                        	EXTERNAL	CCNE
+                        	EXTERNAL	CCLE
+                        	EXTERNAL	CCGT
+                        	EXTERNAL	CCLT
+                        	EXTERNAL	CCLNOT
+                        	EXTERNAL	CCSLNO
+                        	EXTERNAL	CCMULT
+                        	EXTERNAL	CLMULT
+                        	EXTERNAL	CLSWAP
+                        	EXTERNAL	CLPUSH
+                        	EXTERNAL	CLSPUS
+                        	EXTERNAL	CLPIND
+                        	EXTERNAL	CLSPIN
+                        	EXTERNAL	CLGPIN
+                        	EXTERNAL	CLSGPI
+                        	EXTERNAL	CCTOL
+                        	EXTERNAL	CCSTOL
+                        	END
+	MSX.M-80 1.00	01-Apr-85	PAGE	S
+
+
+Macros:
+
+Symbols:
+0556*	ATOI            001D*	BDOS            0002I'	BD_COIN         
+0010I'	BD_COOUT        0000'	BIOS            0059I"	BLOCK           
+014D'	C301            0033'	C303            0051'	C304            
+008E'	C306            00A3'	C307            0125'	C308            
+00AF'	C309            00D6'	C311            0122'	C313            
+028F'	C314            01AE'	C316            01C3'	C317            
+0267'	C318            01CF'	C319            01F6'	C321            
+0236'	C323            0264'	C325            03AD'	C326            
+02EE'	C328            0303'	C329            0385'	C330            
+030F'	C331            0336'	C333            0382'	C335            
+04EC'	C336            040B'	C338            0420'	C339            
+04C4'	C340            042C'	C341            0453'	C343            
+0493'	C345            04C1'	C347            0848'	C348            
+0551'	C350            0590'	C352            0582'	C353            
+0585'	C354            05C1'	C356            0601'	C358            
+05F3'	C359            05F6'	C360            0648'	C362            
+0655'	C363            06B4'	C364            0661'	C365            
+0677'	C366            06B1'	C367            0683'	C368            
+0708'	C369            0758'	C370            0727'	C372            
+0750'	C374            0747'	C375            074A'	C376            
+0797'	C378            07B1'	C379            0801'	C380            
+07D0'	C382            07F9'	C384            07F0'	C385            
+07F3'	C386            0840'	C388            0625*	CALLOC          
+07EB*	CCEQ            05EE*	CCGT            056D*	CCLE            
+0000*	CCLNOT          0687*	CCLT            069B*	CCMULT          
+04B1*	CCNE            082B*	CCSLNO          06BC*	CCSTOL          
+06C2*	CCTOL           0000*	CLGPIN          06C5*	CLMULT          
+04DE*	CLOSE           0000*	CLPIND          0000*	CLPUSH          
+06ED*	CLSGPI          06CF*	CLSPIN          06F0*	CLSPUS          
+06D2*	CLSWAP          0186*	CREAT           013F*	FCLOSE          
+02C6*	FOPEN           035D*	FREAD           00FD*	FWRITE          
+0022I'	GETCHR          059D*	GETS            0008I"	INPBUF          
+050CI'	MAIN            03E3*	OPEN            07AC*	PRINTF          
+0026I'	PUTCHR          0835*	PUTS            0033I'	PUTSTR          
+03CFI'	RDBL2           02B2I'	RDBLOCKS        04A4*	READ            
+0000"	SSTDIN          0002"	SSTDOUT         0004"	STDIN           
+0006"	STDOUT          05C9*	TOUPPER         06DD*	UNLINK          
+0172I'	WRBL2           0052I'	WRBLOCK         0247*	WRITE           
+
+
+
+No Fatal error(s)
+
+
+2I'	GETCHR          059D*	GETS            0008I"	INPBUF          
+050CI'	MAIN         

@@ -513,7 +513,7 @@ main(argc, argv)
 	ChkRunCpm();
 
 	PutStr("\r\nNFORM 1.4 *dg* 260926-02\r\n");
-	PutStr("Formatter for MC CP/M computer (FLO2)\r\n\n");
+	PutStr("Disk formatter for MC CP/M computer (FLO2)\r\n\n");
 
 #if DDTZ == 0
 
