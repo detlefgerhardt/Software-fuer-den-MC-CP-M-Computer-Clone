@@ -1,0 +1,58 @@
+	MACRO-80 3.44	09-Dec-81	PAGE	1
+
+
+                                ; MEMSET.MAC *dg* 30.08.2026
+                                
+                                	PUBLIC MEMSET
+                                
+                                ; char *memset(mem, c, n)
+                                ;     char *mem;
+                                ;     int c, n;
+                                ;   return mem
+                                
+                                
+  0000'   DD 21 0002            MEMSET:	LD IX,2		; RET address
+  0004'   DD 39                 	ADD IX,SP
+                                
+                                	; mem -> HL
+  0006'   DD 6E 00              	LD L,(IX+0)
+  0009'   DD 66 01              	LD H,(IX+1)
+  000C'   E5                    	PUSH HL
+                                
+                                	; c -> C
+  000D'   DD 4E 02              	LD C,(IX+2)
+                                
+                                	; n -> DE
+  0010'   DD 5E 04              	LD E,(IX+4)
+  0013'   DD 56 05              	LD D,(IX+5)
+                                
+                                	;LD A,C
+  0016'   71                    MEMS1:	LD (HL),C
+  0017'   23                    	INC HL
+  0018'   1B                    	DEC DE
+  0019'   7B                    	LD A,E
+  001A'   B2                    	OR D
+  001B'   20 F9                 	JR NZ,MEMS1
+                                
+                                	; return mem
+  001D'   E1                    	POP HL
+                                
+  001E'   C9                    	RET
+                                
+                                	END
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+0016'	MEMS1           0000I'	MEMSET          
+
+
+
+No Fatal error(s)
+
+
+                	LD A,E
+  001A'   B2                    	OR D
+  001B'   20 F9

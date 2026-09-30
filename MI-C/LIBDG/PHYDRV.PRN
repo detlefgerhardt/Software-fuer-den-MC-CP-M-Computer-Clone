@@ -1,0 +1,99 @@
+	MACRO-80 3.44	09-Dec-81	PAGE	1
+
+
+                                ;MI - C  v-3.18I  (C) COPYRIGHT  G. KERSTING / H. ROSE, 1983
+                                ;	HIER HAT BENUTZERTEXT PLATZ
+  0033                          BGETVER	EQU 0033h		; BIOS function GETVER
+  0036                          BGETPHY	EQU 0036h		; BIOS function GETPHY
+                                ; get phy. parameters
+  0000'                         GETPHY:
+  0000'   2A 0001               	LD HL,(0001)		; BIOS addr start + 3
+  0003'   11 0033               	LD DE,BGETPHY-3
+  0006'   19                    	ADD HL,DE
+  0007'   E9                    	JP (HL)
+  0008'                         GetVer:
+  0008'   2A 0001               	LD HL,(0001H)		; BIOS addr start + 3
+  000B'   11 0030               	LD DE,BGETVER-3		; BIOS function GETVER
+  000E'   19                    	ADD HL,DE
+  000F'   11 0014'              	LD DE,getver1
+  0012'   D5                    	PUSH DE				; push RET addr
+  0013'   E9                    	JP (HL)
+  0014'                         getver1:
+  0014'   69                    	LD L,C				; BIOS version in C
+  0015'   26 00                 	LD H,0
+  0017'   C9                    	RET
+  0018'                         SelDrv:
+  0018'   C1                    	POP BC
+  0019'   E1                    	POP HL
+  001A'   E5                    	PUSH HL
+  001B'   C5                    	PUSH BC
+  001C'   4D                    	LD C,L
+  001D'   2A 0001               	LD HL,(0001H)		; BIOS addr start + 3
+  0020'   11 0018               	LD DE,001BH-3		; function SELDSK
+  0023'   19                    	ADD HL,DE
+                                	;LD DE,seldrv1
+                                	;PUSH DE
+  0024'   E9                    	JP (HL)
+                                ;seldrv1:
+  0025'   C9                    	RET
+  0026'                         GetDrv:
+  0026'   3A 0004               	LD A,(0004h)
+  0029'   6F                    	LD L,A
+  002A'   26 00                 	LD H,0
+  002C'   C9                    	RET
+  002D'                         GetByt:
+  002D'   CD 0000'              	CALL GETPHY
+  0030'   C9                    	RET
+  0031'   C9                    	RET
+  0032'                         GetSec:
+  0032'   CD 0000'              	CALL GETPHY
+  0035'   6A                    	LD L,D
+  0036'   26 00                 	LD H,0
+  0038'   23                    	INC HL
+  0039'   C9                    	RET
+  003A'   C9                    	RET
+  003B'                         GetTrk:
+  003B'   CD 0000'              	CALL GETPHY
+  003E'   69                    	LD L,C
+  003F'   26 00                 	LD H,0
+  0041'   23                    	INC HL
+  0042'   C9                    	RET
+  0043'   C9                    	RET
+  0044'                         GetSid:
+  0044'   CD 0000'              	CALL GETPHY
+  0047'   6B                    	LD L,E
+  0048'   26 00                 	LD H,0
+	MACRO-80 3.44	09-Dec-81	PAGE	1-1
+
+
+  004A'   C9                    	RET
+  004B'   C9                    	RET
+                                	GLOBAL	GetSec
+                                	GLOBAL	GetSid
+                                	GLOBAL	GetDrv
+                                	GLOBAL	GetVer
+                                	GLOBAL	GetByt
+                                	GLOBAL	SelDrv
+                                	GLOBAL	GetTrk
+  004C'                         	DSEG
+                                
+                                ;0 FEHLER
+                                	END
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+0036 	BGETPHY         0033 	BGETVER         002DI'	GETBYT          
+0026I'	GETDRV          0000'	GETPHY          0032I'	GETSEC          
+0044I'	GETSID          003BI'	GETTRK          0008I'	GETVER          
+0014'	GETVER1         0018I'	SELDRV          
+
+
+
+No Fatal error(s)
+
+
+BAL	GetTrk
+  004C'                         	D

@@ -1,0 +1,52 @@
+	MACRO-80 3.44	09-Dec-81	PAGE	1
+
+
+                                ; MEMCPY.MAC *dg* 30.08.2026
+                                
+                                	PUBLIC MEMCPY
+                                
+                                ; char *memcpy(dst, src, n)
+                                ;     char *dst, *src;
+                                ;     int n;
+                                ;   return dst
+                                
+                                
+  0000'   DD 21 0002            MEMCPY:	LD IX,2		; RET address
+  0004'   DD 39                 	ADD IX,SP
+                                
+                                	; dst -> DE
+  0006'   DD 5E 00              	LD E,(IX+0)
+  0009'   DD 56 01              	LD D,(IX+1)
+  000C'   D5                    	PUSH DE
+                                
+                                	; src -> HL
+  000D'   DD 6E 02              	LD L,(IX+2)
+  0010'   DD 66 03              	LD H,(IX+3)
+                                
+                                	; n -> BC
+  0013'   DD 4E 04              	LD C,(IX+4)
+  0016'   DD 46 05              	LD B,(IX+5)
+                                
+  0019'   ED B0                 	LDIR
+                                
+                                	; return dst
+  001B'   E1                    	POP HL
+                                
+  001C'   C9                    	RET
+                                
+                                	END
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+0000I'	MEMCPY          
+
+
+
+No Fatal error(s)
+
+
+LD C,(IX+4)
+  0016'   DD 46 05              	LD B,(

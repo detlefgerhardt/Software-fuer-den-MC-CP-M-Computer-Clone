@@ -1,0 +1,40 @@
+	MACRO-80 3.44	09-Dec-81	PAGE	1
+
+
+                                ; INP.MAC *dg* 30.08.2026
+                                
+                                	PUBLIC INP
+                                
+                                ; int inp(port)
+                                ;     int port;
+                                
+                                
+  0000'   DD 21 0002            INP:	LD IX,2		; RET address
+  0004'   DD 39                 	ADD IX,SP
+                                
+                                	; port -> C
+  0006'   DD 4E 00              	LD C,(IX+0)
+                                
+  0009'   ED 78                 	IN A,(C)
+                                
+                                	; return A
+  000B'   6F                    	LD L,A
+  000C'   26 00                 	LD H,0
+                                
+                                	END
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+0000I'	INP             
+
+
+
+No Fatal error(s)
+
+
+                            	; port -> C
+  0006'   DD 4E 00              	LD C,(IX+0)
+                                

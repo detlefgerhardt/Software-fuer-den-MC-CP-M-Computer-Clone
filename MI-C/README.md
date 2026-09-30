@@ -1,6 +1,6 @@
 # MI-C Compiler 3.18I
 
-This folder contains the MI-C compiler for CP/M that I use to program some CP/M tools and games.
+This folder contains the MI-C compiler projects.
 It contains also my own libraries and sample code that I use in my projects.
 
 It is a German C compiler from 1983 and uses old K&R syntax, not ANSI C.

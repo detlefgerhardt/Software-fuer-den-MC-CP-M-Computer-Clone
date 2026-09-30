@@ -1,0 +1,187 @@
+	MACRO-80 3.44	09-Dec-81	PAGE	1
+
+
+                                ;MI - C  v-3.18I  (C) COPYRIGHT  G. KERSTING / H. ROSE, 1983
+                                ;	HIER HAT BENUTZERTEXT PLATZ
+  0000'                         rndsed:
+  0000'   C1                    	POP	BC
+  0001'   D1                    	POP	DE
+  0002'   D5                    	PUSH	DE
+  0003'   C5                    	PUSH	BC
+  0004'   21 7FED               	LD	HL,32749
+  0007'   CD 0000*              	CALL	CCDIV
+  000A'   EB                    	EX	DE,HL
+  000B'   C1                    	POP	BC
+  000C'   F1                    	POP	AF
+  000D'   E5                    	PUSH	HL
+  000E'   C5                    	PUSH	BC
+  000F'   11 0000               	LD	DE,0
+  0012'   CD 0000*              	CALL	CCGE
+  0015'   CA 0024'              	JP	Z,C304
+  0018'   C1                    	POP	BC
+  0019'   D1                    	POP	DE
+  001A'   D5                    	PUSH	DE
+  001B'   C5                    	PUSH	BC
+  001C'   21 7FEC               	LD	HL,32748
+  001F'   19                    	ADD	HL,DE
+  0020'   C1                    	POP	BC
+  0021'   F1                    	POP	AF
+  0022'   E5                    	PUSH	HL
+  0023'   C5                    	PUSH	BC
+  0024'                         C304:
+  0024'   C1                    	POP	BC
+  0025'   E1                    	POP	HL
+  0026'   E5                    	PUSH	HL
+  0027'   C5                    	PUSH	BC
+  0028'   CD 0000*              	CALL	CCTOL
+  002B'   01 0000"              	LD	BC,rndsta
+  002E'   CD 0000*              	CALL	CLPUTM
+  0031'   C9                    	RET
+  0032'                         rndrfh:
+  0032'   ED 5F                 	LD A,R
+  0034'   6F                    	LD L,A
+  0035'   26 00                 	LD H,0
+  0037'   C9                    	RET
+  0038'                         rndnxt:
+  0038'   C5                    	PUSH	BC
+  0039'   C5                    	PUSH	BC
+  003A'   C5                    	PUSH	BC
+  003B'   21 058F               	LD	HL,1423
+  003E'   11 0000"              	LD	DE,rndsta
+  0041'   CD 0000*              	CALL	CLSGSI
+  0044'   CD 0000*              	CALL	CCTOL
+  0047'   CD 0000*              	CALL	CLDIV
+  004A'   EB                    	EX	DE,HL
+  004B'   21 0004               	LD	HL,4
+  004E'   39                    	ADD	HL,SP
+  004F'   73                    	LD	(HL),E
+  0050'   23                    	INC	HL
+  0051'   72                    	LD	(HL),D
+  0052'   EB                    	EX	DE,HL
+  0053'   21 058F               	LD	HL,1423
+  0056'   11 0000"              	LD	DE,rndsta
+  0059'   CD 0000*              	CALL	CLSGSI
+  005C'   CD 0000*              	CALL	CCTOL
+  005F'   CD 0000*              	CALL	CLMOD
+	MACRO-80 3.44	09-Dec-81	PAGE	1-1
+
+
+  0062'   C1                    	POP	BC
+  0063'   F1                    	POP	AF
+  0064'   E5                    	PUSH	HL
+  0065'   C5                    	PUSH	BC
+  0066'   11 0017               	LD	DE,23
+  0069'   CD 0000*              	CALL	CCMULT
+  006C'   E5                    	PUSH	HL
+  006D'   21 0006               	LD	HL,6
+  0070'   39                    	ADD	HL,SP
+  0071'   7E                    	LD	A,(HL)
+  0072'   23                    	INC	HL
+  0073'   66                    	LD	H,(HL)
+  0074'   6F                    	LD	L,A
+  0075'   11 058F               	LD	DE,1423
+  0078'   CD 0000*              	CALL	CCMULT
+  007B'   D1                    	POP	DE
+  007C'   EB                    	EX	DE,HL
+  007D'   A7                    	AND	A
+  007E'   ED 52                 	SBC	HL,DE
+  0080'   CD 0000*              	CALL	CCTOL
+  0083'   01 0000"              	LD	BC,rndsta
+  0086'   CD 0000*              	CALL	CLPUTM
+  0089'   11 0000               	LD	DE,0
+  008C'   CD 0000*              	CALL	CCSTOL
+  008F'   CD 0000*              	CALL	CLGE
+  0092'   CA 00AA'              	JP	Z,C306
+  0095'   11 0000"              	LD	DE,rndsta
+  0098'   CD 0000*              	CALL	CLSGSI
+  009B'   21 7FED               	LD	HL,32749
+  009E'   CD 0000*              	CALL	CCTOL
+  00A1'   CD 0000*              	CALL	CLADD
+  00A4'   01 0000"              	LD	BC,rndsta
+  00A7'   CD 0000*              	CALL	CLPUTM
+  00AA'                         C306:
+  00AA'   21 000A               	LD	HL,10
+  00AD'   39                    	ADD	HL,SP
+  00AE'   5E                    	LD	E,(HL)
+  00AF'   23                    	INC	HL
+  00B0'   56                    	LD	D,(HL)
+  00B1'   21 0008               	LD	HL,8
+  00B4'   39                    	ADD	HL,SP
+  00B5'   7E                    	LD	A,(HL)
+  00B6'   23                    	INC	HL
+  00B7'   66                    	LD	H,(HL)
+  00B8'   6F                    	LD	L,A
+  00B9'   EB                    	EX	DE,HL
+  00BA'   A7                    	AND	A
+  00BB'   ED 52                 	SBC	HL,DE
+  00BD'   11 0000"              	LD	DE,rndsta
+  00C0'   CD 0000*              	CALL	CLSGSI
+  00C3'   CD 0000*              	CALL	CCTOL
+  00C6'   CD 0000*              	CALL	CLMULT
+  00C9'   11 7FED               	LD	DE,32749
+  00CC'   CD 0000*              	CALL	CCSTOL
+  00CF'   CD 0000*              	CALL	CLSDIV
+  00D2'   CD 0000*              	CALL	CLSWAP
+  00D5'   21 0008               	LD	HL,8
+  00D8'   39                    	ADD	HL,SP
+  00D9'   7E                    	LD	A,(HL)
+  00DA'   23                    	INC	HL
+  00DB'   66                    	LD	H,(HL)
+  00DC'   6F                    	LD	L,A
+	MACRO-80 3.44	09-Dec-81	PAGE	1-2
+
+
+  00DD'   CD 0000*              	CALL	CCTOL
+  00E0'   CD 0000*              	CALL	CLADD
+  00E3'   C1                    	POP	BC
+  00E4'   C1                    	POP	BC
+  00E5'   C1                    	POP	BC
+  00E6'   C9                    	RET
+                                	GLOBAL	rndsed
+                                	GLOBAL	rndrfh
+                                	GLOBAL	rndnxt
+  00E7'                         	DSEG
+  0000"                         rndsta:	DEFS	4
+                                
+                                ;0 FEHLER
+                                	EXTERNAL	CCGE
+                                	EXTERNAL	CLGE
+                                	EXTERNAL	CCMULT
+                                	EXTERNAL	CLMULT
+                                	EXTERNAL	CCDIV
+                                	EXTERNAL	CCSDIV
+                                	EXTERNAL	CLDIV
+                                	EXTERNAL	CLSDIV
+                                	EXTERNAL	CLMOD
+                                	EXTERNAL	CLSMOD
+                                	EXTERNAL	CLADD
+                                	EXTERNAL	CLSWAP
+                                	EXTERNAL	CLPUTM
+                                	EXTERNAL	CLSPUT
+                                	EXTERNAL	CLGSIN
+                                	EXTERNAL	CLSGSI
+                                	EXTERNAL	CCTOL
+                                	EXTERNAL	CCSTOL
+                                	END
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+0024'	C304            00AA'	C306            0008*	CCDIV           
+0013*	CCGE            0079*	CCMULT          0000*	CCSDIV          
+00CD*	CCSTOL          00DE*	CCTOL           00E1*	CLADD           
+0048*	CLDIV           0090*	CLGE            0000*	CLGSIN          
+0060*	CLMOD           00C7*	CLMULT          00A8*	CLPUTM          
+00D0*	CLSDIV          00C1*	CLSGSI          0000*	CLSMOD          
+0000*	CLSPUT          00D3*	CLSWAP          0038I'	RNDNXT          
+0032I'	RNDRFH          0000I'	RNDSED          0000"	RNDSTA          
+
+
+
+No Fatal error(s)
+
+
+ 
+00

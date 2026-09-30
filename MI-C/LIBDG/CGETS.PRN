@@ -1,0 +1,175 @@
+	MACRO-80 3.44	09-Dec-81	PAGE	1
+
+
+                                ;MI - C  v-3.18I  (C) COPYRIGHT  G. KERSTING / H. ROSE, 1983
+                                ;	HIER HAT BENUTZERTEXT PLATZ
+  0000'                         cgets:
+  0000'   C5                    	PUSH	BC
+  0001'   C5                    	PUSH	BC
+  0002'   C5                    	PUSH	BC
+  0003'   21 0008               	LD	HL,8
+  0006'   39                    	ADD	HL,SP
+  0007'   5E                    	LD	E,(HL)
+  0008'   23                    	INC	HL
+  0009'   56                    	LD	D,(HL)
+  000A'   2B                    	DEC	HL
+  000B'   13                    	INC	DE
+  000C'   73                    	LD	(HL),E
+  000D'   23                    	INC	HL
+  000E'   72                    	LD	(HL),D
+  000F'   1B                    	DEC	DE
+  0010'   1A                    	LD	A,(DE)
+  0011'   16 00                 	LD	D,0
+  0013'   5F                    	LD	E,A
+  0014'   21 0004               	LD	HL,4
+  0017'   39                    	ADD	HL,SP
+  0018'   73                    	LD	(HL),E
+  0019'   23                    	INC	HL
+  001A'   72                    	LD	(HL),D
+  001B'   EB                    	EX	DE,HL
+  001C'   11 0000               	LD	DE,0
+  001F'   F1                    	POP	AF
+  0020'   D5                    	PUSH	DE
+  0021'   EB                    	EX	DE,HL
+  0022'                         C303:
+  0022'   CD 0000*              	CALL	getch
+  0025'   C1                    	POP	BC
+  0026'   F1                    	POP	AF
+  0027'   E5                    	PUSH	HL
+  0028'   C5                    	PUSH	BC
+  0029'   11 000D               	LD	DE,13
+  002C'   CD 0000*              	CALL	CCEQ
+  002F'   CA 003C'              	JP	Z,C306
+  0032'   C1                    	POP	BC
+  0033'   D1                    	POP	DE
+  0034'   D5                    	PUSH	DE
+  0035'   C5                    	PUSH	BC
+  0036'   F1                    	POP	AF
+  0037'   D5                    	PUSH	DE
+  0038'   EB                    	EX	DE,HL
+  0039'   C3 0022'              	JP	C303
+  003C'                         C306:
+  003C'   C1                    	POP	BC
+  003D'   D1                    	POP	DE
+  003E'   D5                    	PUSH	DE
+  003F'   C5                    	PUSH	BC
+  0040'   21 000A               	LD	HL,10
+  0043'   CD 0000*              	CALL	CCEQ
+  0046'   CA 0057'              	JP	Z,C309
+  0049'   D1                    	POP	DE
+  004A'   D5                    	PUSH	DE
+  004B'   21 000D               	LD	HL,13
+  004E'   CD 0000*              	CALL	CCEQ
+  0051'   CA 0057'              	JP	Z,C309
+  0054'   21 0001               	LD	HL,1
+  0057'                         C309:
+	MACRO-80 3.44	09-Dec-81	PAGE	1-1
+
+
+  0057'   CA 006A'              	JP	Z,C308
+  005A'   21 0008               	LD	HL,8
+  005D'   39                    	ADD	HL,SP
+  005E'   5E                    	LD	E,(HL)
+  005F'   23                    	INC	HL
+  0060'   56                    	LD	D,(HL)
+  0061'   21 0000               	LD	HL,0
+  0064'   7D                    	LD	A,L
+  0065'   12                    	LD	(DE),A
+  0066'   C1                    	POP	BC
+  0067'   C1                    	POP	BC
+  0068'   C1                    	POP	BC
+  0069'   C9                    	RET
+  006A'                         C308:
+  006A'   11 0000               	LD	DE,0
+  006D'   F1                    	POP	AF
+  006E'   D5                    	PUSH	DE
+  006F'   EB                    	EX	DE,HL
+  0070'   21 0008               	LD	HL,8
+  0073'   39                    	ADD	HL,SP
+  0074'   5E                    	LD	E,(HL)
+  0075'   23                    	INC	HL
+  0076'   56                    	LD	D,(HL)
+  0077'   2B                    	DEC	HL
+  0078'   13                    	INC	DE
+  0079'   73                    	LD	(HL),E
+  007A'   23                    	INC	HL
+  007B'   72                    	LD	(HL),D
+  007C'   1B                    	DEC	DE
+  007D'   C1                    	POP	BC
+  007E'   E1                    	POP	HL
+  007F'   E5                    	PUSH	HL
+  0080'   C5                    	PUSH	BC
+  0081'   7D                    	LD	A,L
+  0082'   12                    	LD	(DE),A
+  0083'   21 0004               	LD	HL,4
+  0086'   39                    	ADD	HL,SP
+  0087'   5E                    	LD	E,(HL)
+  0088'   23                    	INC	HL
+  0089'   56                    	LD	D,(HL)
+  008A'   2B                    	DEC	HL
+  008B'   1B                    	DEC	DE
+  008C'   73                    	LD	(HL),E
+  008D'   23                    	INC	HL
+  008E'   72                    	LD	(HL),D
+  008F'   13                    	INC	DE
+  0090'   EB                    	EX	DE,HL
+  0091'   21 0004               	LD	HL,4
+  0094'   39                    	ADD	HL,SP
+  0095'   5E                    	LD	E,(HL)
+  0096'   23                    	INC	HL
+  0097'   56                    	LD	D,(HL)
+  0098'   21 0000               	LD	HL,0
+  009B'   CD 0000*              	CALL	CCEQ
+  009E'   CA 00B7'              	JP	Z,C312
+  00A1'   21 0008               	LD	HL,8
+  00A4'   39                    	ADD	HL,SP
+  00A5'   5E                    	LD	E,(HL)
+  00A6'   23                    	INC	HL
+  00A7'   56                    	LD	D,(HL)
+  00A8'   2B                    	DEC	HL
+  00A9'   13                    	INC	DE
+	MACRO-80 3.44	09-Dec-81	PAGE	1-2
+
+
+  00AA'   73                    	LD	(HL),E
+  00AB'   23                    	INC	HL
+  00AC'   72                    	LD	(HL),D
+  00AD'   1B                    	DEC	DE
+  00AE'   21 0000               	LD	HL,0
+  00B1'   7D                    	LD	A,L
+  00B2'   12                    	LD	(DE),A
+  00B3'   C1                    	POP	BC
+  00B4'   C1                    	POP	BC
+  00B5'   C1                    	POP	BC
+  00B6'   C9                    	RET
+  00B7'                         C312:
+  00B7'   C3 0022'              	JP	C303
+  00BA'                         C304:
+  00BA'   C1                    	POP	BC
+  00BB'   C1                    	POP	BC
+  00BC'   C1                    	POP	BC
+  00BD'   C9                    	RET
+                                	EXTERNAL	getch
+                                	GLOBAL	cgets
+  00BE'                         	DSEG
+                                
+                                ;0 FEHLER
+                                	EXTERNAL	CCEQ
+                                	END
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+0022'	C303            00BA'	C304            003C'	C306            
+006A'	C308            0057'	C309            00B7'	C312            
+009C*	CCEQ            0000I'	CGETS           0023*	GETCH           
+
+
+
+No Fatal error(s)
+
+
+ 	GLOBAL	cgets
+  00BE'

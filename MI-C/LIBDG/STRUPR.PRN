@@ -1,0 +1,80 @@
+	MACRO-80 3.44	09-Dec-81	PAGE	1
+
+
+                                ;MI - C  v-3.18I  (C) COPYRIGHT  G. KERSTING / H. ROSE, 1983
+                                ;	HIER HAT BENUTZERTEXT PLATZ
+  0000'                         strupr:
+  0000'   C5                    	PUSH	BC
+  0001'   21 0004               	LD	HL,4
+  0004'   39                    	ADD	HL,SP
+  0005'   5E                    	LD	E,(HL)
+  0006'   23                    	INC	HL
+  0007'   56                    	LD	D,(HL)
+  0008'   F1                    	POP	AF
+  0009'   D5                    	PUSH	DE
+  000A'   EB                    	EX	DE,HL
+  000B'                         C303:
+  000B'   21 0004               	LD	HL,4
+  000E'   39                    	ADD	HL,SP
+  000F'   5E                    	LD	E,(HL)
+  0010'   23                    	INC	HL
+  0011'   56                    	LD	D,(HL)
+  0012'   1A                    	LD	A,(DE)
+  0013'   26 00                 	LD	H,0
+  0015'   6F                    	LD	L,A
+  0016'   B4                    	OR	H
+  0017'   CA 003F'              	JP	Z,C304
+  001A'   21 0004               	LD	HL,4
+  001D'   39                    	ADD	HL,SP
+  001E'   5E                    	LD	E,(HL)
+  001F'   23                    	INC	HL
+  0020'   56                    	LD	D,(HL)
+  0021'   D5                    	PUSH	DE
+  0022'   1A                    	LD	A,(DE)
+  0023'   26 00                 	LD	H,0
+  0025'   6F                    	LD	L,A
+  0026'   E5                    	PUSH	HL
+  0027'   CD 0000*              	CALL	toupper
+  002A'   C1                    	POP	BC
+  002B'   D1                    	POP	DE
+  002C'   7D                    	LD	A,L
+  002D'   12                    	LD	(DE),A
+  002E'   21 0004               	LD	HL,4
+  0031'   39                    	ADD	HL,SP
+  0032'   5E                    	LD	E,(HL)
+  0033'   23                    	INC	HL
+  0034'   56                    	LD	D,(HL)
+  0035'   2B                    	DEC	HL
+  0036'   13                    	INC	DE
+  0037'   73                    	LD	(HL),E
+  0038'   23                    	INC	HL
+  0039'   72                    	LD	(HL),D
+  003A'   1B                    	DEC	DE
+  003B'   EB                    	EX	DE,HL
+  003C'   C3 000B'              	JP	C303
+  003F'                         C304:
+  003F'   E1                    	POP	HL
+  0040'   E5                    	PUSH	HL
+  0041'   C1                    	POP	BC
+  0042'   C9                    	RET
+                                	EXTERNAL	toupper
+                                	GLOBAL	strupr
+  0043'                         	DSEG
+                                
+                                ;0 FEHLER
+                                	END
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+000B'	C303            003F'	C304            0000I'	STRUPR          
+0028*	TOUPPER         
+
+
+
+No Fatal error(s)
+
+
+0041'   C1                    	POP	

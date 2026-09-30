@@ -1,0 +1,44 @@
+	MACRO-80 3.44	09-Dec-81	PAGE	1
+
+
+                                ;MI - C  v-3.18I  (C) COPYRIGHT  G. KERSTING / H. ROSE, 1983
+                                ;	HIER HAT BENUTZERTEXT PLATZ
+  0000'                         cprintf:
+  0000'   21 0004               	LD	HL,4
+  0003'   39                    	ADD	HL,SP
+  0004'   E5                    	PUSH	HL
+  0005'   21 0004               	LD	HL,4
+  0008'   39                    	ADD	HL,SP
+  0009'   5E                    	LD	E,(HL)
+  000A'   23                    	INC	HL
+  000B'   56                    	LD	D,(HL)
+  000C'   D5                    	PUSH	DE
+  000D'   11 0000*              	LD	DE,putch
+  0010'   D5                    	PUSH	DE
+  0011'   CD 0000*              	CALL	print
+  0014'   C1                    	POP	BC
+  0015'   C1                    	POP	BC
+  0016'   C1                    	POP	BC
+  0017'   C9                    	RET
+                                	GLOBAL	cprintf
+                                	EXTERNAL	putch
+                                	EXTERNAL	print
+  0018'                         	DSEG
+                                
+                                ;0 FEHLER
+                                	END
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+0000I'	CPRINTF         0012*	PRINT           000E*	PUTCH           
+
+
+
+No Fatal error(s)
+
+
+      	POP	BC
+  0017'   C9      

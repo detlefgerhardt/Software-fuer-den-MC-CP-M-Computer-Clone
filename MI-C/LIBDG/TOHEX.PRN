@@ -1,0 +1,248 @@
+	MACRO-80 3.44	09-Dec-81	PAGE	1
+
+
+                                ;MI - C  v-3.18I  (C) COPYRIGHT  G. KERSTING / H. ROSE, 1983
+                                ;	HIER HAT BENUTZERTEXT PLATZ
+  0000'                         hexdig:
+  0000'   C1                    	POP	BC
+  0001'   D1                    	POP	DE
+  0002'   D5                    	PUSH	DE
+  0003'   C5                    	PUSH	BC
+  0004'   21 000A               	LD	HL,10
+  0007'   CD 0000*              	CALL	CCLT
+  000A'   CA 0016'              	JP	Z,C304
+  000D'   C1                    	POP	BC
+  000E'   D1                    	POP	DE
+  000F'   D5                    	PUSH	DE
+  0010'   C5                    	PUSH	BC
+  0011'   21 0030               	LD	HL,48
+  0014'   19                    	ADD	HL,DE
+  0015'   C9                    	RET
+  0016'                         C304:
+  0016'   C1                    	POP	BC
+  0017'   D1                    	POP	DE
+  0018'   D5                    	PUSH	DE
+  0019'   C5                    	PUSH	BC
+  001A'   21 FFF6               	LD	HL,-10
+  001D'   19                    	ADD	HL,DE
+  001E'   01 0041               	LD	BC,65
+  0021'   09                    	ADD	HL,BC
+  0022'   C9                    	RET
+  0023'                         ctohex:
+  0023'   21 0004               	LD	HL,4
+  0026'   39                    	ADD	HL,SP
+  0027'   5E                    	LD	E,(HL)
+  0028'   23                    	INC	HL
+  0029'   56                    	LD	D,(HL)
+  002A'   D5                    	PUSH	DE
+  002B'   21 0004               	LD	HL,4
+  002E'   39                    	ADD	HL,SP
+  002F'   5E                    	LD	E,(HL)
+  0030'   23                    	INC	HL
+  0031'   56                    	LD	D,(HL)
+  0032'   21 0004               	LD	HL,4
+  0035'   CD 0000*              	CALL	CCASR
+  0038'   E5                    	PUSH	HL
+  0039'   CD 0000'              	CALL	hexdig
+  003C'   C1                    	POP	BC
+  003D'   D1                    	POP	DE
+  003E'   7D                    	LD	A,L
+  003F'   12                    	LD	(DE),A
+  0040'   21 0004               	LD	HL,4
+  0043'   39                    	ADD	HL,SP
+  0044'   5E                    	LD	E,(HL)
+  0045'   23                    	INC	HL
+  0046'   56                    	LD	D,(HL)
+  0047'   13                    	INC	DE
+  0048'   D5                    	PUSH	DE
+  0049'   21 0004               	LD	HL,4
+  004C'   39                    	ADD	HL,SP
+  004D'   5E                    	LD	E,(HL)
+  004E'   23                    	INC	HL
+  004F'   56                    	LD	D,(HL)
+  0050'   21 000F               	LD	HL,15
+  0053'   CD 0000*              	CALL	CCAND
+  0056'   E5                    	PUSH	HL
+	MACRO-80 3.44	09-Dec-81	PAGE	1-1
+
+
+  0057'   CD 0000'              	CALL	hexdig
+  005A'   C1                    	POP	BC
+  005B'   D1                    	POP	DE
+  005C'   7D                    	LD	A,L
+  005D'   12                    	LD	(DE),A
+  005E'   21 0004               	LD	HL,4
+  0061'   39                    	ADD	HL,SP
+  0062'   5E                    	LD	E,(HL)
+  0063'   23                    	INC	HL
+  0064'   56                    	LD	D,(HL)
+  0065'   13                    	INC	DE
+  0066'   13                    	INC	DE
+  0067'   21 0000               	LD	HL,0
+  006A'   7D                    	LD	A,L
+  006B'   12                    	LD	(DE),A
+  006C'   21 0004               	LD	HL,4
+  006F'   39                    	ADD	HL,SP
+  0070'   7E                    	LD	A,(HL)
+  0071'   23                    	INC	HL
+  0072'   66                    	LD	H,(HL)
+  0073'   6F                    	LD	L,A
+  0074'   C9                    	RET
+  0075'                         utohex:
+  0075'   21 0004               	LD	HL,4
+  0078'   39                    	ADD	HL,SP
+  0079'   5E                    	LD	E,(HL)
+  007A'   23                    	INC	HL
+  007B'   56                    	LD	D,(HL)
+  007C'   D5                    	PUSH	DE
+  007D'   21 0004               	LD	HL,4
+  0080'   39                    	ADD	HL,SP
+  0081'   5E                    	LD	E,(HL)
+  0082'   23                    	INC	HL
+  0083'   56                    	LD	D,(HL)
+  0084'   21 0008               	LD	HL,8
+  0087'   CD 0000*              	CALL	CUASR
+  008A'   E5                    	PUSH	HL
+  008B'   CD 0023'              	CALL	ctohex
+  008E'   C1                    	POP	BC
+  008F'   C1                    	POP	BC
+  0090'   21 0004               	LD	HL,4
+  0093'   39                    	ADD	HL,SP
+  0094'   5E                    	LD	E,(HL)
+  0095'   23                    	INC	HL
+  0096'   56                    	LD	D,(HL)
+  0097'   13                    	INC	DE
+  0098'   13                    	INC	DE
+  0099'   D5                    	PUSH	DE
+  009A'   21 0004               	LD	HL,4
+  009D'   39                    	ADD	HL,SP
+  009E'   5E                    	LD	E,(HL)
+  009F'   23                    	INC	HL
+  00A0'   56                    	LD	D,(HL)
+  00A1'   21 00FF               	LD	HL,255
+  00A4'   CD 0000*              	CALL	CCAND
+  00A7'   E5                    	PUSH	HL
+  00A8'   CD 0023'              	CALL	ctohex
+  00AB'   C1                    	POP	BC
+  00AC'   C1                    	POP	BC
+  00AD'   21 0004               	LD	HL,4
+  00B0'   39                    	ADD	HL,SP
+  00B1'   5E                    	LD	E,(HL)
+	MACRO-80 3.44	09-Dec-81	PAGE	1-2
+
+
+  00B2'   23                    	INC	HL
+  00B3'   56                    	LD	D,(HL)
+  00B4'   21 0004               	LD	HL,4
+  00B7'   19                    	ADD	HL,DE
+  00B8'   11 0000               	LD	DE,0
+  00BB'   73                    	LD	(HL),E
+  00BC'   EB                    	EX	DE,HL
+  00BD'   21 0004               	LD	HL,4
+  00C0'   39                    	ADD	HL,SP
+  00C1'   7E                    	LD	A,(HL)
+  00C2'   23                    	INC	HL
+  00C3'   66                    	LD	H,(HL)
+  00C4'   6F                    	LD	L,A
+  00C5'   C9                    	RET
+  00C6'                         ltohex:
+  00C6'   21 0006               	LD	HL,6
+  00C9'   39                    	ADD	HL,SP
+  00CA'   5E                    	LD	E,(HL)
+  00CB'   23                    	INC	HL
+  00CC'   56                    	LD	D,(HL)
+  00CD'   D5                    	PUSH	DE
+  00CE'   21 0004               	LD	HL,4
+  00D1'   39                    	ADD	HL,SP
+  00D2'   CD 0000*              	CALL	CLSGPI
+  00D5'   21 0010               	LD	HL,16
+  00D8'   CD 0000*              	CALL	CLASR
+  00DB'   E5                    	PUSH	HL
+  00DC'   CD 0075'              	CALL	utohex
+  00DF'   C1                    	POP	BC
+  00E0'   C1                    	POP	BC
+  00E1'   21 0006               	LD	HL,6
+  00E4'   39                    	ADD	HL,SP
+  00E5'   5E                    	LD	E,(HL)
+  00E6'   23                    	INC	HL
+  00E7'   56                    	LD	D,(HL)
+  00E8'   21 0004               	LD	HL,4
+  00EB'   19                    	ADD	HL,DE
+  00EC'   E5                    	PUSH	HL
+  00ED'   21 0004               	LD	HL,4
+  00F0'   39                    	ADD	HL,SP
+  00F1'   CD 0000*              	CALL	CLSGPI
+  00F4'   21 FFFF               	LD	HL,-1
+  00F7'   CD 0000*              	CALL	CUTOL
+  00FA'   CD 0000*              	CALL	CLAND
+  00FD'   E5                    	PUSH	HL
+  00FE'   CD 0075'              	CALL	utohex
+  0101'   C1                    	POP	BC
+  0102'   C1                    	POP	BC
+  0103'   21 0006               	LD	HL,6
+  0106'   39                    	ADD	HL,SP
+  0107'   5E                    	LD	E,(HL)
+  0108'   23                    	INC	HL
+  0109'   56                    	LD	D,(HL)
+  010A'   21 0008               	LD	HL,8
+  010D'   19                    	ADD	HL,DE
+  010E'   11 0000               	LD	DE,0
+  0111'   73                    	LD	(HL),E
+  0112'   EB                    	EX	DE,HL
+  0113'   21 0006               	LD	HL,6
+  0116'   39                    	ADD	HL,SP
+  0117'   7E                    	LD	A,(HL)
+  0118'   23                    	INC	HL
+	MACRO-80 3.44	09-Dec-81	PAGE	1-3
+
+
+  0119'   66                    	LD	H,(HL)
+  011A'   6F                    	LD	L,A
+  011B'   C9                    	RET
+                                	GLOBAL	hexdig
+                                	GLOBAL	ctohex
+                                	GLOBAL	ltohex
+                                	GLOBAL	utohex
+  011C'                         	DSEG
+                                
+                                ;0 FEHLER
+                                	EXTERNAL	CCLT
+                                	EXTERNAL	CCASR
+                                	EXTERNAL	CCSASR
+                                	EXTERNAL	CUASR
+                                	EXTERNAL	CUSASR
+                                	EXTERNAL	CLASR
+                                	EXTERNAL	CLSASR
+                                	EXTERNAL	CCAND
+                                	EXTERNAL	CLAND
+                                	EXTERNAL	CLGPIN
+                                	EXTERNAL	CLSGPI
+                                	EXTERNAL	CUTOL
+                                	EXTERNAL	CUSTOL
+                                	END
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+0016'	C304            00A5*	CCAND           0036*	CCASR           
+0008*	CCLT            0000*	CCSASR          00FB*	CLAND           
+00D9*	CLASR           0000*	CLGPIN          0000*	CLSASR          
+00F2*	CLSGPI          0023I'	CTOHEX          0088*	CUASR           
+0000*	CUSASR          0000*	CUSTOL          00F8*	CUTOL           
+0000I'	HEXDIG          00C6I'	LTOHEX          0075I'	UTOHEX          
+
+
+
+No Fatal error(s)
+
+
+     	END
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+0016'	C30

@@ -1,0 +1,41 @@
+	MACRO-80 3.44	09-Dec-81	PAGE	1
+
+
+                                ; OUTP.MAC *dg* 30.08.2026
+                                
+                                	PUBLIC OUTP
+                                
+                                ; outp(port, c)
+                                ;     int port, c;
+                                
+                                
+  0000'   DD 21 0002            OUTP:	LD IX,2		; RET address
+  0004'   DD 39                 	ADD IX,SP
+                                
+                                	; port -> C
+  0006'   DD 4E 00              	LD C,(IX+0)
+                                
+                                	; c -> A
+  0009'   DD 7E 02              	LD A,(IX+2)
+                                
+  000C'   ED 79                 	OUT (C),A
+                                
+                                	; return dst
+  000E'   21 0000               	LD HL,0
+                                
+                                	END
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+0000I'	OUTP            
+
+
+
+No Fatal error(s)
+
+
+
+                           
