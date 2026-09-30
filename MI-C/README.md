@@ -3,7 +3,7 @@
 This folder contains the MI-C compiler projects.
 It contains also my own libraries and sample code that I use in my projects.
 
-It is a German C compiler from 1983 and uses old K&R syntax, not ANSI C.
+MI-C is a German C compiler from 1983 and uses old K&R syntax, not ANSI C.
 
 The K&R (Kernighan & Ritchie) standard from 1978 is the oldest C standard and it looks like this:
 ```
@@ -26,5 +26,7 @@ The MI-C compiler produces very small Z80 assembler code (8080 optinal) that can
 I used this compiler in 1984 on a Sharp MZ80B with CP/M 2.2. No big projects, only some tools and some ROM code for small Z80 embedded systems.
 
 **As with the entire repository, this is also a work in progress. Much is still unfinished or not yet properly tested.**
+
+Many of the projects use my own library LIBDG.REL. It is included in the folder LIBDG.
 
 I'm testing by using it. I lack the time and patience for systematic testing. It's a hobby project. ;-)
