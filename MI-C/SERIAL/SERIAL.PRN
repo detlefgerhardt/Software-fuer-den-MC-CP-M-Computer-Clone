@@ -1,0 +1,137 @@
+	MACRO-80 3.44	09-Dec-81	PAGE	1
+
+
+                                ;MI - C  v-3.18I  (C) COPYRIGHT  G. KERSTING / H. ROSE, 1983
+                                ;	HIER HAT BENUTZERTEXT PLATZ
+  0000'                         	DSEG
+  0000"                         SSTDIN:
+  0000"   006F                  	DEFW	111
+  0002"                         	CSEG
+  0000'                         	DSEG
+  0002"                         SSTDOUT:
+  0002"   0070                  	DEFW	112
+  0004"                         	CSEG
+  0000'                         	DSEG
+  0004"                         STDIN:
+  0004"   0000"                 	DEFW	SSTDIN
+  0006"                         	CSEG
+  0000'                         	DSEG
+  0006"                         STDOUT:
+  0006"   0002"                 	DEFW	SSTDOUT
+  0008"                         	CSEG
+  0000'                         main:
+  0000'   3B                    	DEC	SP
+  0001'   11 0078'              	LD	DE,C301+0
+  0004'   D5                    	PUSH	DE
+  0005'   CD 0000*              	CALL	cprintf
+  0008'   C1                    	POP	BC
+  0009'   CD 0000*              	CALL	SA_INIT
+  000C'   11 0061               	LD	DE,97
+  000F'   D5                    	PUSH	DE
+  0010'   CD 0000*              	CALL	SA_OUT
+  0013'   C1                    	POP	BC
+  0014'   11 0062               	LD	DE,98
+  0017'   D5                    	PUSH	DE
+  0018'   CD 0000*              	CALL	SA_Out
+  001B'   C1                    	POP	BC
+  001C'   11 0063               	LD	DE,99
+  001F'   D5                    	PUSH	DE
+  0020'   CD 0000*              	CALL	SA_Out
+  0023'   C1                    	POP	BC
+  0024'   11 000D               	LD	DE,13
+  0027'   D5                    	PUSH	DE
+  0028'   CD 0000*              	CALL	SA_Out
+  002B'   C1                    	POP	BC
+  002C'   11 000A               	LD	DE,10
+  002F'   D5                    	PUSH	DE
+  0030'   CD 0000*              	CALL	SA_Out
+  0033'   C1                    	POP	BC
+  0034'                         C303:
+  0034'   CD 0000*              	CALL	kbhit
+  0037'   7C                    	LD	A,H
+  0038'   B5                    	OR	L
+  0039'   CA 003F'              	JP	Z,C306
+  003C'   C3 0076'              	JP	C304
+  003F'                         C306:
+  003F'   CD 0000*              	CALL	SA_ST
+  0042'   11 0000               	LD	DE,0
+  0045'   CD 0000*              	CALL	CCNE
+  0048'   CA 0073'              	JP	Z,C308
+  004B'   CD 0000*              	CALL	SA_IN
+  004E'   EB                    	EX	DE,HL
+  004F'   21 0000               	LD	HL,0
+  0052'   39                    	ADD	HL,SP
+  0053'   73                    	LD	(HL),E
+  0054'   EB                    	EX	DE,HL
+	MACRO-80 3.44	09-Dec-81	PAGE	1-1
+
+
+  0055'   21 0000               	LD	HL,0
+  0058'   39                    	ADD	HL,SP
+  0059'   5E                    	LD	E,(HL)
+  005A'   16 00                 	LD	D,0
+  005C'   D5                    	PUSH	DE
+  005D'   CD 0000*              	CALL	SA_Out
+  0060'   C1                    	POP	BC
+  0061'   21 0000               	LD	HL,0
+  0064'   39                    	ADD	HL,SP
+  0065'   5E                    	LD	E,(HL)
+  0066'   16 00                 	LD	D,0
+  0068'   21 0003               	LD	HL,3
+  006B'   CD 0000*              	CALL	CCEQ
+  006E'   CA 0073'              	JP	Z,C310
+  0071'   33                    	INC	SP
+  0072'   C9                    	RET
+  0073'                         C310:
+  0073'                         C308:
+  0073'   C3 0034'              	JP	C303
+  0076'                         C304:
+  0076'   33                    	INC	SP
+  0077'   C9                    	RET
+  0078'                         C301:
+                                
+  0078'   48 65 6C 6C           	DEFB	72,101,108,108,111,32,119,111,114,108
+  007C'   6F 20 77 6F           
+  0080'   72 6C                 
+  0082'   64 21 0D 0A           	DEFB	100,33,13,10,0
+  0086'   00                    
+                                	EXTERNAL	cprintf
+                                	GLOBAL	main
+                                	EXTERNAL	SA_INIT
+                                	EXTERNAL	SA_OUT
+                                	EXTERNAL	SA_Out
+                                	EXTERNAL	kbhit
+                                	EXTERNAL	SA_IN
+                                	EXTERNAL	SA_ST
+  0087'                         	DSEG
+                                
+                                ;0 FEHLER
+                                	EXTERNAL	CCEQ
+                                	EXTERNAL	CCNE
+                                	END
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+0078'	C301            0034'	C303            0076'	C304            
+003F'	C306            0073'	C308            0073'	C310            
+006C*	CCEQ            0046*	CCNE            0006*	CPRINTF         
+0035*	KBHIT           0000I'	MAIN            004C*	SA_IN           
+000A*	SA_INIT         005E*	SA_OUT          0040*	SA_ST           
+0000"	SSTDIN          0002"	SSTDOUT         0004"	STDIN           
+0006"	STDOUT          
+
+
+
+No Fatal error(s)
+
+
+ 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+0078'	C301            0034'	C
