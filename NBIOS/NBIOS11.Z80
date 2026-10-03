@@ -108,7 +108,7 @@ DG_DIBM	EQU FALSE	; drive D is IBM
 
 NEWIDE	EQU TRUE	; new IDE/CF format (8192 KB)
 
-DEBOUT	EQU TRUE	; debug outputs
+DEBOUT	EQU FALSE	; debug outputs
 BTDRV	EQU 0		; drive A:
 ;BTDRV	EQU 4		; drive E: (IDE/CF)
 
@@ -281,13 +281,13 @@ DPE7:	DW	0000h, 0000h
 	; OFFS = ADDITIVE KONSTANTE ZUM ANSPRECHEN DER SPUR 00
 
 	; physical format: 3,5 inch NKC, DD, DS, 1024 bytes/sector, 5 sectors/track, 80 tracks
-	; DISKDEF 0,0,39,0,2048,389,256,256,4
+	; DISKDEF 0,0,39,0,2048,390,256,256,4
 DPB0	EQU	$	; DISK PARM BLOCK
 	DW	40	; SEC PER TRACK
 	DB	4	; BLOCK SHIFT
 	DB	15	; BLOCK MASK
 	DB	0	; EXTNT MASK
-	DW	388	; DISK SIZE-1
+	DW	389	; DISK SIZE-1
 	DW	255	; DIRECTORY MAX
 	DB	240	; ALLOC0
 	DB	0	; ALLOC1
@@ -710,7 +710,7 @@ SIGNON:	DB 26
 	DB 'K',CR,LF
 	DB 'NBIOS '
 	DB BIOSVER/10+'0','.',BIOSVER MOD 10+'0'
-	DB ' 260926-01'
+	DB ' 261003-02'
 	DB " BOOT=",BTDRV+'A',CR,LF
 
 	IF DG_NEW
@@ -1096,17 +1096,21 @@ SETDMA:	LD L,C
 ; returns the physical drive parameters for the current drive
 
 ; HL = bytes/sector (1..n)
-; D  = highest sectors/track (0..n-1)
-; C  = highest tracks/side (0..n-1)
-; E  = sides (1..n)
+; D  = highest sector/track (0..n-1)
+; E  = highest track/side (0..n-1)
+; B  = sides (1..n)
+; C  = FLO register (density/datarate)
 
 GETPHY:	LD HL,(PHYBYTS)
 	LD A,(PHYSECS)
 	LD D,A
 	LD A,(PHYTRKS)
-	LD C,A
-	LD A,(PHYSIDS)
 	LD E,A
+	LD A,(PHYSIDS)
+	LD B,A
+	LD A,(BLREG)
+	AND 00110000B
+	LD C,A
 	RET
 
 ;-----------------------------------------------------------------------------
@@ -2482,7 +2486,7 @@ IOD:	DW BUFF		; DMA-ADRESSE
 	; deblocking parameters for current drive
 BLPOW:	DB 1		; power (shift) value
 BLMSK:	DB 1		; sector mask (modulo value)
-BLREG:	DB 1		; bits for special FLO register (FLO+4)
+BLREG:	DB 1		; density/datarate bits for special FLO register (FLO+4)
 ISIDE	DB 1
 
 	; phys. parameters of current drive
@@ -2568,7 +2572,7 @@ CSV3:	DS	64
 	ENDIF
 	
 	IF DG_D12
-ALV3:	DS	45	; PRUEFEN !!!
+ALV3:	DS	37	; PRUEFEN !!!
 CSV3:	DS	64
 	ENDIF
 

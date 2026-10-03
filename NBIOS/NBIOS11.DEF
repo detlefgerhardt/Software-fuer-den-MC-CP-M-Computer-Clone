@@ -34,7 +34,7 @@ DEFINE F1200K = NDISKDEF 0,512,15,80,2,1,MiniHD , 4096,256,256,2 , 1,40,229
 DEFINE IBMSD = NDISKDEF 0,128,26,77,1,6,MaxiSD , 1024,64,64,2 , 0,27,229
 
 ; Disk size 2 MB, 128 Byte/Sector, 64 sectors, 256 tracks (0 to 255), Blocksize 4096
-DEFINE CF2M = NDISKDEF 0,64,128,256,1,1,None , 4096,256,0,0 , 0,0,0
+DEFINE CF2M = NDISKDEF 0,128,64,256,1,1,None , 4096,256,0,0 , 0,0,0
 
 ; phys: Disk size 8 MB, 256 Byte/Sector, 128 sectors/track, 256 tracks
 DEFINE CF8M = NDISKDEF 0,256,128,256,1,1,None , 8192,256,0,0 , 0,0,0

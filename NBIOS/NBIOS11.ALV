@@ -1,18 +1,18 @@
-; ndiskdef NBIOS11.ALV created 26.09.26 14:55 by NDiskDef 1.0
+; ndiskdef NBIOS11.ALV created 03.10.26 19:51 by NDiskDef 1.0
 ; drive0
-ALV0:	DS 49
+ALV0:	DS 64
 CSV0:	DS 64
 
 ; drive1
-ALV1:	DS 49
+ALV1:	DS 64
 CSV1:	DS 64
 
 ; drive2
-ALV2:	DS 49
+ALV2:	DS 64
 CSV2:	DS 64
 
 ; drive3
-ALV3:	DS 37
+ALV3:	DS 64
 CSV3:	DS 64
 
 ; drive4
