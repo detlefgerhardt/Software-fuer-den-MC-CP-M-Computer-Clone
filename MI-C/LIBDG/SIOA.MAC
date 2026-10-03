@@ -1,0 +1,136 @@
+; SIOA.MAC *dg* 03.10.2026
+; I/O routines for SIO port A on OUT board
+
+	PUBLIC SA_INIT
+	PUBLIC SA_ST
+	PUBLIC SA_IN
+	PUBLIC SA_OUT
+	PUBLIC SA_PUTS
+
+	PUBLIC SAST	; for direct assembler calls, do not call from C
+	PUBLIC SAIN	; for direct assembler calls, do not call from C
+	PUBLIC SAOUT	; for direct assembler calls, do not call from C
+
+SA_ADR	EQU 0F0h
+SA_RXB	EQU 01h
+SA_TXB	EQU 04h
+
+;-----------------------------------------------------------------------------
+; initialize SIO A
+
+SA_INIT:
+	LD C,SA_ADR+1
+	LD B,8
+	LD HL,SA_TAB
+	OTIR
+	RET
+
+SA_TAB:	DEFB 1,0
+	DEFB 3,11100001B	; -CTS UND -DCD ENABLE rev 3.4 term1
+	DEFB 4,01001100B
+	DEFB 5,11101010B	; dtr rts +12V bedeutet ready rev 3.4
+
+;-----------------------------------------------------------------------------
+; get status, returns 1 if character is available, 0 if not
+
+; int sa_st()
+
+SA_ST:	CALL SAST
+	LD L,A
+	LD H,0
+	RET
+
+;-----------------------------------------------------------------------------
+; get status, returns 1 if character is available, 0 if not
+; for direct assembler calls, do not call from C
+
+SAST:	IN A,(SA_ADR+1)
+	AND SA_RXB
+	RET Z		; no character available
+	
+	; character available
+	LD A,01H
+	OR A
+	RET
+
+;-----------------------------------------------------------------------------
+; input character
+
+; int sa_in()
+
+SA_IN:	CALL SAIN
+	LD L,A
+	LD H,0
+	RET
+
+;-----------------------------------------------------------------------------
+; input character
+; for direct assembler calls, do not call from C
+
+SAIN:	IN A,(SA_ADR+1)
+	AND SA_RXB
+	JR Z,SA_IN
+
+	IN A,(SA_ADR)
+	RET
+
+;-----------------------------------------------------------------------------
+; output character
+
+; sa_out(ch)
+;     int ch;
+
+SA_OUT:	LD IX,2		; RET address
+	ADD IX,SP
+
+	LD A,(IX+0)
+	CALL SAOUT
+
+	; return A
+	LD L,A
+	LD H,0
+	RET
+
+;-----------------------------------------------------------------------------
+; output char in A
+; for direct assembler calls, do not call from C
+
+SAOUT:	LD C,A
+
+SAOUT1:	IN A,(SA_ADR+1)	; status
+	AND SA_TXB
+	JR Z,SAOUT1
+
+	LD A,C
+	OUT (SA_ADR),A
+	RET
+
+;-----------------------------------------------------------------------------
+; output str
+
+; char * sa_puts(s)
+;	char *s;
+
+SA_PUTS:
+	POP BC
+	POP HL		; pointer to str
+	PUSH HL
+	PUSH BC
+
+	PUSH HL		; save str pointer
+
+PUTS1:	LD A,(HL)
+	AND A
+	JR Z,PUTS2
+	CALL SAOUT
+	INC HL
+	JR PUTS1
+
+PUTS2:	POP HL
+	RET
+
+;-----------------------------------------------------------------------------
+
+	END
+
+; end of SIOA.MAC

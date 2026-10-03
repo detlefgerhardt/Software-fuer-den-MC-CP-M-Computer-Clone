@@ -23,12 +23,16 @@ CPM M80 =MEMSET/Z/L > memset.merr
 CPM M80 =MEMCPY/Z/L > memcpy.merr
 CPM M80 =OUTP/Z/L > outp.merr
 CPM M80 =INP/Z/L > inp.merr
+CPM M80 =SIOA/Z/L > sioa.merr
+CPM M80 =SIOB/Z/L > siob.merr
 
 REM build library from modules
-CPM LIB80 LIBDG=PHYDRV,MEMSET,MEMCPY,OUTP,INP,CPRINTF,CONIO,CGETS,RANDOM,TOHEX,STRUPR,STRLWR/E > libdg.lerr
+CPM LIB80 LIBDG=PHYDRV,MEMSET,MEMCPY,OUTP,INP,CPRINTF,CONIO,CGETS,SIOA,SIOB,RANDOM,TOHEX,STRUPR,STRLWR/E > libdg.lerr
 
 MICERR conio.cerr conio.merr fgets.cerr fgets.merr cprintf.cerr cprintf.merr random.cerr random.merr tohex.cerr tohex.merr
 
-MICERR strupr.cerr strupr.merr strlwr.cerr strlwr.merr phydrv.cerr phydrv.merr memset.merr memcpy.merr outp.merr inp.merr libdg.lerr
+MICERR strupr.cerr strupr.merr strlwr.cerr strlwr.merr phydrv.cerr phydrv.merr memset.merr memcpy.merr outp.merr inp.merr sioa.merr siob.merr
+
+MICERR libdg.lerr
 
 COPY LIBDG.REL ..

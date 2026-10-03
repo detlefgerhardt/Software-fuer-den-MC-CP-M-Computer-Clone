@@ -13,6 +13,7 @@
  */
 
 #include "stdio.h"
+#include "phydrv.h"
 
 #define FALSE 0
 #define TRUE 1
@@ -61,20 +62,20 @@ typedef struct
 
 /****************************************************************************/
 
-ShowFmts(fmtCnt, indent)
-	int fmtCnt;
+ShowFmts(prmCnt, indent)
+	int prmCnt;
 	char *indent;
 {
 	int f;
 	drvtab *tab;
 	
-	for (f = 0; f < FMTCNT; f++)
+	for (f = 0; f < PRMCNT; f++)
 	{
-		tab = fmtlist[f]->tab;
+		tab = prmlist[f]->tab;
 		if (indent != NULL)
 			cputs(indent);
-		cprintf("%d = %s %dK (%d/%d/%d/%d)\r\n", f+1, fmtlist[f]->name, fmtlist[f]->size,
-			tab->phylen, tab->physec + 1, tab->phytrk + 1, tab->physid);
+		cprintf("%d = %s %dK (%d/%d/%d/%d/%02X)\r\n", f+1,prmlist[f]->name,prmlist[f]->size,
+			tab->phylen,tab->physec+1,tab->phytrk+1,tab->physid,tab->reg);
 	}
 }	
 
@@ -84,28 +85,24 @@ ShowDrives(drvcnt)
 	int drvcnt;
 {
 	int d, curdrv;
-	int phybyts, physecs, phytrks, physids;
-	long size;
+	phyprm prm;
 	unsigned *dpe;
 	char *dpb;
 
 	/* save current drive */
 	curdrv = GetDrv();
 	
-	cprintf("\r\ndrv by/se sects trks sids size  addr\r\n");
+	cprintf("drv by/se sects trks sids reg  size  addr\r\n");
 	for (d = 0; d < drvcnt; d++)
 	{
 		dpe = SelDrv(d);
 		dpb = *(dpe + 5);
-		phybyts = GetByt();
-		physecs = GetSec();
-		phytrks = GetTrk();
-		physids = GetSid();
-		size = (long)phybyts * physecs * phytrks * physids;
-		cprintf(" %c   %4d  %3d   %3d  %1d  %4dK  %04X\r\n", 'A' + d, phybyts, physecs, phytrks, physids, (int)(size / 1024), dpb);
+		GetPrm(d, &prm);
+		cprintf(" %c   %4d  %3d   %3d  %1d    %02X %4dK  %04X\r\n", 'A' + d,
+			prm.byts, prm.secs, prm.trks, prm.sids, prm.floreg, prm.size, dpb);
 	}
 
-	/* restore current drive and exit */
+	/* restore current drive */
 	SelDrv(curdrv);
 }
 
@@ -116,8 +113,8 @@ main(argc, argv)
 	char *argv[];
 {
 	BOOL error;
-	int p, drive, curdrv, fmtidx;
-	drvprm *fmt;
+	int p, drive, curdrv, prmidx;
+	drvprm *prm;
 	drvtab *tab;
 	unsigned *dpe;
 	char *dpb, *tabptr;
@@ -126,11 +123,11 @@ main(argc, argv)
 	/*int phybyts, physecs, phytrks, physids;*/
 	long size;
 	
-	cputs("CHGDRV *dg* 260930-01, set NBIOS drive data\r\n");
+	cputs("CHGDRV *dg* 261004-01, set NBIOS drive data\r\n");
 
 	error = FALSE;
 	drive = -1;
-	fmt = NULL;
+	prm = NULL;
 	
 	if (argc < 2)
 		error = TRUE;
@@ -151,24 +148,24 @@ main(argc, argv)
 			if (argv[p][0] != '-' && argv[p][0] != '/') continue;
 			if (toupper(argv[p][1]) == 'F' && strlen(argv[p]) >= 2)
 			{
-				fmtidx = atoi(argv[p] + 2);
-				if (fmtidx < 1 || fmtidx > FMTCNT)
+				prmidx = atoi(argv[p] + 2);
+				if (prmidx < 1 || prmidx > PRMCNT)
 					error= TRUE;
-				fmtidx--;
-				fmt = fmtlist[fmtidx];
+				prmidx--;
+				prm = prmlist[prmidx];
 			}
 			else
 				error = TRUE;
 		}
 	}
 	
-	if (error || drive == -1 || fmt == NULL)
+	if (error || drive == -1 || prm == NULL)
 	{
 		cputs("usage: CHGDRV <d>: -F<f>\r\n");
 		cputs("  d = Drive A..D\r\n");
 		cputs("  f = Format\r\n"); 		
 		/* list all formats */
-		ShowFmts(FMTCNT, "   ");
+		ShowFmts(PRMCNT, "   ");
 		EXIT();
 	}
 
@@ -177,12 +174,12 @@ main(argc, argv)
 	cprintf("\r\nNBIOS version %d.%d\r\n", ver / 10, ver % 10);
 	
 	/* show selected drive and format */
-	tab = fmt->tab;
-	cprintf("Drive=%c Fmt=%s %dK (%d/%d/%d/%d)\r\n", 'A'+drive, fmt->name, fmt->size,
+	tab = prm->tab;
+	cprintf("Drive=%c Fmt=%s %dK (%d/%d/%d/%d)\r\n", 'A'+drive, prm->name, prm->size,
 		tab->phylen, tab->physec + 1, tab->phytrk + 1, tab->physid);
 
 	/* pointer into table ot format parameters */
-	tabptr = fmt->tab;
+	tabptr = prm->tab;
 
 	/* save current drive */
 	curdrv = GetDrv();

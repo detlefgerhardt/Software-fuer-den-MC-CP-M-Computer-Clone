@@ -73,7 +73,9 @@ int kbhit()
 
 
 /* puts one character back into the input buffer */
-int ungetch(c)
+/* use CONIO.H to set ungetch = unget2 because of conflict with standard 
+   function ungetc */
+int unget2(c)
 	int c;
 {
 	if (c != -1) lastch = c;

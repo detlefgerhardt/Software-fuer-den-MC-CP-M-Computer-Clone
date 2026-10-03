@@ -66,14 +66,14 @@ typedef struct
 	char *name;
 	int size; /* size in KB */
 	drvtab tab;
-} drvprm;
+} drvfmt;
 
 #include "NBIOS11.FH"
 
 #IF FALSE
 
 /* Format NKC Mini-Disk 800K */
-drvprm FMNKC =
+drvfmt FMNKC =
 {
 	"NKC800",
 	800,
@@ -91,7 +91,7 @@ drvprm FMNKC =
 };
 
 /* Format 1,44 MB 3,5 Zoll HD/DS 1024/9 */
-drvprm FM144 =
+drvfmt FM144 =
 {
 	"HD1.44",
 	1440,
@@ -109,7 +109,7 @@ drvprm FM144 =
 };
 
 /* Format 1,4 MB 5,25 Zoll HD/DS 1024/8 */
-drvprm FM140 =
+drvfmt FM140 =
 {
 	"HD1.4",
 	1280,
@@ -127,7 +127,7 @@ drvprm FM140 =
 };
 
 /* Format 1,2 MB 5,25 Zoll HD/DS 512/15 */
-drvprm FM120 =
+drvfmt FM120 =
 {
 	"HD1.2",
 	1200,
@@ -145,7 +145,7 @@ drvprm FM120 =
 };
 
 /* Format IBM 8" SD */
-drvprm FMIBMS =
+drvfmt FMIBMS =
 {
 	"IBM SS/SD",
 	250,
@@ -163,7 +163,7 @@ drvprm FMIBMS =
 };
 
 #define FMTCNT 5
-drvprm *fmtlist[] = {FMNKC, FM144, FM140, FM120, FMIBMS};
+drvfmt *fmtlist[] = {FMNKC, FM144, FM140, FM120, FMIBMS};
 
 #ENDIF
 
@@ -454,7 +454,7 @@ ChkErr(err, track)
 
 ShowFmt(drive, fmt, skew)
 	int drive, skew;
-	drvprm *fmt;
+	drvfmt *fmt;
 {
 	char *str;
 	drvtab *tab;
@@ -506,7 +506,7 @@ main(argc, argv)
 	int drive, skew, gaplen, seccnt, trkcnt, minmax, density;
 	int heads, side, ctrl, addr; /* not implemented yet */
 	int fmtidx;
-	drvprm *fmt;
+	drvfmt *fmt;
 	drvtab *tab;
 	BOOL error, verify;
 	

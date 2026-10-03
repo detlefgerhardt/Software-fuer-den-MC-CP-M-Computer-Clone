@@ -1,4 +1,3 @@
-end(
 /****************************************************************************/
 /*
 	NXDISK.C  *dg*  10/2026 for MI-C compiler and CP/M
@@ -57,6 +56,8 @@ EXTERNAL	SAOUT
 
 char *secbuf;
 
+extern SA_OUT();
+
 /*FILE *fplog;*/
 
 /****************************************************************************/
@@ -92,6 +93,17 @@ unsigned SetBios()
 
 	LD (BIOS),HL
 #ENDASM
+}
+
+/****************************************************************************/
+/* selbstdefiniertes printf mit variabler parameterliste args */
+
+xprintf(fmt, args)
+	char *fmt;
+	int *args;
+{
+	/* aufruf von print mit zeiger auf die parameterliste args */
+	print(SA_OUT, fmt, &args);
 }
 
 /****************************************************************************/
@@ -153,8 +165,8 @@ RECVTO:
 	RET
 
 RECV3:
-	;CALL BCONIN		; char -> A
-	CALL SAIN
+	CALL BCONIN		; char -> A
+	;CALL SAIN
 	LD L,A			; return char in HL
 	LD H,0
 	RET
@@ -215,8 +227,12 @@ int ReadSector(drive, track, side, sector, reg, addr)
 	int drive, track, side, sector, reg;
 	unsigned addr;
 {
+	int drvcod;
+	
+	/*xprintf("%d %d %d %d %02X %04X\r\n", drive, track, side, sector, reg, addr);*/
+	
 	/*int drvcod = (1 << drive) | 0x20;*/
-	int drvcod = (1 << drive) | reg;
+	drvcod = (1 << drive) | reg;
 	if (side == 1) drvcod |= 0x80;
 	 /* read sector by Monitor */
 	return Flop(1, drvcod, track, sector + 1, addr) == 0;
@@ -234,10 +250,11 @@ int WriteSector(drive, track, side, sector, reg, addr)
 	int drive, track, side, sector, reg;
 	unsigned addr;
 {
+	int drvcod;
 	/*cprintf("\r\nWR %d %d %d %d %u\t\n", drive, track, side, sector, addr);*/
 	
 	/*int drvcod = (1 << drive) | 0x20;*/
-	int drvcod = (1 << drive) | reg;
+	drvcod = (1 << drive) | reg;
 	if (side == 1) drvcod |= 0x80;
 	 /* write sector by Monitor */
 	return Flop(2, drvcod, track, sector + 1, addr) == 0;
@@ -315,7 +332,7 @@ int SendX(buf, blkno)
 /****************************************************************************/
 
 BOOL SendDisk(prm)
-	drvprm *prm;
+	phyprm *prm;
 {
 	int ch;
 	int trk, sid, sec, blk;
@@ -325,7 +342,7 @@ BOOL SendDisk(prm)
 	ch = Purge();
 	if (ch == CTRLC) return FALSE;
 
-	cprintf("\r\npurge = %02X\r\n", ch);
+	/*xprintf("purge recv %02X\r\n", ch);*/
 
 	/* wait for transfer start (NAK)*/
 	while(TRUE)
@@ -335,9 +352,7 @@ BOOL SendDisk(prm)
 		if (ch == NAK) break;
 	}
 
-	cprintf("nak = %02X\r\n", ch);
-
-	/*fprintf(fplog, "NAK recv\r\n");*/
+	/*xprintf("NAK recv %02X\r\n", ch);*/
 
 	abort = FALSE;
 	blklen = 128;
@@ -494,7 +509,7 @@ int RecvX(buf, prvblk)
 /****************************************************************************/
 
 BOOL RecvDisk(prm)
-	drvprm *prm;
+	phyprm *prm;
 {
 	int ch;
 	int trk, sid, sec, blk, blks;
@@ -580,18 +595,18 @@ main(argc, argv)
 	int drive, p;
 	int dir, tracks;
 	BOOL error;
-	drvprm prm;
+	phyprm prm;
 
 	SetBios();
 	SA_Init();
-
-	cputs("NXDISK *dg* v1.0 281002-06\r\n");
+	
+	cputs("NXDISK *dg* v1.0 281003-01\r\n");
 
 	error = FALSE;
 	if (argc < 2)
 		error = TRUE;
 
-	dir = DIRRCV;
+	dir = DIRNON;
 	tracks = -1;
 	if (!error)
 	{
@@ -684,7 +699,7 @@ main(argc, argv)
 
 	/*fclose(fplog);*/
 
-	cputs("\r\nInsert SYSTEM disk\r\n");
+	cputs("\r\nInsert SYSTEM disk and press ENTER\r\n");
 	WaitCr();
 
 	EXIT();

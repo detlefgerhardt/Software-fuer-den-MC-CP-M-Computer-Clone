@@ -1,6 +1,6 @@
 /****************************************************************************/
 /*
-	PHYDRV.C  *dg*  09/2026 for MI-C compiler and MC CP/M clone
+	PHYDRV.C  *dg*  10/2026 for MI-C compiler and MC CP/M clone
 	
 	Shows physical drive parameters. Needs NBIOS at least 1.0 with new
 	functions GETVER and GETPHY
@@ -14,6 +14,7 @@
  */
 
 #include "stdio.h"
+#include "phydrv.h"
 
 #define FALSE 0
 #define TRUE 1
@@ -31,25 +32,21 @@ ShowDrives(drvcnt)
 	int drvcnt;
 {
 	int d, curdrv;
-	int phybyts, physecs, phytrks, physids;
-	long size;
+	phyprm prm;
 	unsigned *dpe;
 	char *dpb;
 
 	/* save current drive */
 	curdrv = GetDrv();
 	
-	cprintf("drv by/se sects trks sids size  addr\r\n");
+	cprintf("drv by/se sects trks sids reg  size  addr\r\n");
 	for (d = 0; d < drvcnt; d++)
 	{
 		dpe = SelDrv(d);
 		dpb = *(dpe + 5);
-		phybyts = GetByt();
-		physecs = GetSec();
-		phytrks = GetTrk();
-		physids = GetSid();
-		size = (long)phybyts * physecs * phytrks * physids;
-		cprintf(" %c   %4d  %3d   %3d  %1d  %4dK  %04X\r\n", 'A' + d, phybyts, physecs, phytrks, physids, (int)(size / 1024), dpb);
+		GetPrm(d, &prm);
+		cprintf(" %c   %4d  %3d   %3d  %1d    %02X %4dK  %04X\r\n", 'A' + d,
+			prm.byts, prm.secs, prm.trks, prm.sids, prm.floreg, prm.size, dpb);
 	}
 
 	/* restore current drive and exit */
@@ -64,7 +61,7 @@ main(argc, argv)
 {
 	int ver;
 	
-	cprintf("PHYDRV *dg* 260930-01, physical drive data for NBIOS\r\n");
+	cprintf("PHYDRV *dg* 261003-01, physical drive data for NBIOS\r\n");
 	
 	ver = GetVer();
 	cprintf("NBIOS version %d.%d\r\n\n", ver / 10, ver % 10);

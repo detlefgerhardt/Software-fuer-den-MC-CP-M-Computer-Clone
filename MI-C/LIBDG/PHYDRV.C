@@ -1,5 +1,7 @@
-/* PHYDRV.C *dg* 30.09.2026 */
+/* PHYDRV.C *dg* 02.10.2026 */
 /* function for NBIOS GETPHY funtion */
+
+#include "PHYDRV.H"
 
 /*
 #define FALSE 0
@@ -105,7 +107,7 @@ int GetTrk()
 {
 #ASM
 	CALL GETPHY
-	LD L,C
+	LD L,E
 	LD H,0
 	INC HL
 	RET
@@ -119,10 +121,48 @@ int GetSid()
 {
 #ASM
 	CALL GETPHY
-	LD L,E
+	LD L,B
 	LD H,0
 	RET
 #ENDASM	
+}
+
+/****************************************************************************/
+/* get phys. sides for selected drive */
+
+int GetReg()
+{
+#ASM
+	CALL GETPHY
+	LD L,C
+	LD H,0
+	RET
+#ENDASM	
+}
+
+/****************************************************************************/
+/* get physical parameters of drive <drive>
+   *prm is call by reference */
+
+GetPrm(drive, prm)
+	int drive;
+	phyprm *prm;
+{
+	int curdrv;
+
+	curdrv = GetDrv();
+	SelDrv(drive);
+
+	prm->drive = drive;
+	prm->byts = GetByt();
+	prm->secs = GetSec();
+	prm->trks = GetTrk();
+	prm->sids = GetSid();
+	prm->floreg = GetReg();
+	prm->side = 0; /* not used */
+	prm->size = (int)((long)prm->byts * prm->secs * prm->trks * prm->sids / 1024);
+
+	SelDrv(curdrv);
 }
 
 /****************************************************************************/

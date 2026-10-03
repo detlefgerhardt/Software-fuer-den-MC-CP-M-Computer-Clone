@@ -1,0 +1,136 @@
+; SIOB.MAC *dg* 03.10.2026
+; I/O routines for SIO port B on OUT board
+
+	PUBLIC SB_INIT
+	PUBLIC SB_ST
+	PUBLIC SB_IN
+	PUBLIC SB_OUT
+	PUBLIC SB_PUTS
+
+	PUBLIC SBST	; for direct assembler calls, do not call from C
+	PUBLIC SBIN	; for direct assembler calls, do not call from C
+	PUBLIC SBOUT	; for direct assembler calls, do not call from C
+
+SB_ADR	EQU 0F0h
+SB_RXB	EQU 01h
+SB_TXB	EQU 04h
+
+;-----------------------------------------------------------------------------
+; initialize SIO B
+
+SB_INIT:
+	LD C,SB_ADR+1
+	LD B,8
+	LD HL,SB_TAB
+	OTIR
+	RET
+
+SB_TAB:	DEFB 1,0
+	DEFB 3,11100001B	; -CTS UND -DCD ENABLE rev 3.4 term1
+	DEFB 4,01001100B
+	DEFB 5,11101010B	; dtr rts +12V bedeutet ready rev 3.4
+
+;-----------------------------------------------------------------------------
+; get status, returns 1 if character is available, 0 if not
+
+; int sb_st()
+
+SB_ST:	CALL SBST
+	LD L,A
+	LD H,0
+	RET
+
+;-----------------------------------------------------------------------------
+; get status, returns 1 if character is available, 0 if not
+; for direct assembler calls, do not call from C
+
+SBST:	IN A,(SB_ADR+1)
+	AND SB_RXB
+	RET Z		; no character available
+	
+	; character available
+	LD A,01H
+	OR A
+	RET
+
+;-----------------------------------------------------------------------------
+; input character
+
+; int sb_in()
+
+SB_IN:	CALL SBIN
+	LD L,A
+	LD H,0
+	RET
+
+;-----------------------------------------------------------------------------
+; input character
+; for direct assembler calls, do not call from C
+
+SBIN:	IN A,(SB_ADR+1)
+	AND SB_RXB
+	JR Z,SB_IN
+
+	IN A,(SB_ADR)
+	RET
+
+;-----------------------------------------------------------------------------
+; output character
+
+; sb_out(ch)
+;     int ch;
+
+SB_OUT:	LD IX,2		; RET address
+	ADD IX,SP
+
+	LD A,(IX+0)
+	CALL SBOUT
+
+	; return A
+	LD L,A
+	LD H,0
+	RET
+
+;-----------------------------------------------------------------------------
+; output char in A
+; for direct assembler calls, do not call from C
+
+SBOUT:	LD C,A
+
+SBOUT1:	IN A,(SB_ADR+1)	; status
+	AND SB_TXB
+	JR Z,SBOUT1
+
+	LD A,C
+	OUT (SB_ADR),A
+	RET
+
+;-----------------------------------------------------------------------------
+; output str
+
+; char * sb_puts(s)
+;	char *s;
+
+SB_PUTS:
+	POP BC
+	POP HL		; pointer to str
+	PUSH HL
+	PUSH BC
+
+	PUSH HL		; save str pointer
+
+PUTS1:	LD A,(HL)
+	AND A
+	JR Z,PUTS2
+	CALL SBOUT
+	INC HL
+	JR PUTS1
+
+PUTS2:	POP HL
+	RET
+
+;-----------------------------------------------------------------------------
+
+	END
+
+; end of SIOA.MAC
