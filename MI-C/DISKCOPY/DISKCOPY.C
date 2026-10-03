@@ -1,9 +1,8 @@
 /****************************************************************************/
 /*
-	DISKCOPY.C  *dg*  09/2026 for MI-C compiler and MC CP/M clone
+	DISKCOPY.C  *dg*  10/2026 for MI-C compiler and MC CP/M clone
 	
 	Copy a disk from one drive to another drive or on one drive.
-	Only for format: NDR - DD/DS/80 track/800 KB.
 */
 /****************************************************************************/
 /* DISKCOPY version history
@@ -14,6 +13,7 @@
  */
 
 #include "stdio.h"
+#include "phydrv.h"
 
 #define FALSE 0
 #define TRUE 1
@@ -54,6 +54,7 @@
 char *buffer;
 char *vfy_buffer;
 
+#if FALSE
 typedef struct
 {
 	int drive;
@@ -61,10 +62,11 @@ typedef struct
 	char secs;
 	char trks;
 	char sids;
+	char floreg;
 	char side; /* side to use if only one side */
 	int size; /* in KB */
 } drvprm;
-
+#endif
 
 #ASM
 MFLOP	EQU		0F021H	; Monior FLOP routine
@@ -178,15 +180,15 @@ write1:
 ; return 0 = no error
 */
 
-BOOL Flop(cmd, drive, track, sector, addr)
-	int cmd,drive, track, sector;
+BOOL Flop(cmd, drvcod, track, sector, addr)
+	int cmd, drvcod, track, sector;
 	unsigned addr;
 {
 #ASM
 	LD IX,2		; RET
 	ADD IX,SP
 	LD B,(IX+0)	; cmd (1= read, 2=write)
-	LD C,(IX+2)	; drive code
+	LD C,(IX+2)	; drvcod
 	LD D,(IX+4)	; track
 	LD E,(IX+6)	; sector
 	LD L,(IX+8)	; addr (high)
@@ -249,13 +251,14 @@ BOOL CtrlC()
 
 /****************************************************************************/
 
-int ReadSector(drive, track, side, sector, addr)
-	int drive, track, side, sector;
+int ReadSector(drive, track, side, sector, reg, addr)
+	int drive, track, side, sector, reg;
 	unsigned addr;
 {
 	int result;
 	
-	int drvcod = (1 << drive) | 0x20;
+	int drvcod = (1 << drive) | reg;
+	/*int drvcod = (1 << drive) | 0x20;*/
 	if (side == 1) drvcod |= 0x80;
 	 /* read sector by Monitor */
 	return Flop(1, drvcod, track, sector + 1, addr);
@@ -270,14 +273,15 @@ int ReadSector(drive, track, side, sector, addr)
 
 #if FALSE
 
-int WriteSector(drive, track, side, sector, addr)
-	int drive, track, side, sector;
+int WriteSector(drive, track, side, sector, reg, addr)
+	int drive, track, side, sector, reg;
 	unsigned addr;
 {
 	int result;
 	/*cprintf("\r\nWR %d %d %d %d %u\t\n", drive, track, side, sector, addr);*/
 	
-	int drvcod = (1 << drive) | 0x20;
+	int drvcod = (1 << drive) | reg;
+	/*int drvcod = (1 << drive) | 0x20;*/
 	if (side == 1) drvcod |= 0x80;
 	 /* write sector by Monitor */
 	return Flop(2, drvcod, track, sector + 1, addr); /* write sector */
@@ -301,7 +305,7 @@ BOOL ReadTrack(drive, track, prm, buffer)
 		for (sector = 0; sector < prm->secs; sector++)
 		{
 		
-			drvcod = (1 << drive) | 0x20;
+			drvcod = (1 << drive) | prm->floreg;
 			if (side == 1) drvcod |= 0x80;
 			offset = sector * (prm->byts * prm->sids) + side * prm->byts;
 			 /* read sector by Monitor */
@@ -326,7 +330,7 @@ BOOL WriteTrack(drive, track, prm, buffer)
 	for (side = prm->side; side < prm->sids; side++)
 		for (sector = 0; sector < prm->secs; sector++)
 		{
-			drvcod = (1 << drive) | 0x20;
+			drvcod = (1 << drive) | prm->floreg;
 			if (side == 1) drvcod |= 0x80;
 			offset = sector * (prm->byts * prm->sids) + side * prm->byts;
 			 /* write sector by Monitor */
@@ -518,7 +522,7 @@ BOOL Copy2(src, dest, prm, verify)
 
 /****************************************************************************/
 /* *prm is call by reference */
-
+#if FALSE
 GetPrm(drive, prm)
 	int drive;
 	drvprm *prm;
@@ -538,7 +542,7 @@ GetPrm(drive, prm)
 
 	SelDrv(curdrv);
 }
-
+#endif
 /****************************************************************************/
 
 BOOL cmpprm(src, dst)
@@ -548,6 +552,7 @@ BOOL cmpprm(src, dst)
 	if (src->secs != dst->secs) return FALSE;
 	if (src->trks != dst->trks) return FALSE;
 	if (src->sids != dst->sids) return FALSE;
+	if (src->floreg != dst->floreg) return FALSE;
 	return TRUE;
 }
 
@@ -565,7 +570,7 @@ main(argc, argv)
 
 	BiosAddr();
 	
-	cputs("\r\nDISKCOPY V1.1 for MC CP/M *dg* 260930-01\r\n\n");
+	cputs("\r\nDISKCOPY V1.1 for MC CP/M *dg* 261003-02\r\n\n");
 
 	verify = FALSE;
 	error = FALSE;
@@ -603,8 +608,8 @@ main(argc, argv)
 	GetPrm(src, &srcprm);
 	GetPrm(dest, &dstprm);
 
-	cprintf("src %c: (%d/%d/%d/%d/%dK)\r\n", src+'A', srcprm.byts, srcprm.secs, srcprm.trks, srcprm.sids, srcprm.size);
-	cprintf("dst %c: (%d/%d/%d/%d/%dK)\r\n", dest+'A', dstprm.byts, dstprm.secs, dstprm.trks, dstprm.sids, dstprm.size);
+	cprintf("src %c: (%d/%d/%d/%d/%02X/%dK)\r\n", src+'A', srcprm.byts, srcprm.secs, srcprm.trks, srcprm.sids, srcprm.floreg, srcprm.size);
+	cprintf("dst %c: (%d/%d/%d/%d/%02X/%dK)\r\n", dest+'A', dstprm.byts, dstprm.secs, dstprm.trks, dstprm.sids, dstprm.floreg,  dstprm.size);
 	if (verify)
 	{
 		cputs("verify = on\r\n");

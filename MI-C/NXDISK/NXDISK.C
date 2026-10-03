@@ -1,3 +1,4 @@
+end(
 /****************************************************************************/
 /*
 	NXDISK.C  *dg*  10/2026 for MI-C compiler and CP/M
@@ -10,7 +11,8 @@
 /****************************************************************************/
 /* NXDISK version history
 
- 02.10.2026 *dg* First version
+ 02.10.2026 *dg* First version, working with 1,2 KB/s over 19200 baud
+ 03.10.2026 *dg* First version
  
  */
 
@@ -36,6 +38,10 @@ BCONOUT:DS 3	; JP BCONOUT
 
 ; Monitor
 MFLOP	EQU		0F021H	; Monior FLOP routine
+
+EXTERNAL	SAST
+EXTERNAL	SAIN
+EXTERNAL	SAOUT
 
 #ENDASM
 
@@ -102,6 +108,8 @@ Send(ch)
 	
 SEND1:
 	CALL BCONOUT	; output char in C
+	;LD A,C
+	;CALL SAOUT
 	LD L,C
 	LD H,0
 	RET
@@ -127,6 +135,7 @@ RECV1:
 
 RECV2:
 	CALL BCONST
+	;CALL SAST
 	OR A
 	JP NZ,RECV3		; -> got char
 	
@@ -144,7 +153,8 @@ RECVTO:
 	RET
 
 RECV3:
-	CALL BCONIN		; char -> A
+	;CALL BCONIN		; char -> A
+	CALL SAIN
 	LD L,A			; return char in HL
 	LD H,0
 	RET
@@ -315,6 +325,8 @@ BOOL SendDisk(prm)
 	ch = Purge();
 	if (ch == CTRLC) return FALSE;
 
+	cprintf("\r\npurge = %02X\r\n", ch);
+
 	/* wait for transfer start (NAK)*/
 	while(TRUE)
 	{
@@ -322,6 +334,8 @@ BOOL SendDisk(prm)
 		if (ch == CTRLC) return FALSE;
 		if (ch == NAK) break;
 	}
+
+	cprintf("nak = %02X\r\n", ch);
 
 	/*fprintf(fplog, "NAK recv\r\n");*/
 
@@ -569,6 +583,7 @@ main(argc, argv)
 	drvprm prm;
 
 	SetBios();
+	SA_Init();
 
 	cputs("NXDISK *dg* v1.0 281002-06\r\n");
 
