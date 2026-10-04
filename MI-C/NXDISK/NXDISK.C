@@ -5,15 +5,15 @@
 	Send / Receiove whole disk with Xmodem
 
 	Uses BIOS conout/conin/const for fast xmodem transfer
-	
 */
 /****************************************************************************/
 /* NXDISK version history
 
- 02.10.2026 *dg* First version, working with 1,2 KB/s over 19200 baud
  03.10.2026 *dg* First version
- 
- */
+ 04.10.2026 *dg* Switch to SIO-A/SIO-B with parameter -SA/-SB (up to 2,5
+                 KByte/s with 37800 baud,
+				 Cleanup
+*/
 
 #include "stdio.h"
 #include "conio.h"
@@ -30,10 +30,10 @@ FALSE	EQU 0
 TRUE	EQU NOT FALSE
 
 ; BIOS
-BIOS:	DW 0
-BCONST: DS 3	; JP BCONST
-BCONIN:	DS 3	; JP CONIN
-BCONOUT:DS 3	; JP BCONOUT
+;BIOS:	DW 0
+BCONST: DS 3	; JP get status in A
+BCONIN:	DS 3	; JP char in in A
+BCONOUT:DS 3	; JP char out from A or C
 
 ; Monitor
 MFLOP	EQU		0F021H	; Monior FLOP routine
@@ -41,6 +41,9 @@ MFLOP	EQU		0F021H	; Monior FLOP routine
 EXTERNAL	SAST
 EXTERNAL	SAIN
 EXTERNAL	SAOUT
+EXTERNAL	SBST
+EXTERNAL	SBIN
+EXTERNAL	SBOUT
 
 #ENDASM
 
@@ -58,12 +61,10 @@ char *secbuf;
 
 extern SA_OUT();
 
-/*FILE *fplog;*/
-
 /****************************************************************************/
-/* creates table for fast jumps to BIOS I/O routines */
+/* prepares for fast jumps to BIOS I/O routines */
 
-unsigned SetBios()
+unsigned SetCon()
 {
 #ASM
 	LD A,0C3H		; JP
@@ -91,23 +92,56 @@ unsigned SetBios()
 	LD (BCONOUT+1),HL
 	POP HL
 
-	LD (BIOS),HL
+	;LD (BIOS),HL
 #ENDASM
 }
 
 /****************************************************************************/
-/* selbstdefiniertes printf mit variabler parameterliste args */
+/* prepares fast jumps to SIO-A I/O routines */
 
-xprintf(fmt, args)
-	char *fmt;
-	int *args;
+unsigned SetSA()
 {
-	/* aufruf von print mit zeiger auf die parameterliste args */
-	print(SA_OUT, fmt, &args);
+#ASM
+	LD A,0C3H		; JP
+	LD (BCONST),A
+	LD (BCONIN),A
+	LD (BCONOUT),A
+
+	LD HL,SAST
+	LD (BCONST+1),HL
+
+	LD HL,SAIN
+	LD (BCONIN+1),HL
+
+	LD HL,SAOUT
+	LD (BCONOUT+1),HL
+#ENDASM
 }
 
 /****************************************************************************/
-/* send character via BIOS */
+/* prepares fast jumps to SIO-B I/O routines */
+
+unsigned SetSB()
+{
+#ASM
+	LD A,0C3H		; JP
+	LD (BCONST),A
+	LD (BCONIN),A
+	LD (BCONOUT),A
+
+	LD HL,SBST
+	LD (BCONST+1),HL
+
+	LD HL,SBIN
+	LD (BCONIN+1),HL
+
+	LD HL,SBOUT
+	LD (BCONOUT+1),HL
+#ENDASM
+}
+
+/****************************************************************************/
+/* send character via BIOS or SIO A/B */
 
 Send(ch)
 	int ch;
@@ -119,9 +153,8 @@ Send(ch)
 	PUSH HL
 	
 SEND1:
+	LD A,C			; output char in A or C (depending on i/o function
 	CALL BCONOUT	; output char in C
-	;LD A,C
-	;CALL SAOUT
 	LD L,C
 	LD H,0
 	RET
@@ -129,7 +162,18 @@ SEND1:
 }
 
 /****************************************************************************/
-/* recv character via BIOS, with timeout */
+/* selbstdefiniertes printf mit variabler parameterliste args */
+
+xprintf(fmt, args)
+	char *fmt;
+	int *args;
+{
+	/* aufruf von print mit zeiger auf die parameterliste args */
+	print(Send, fmt, &args);
+}
+
+/****************************************************************************/
+/* recv character via BIOS or SIO A/B, with timeout */
 /* t = timeout in seconds (approximately, at 6 Mhz) */
 
 int Recv(t)
@@ -147,7 +191,6 @@ RECV1:
 
 RECV2:
 	CALL BCONST
-	;CALL SAST
 	OR A
 	JP NZ,RECV3		; -> got char
 	
@@ -166,11 +209,20 @@ RECVTO:
 
 RECV3:
 	CALL BCONIN		; char -> A
-	;CALL SAIN
 	LD L,A			; return char in HL
 	LD H,0
 	RET
 #ENDASM
+}
+
+/****************************************************************************/
+/* output str via BIOS console, SIO-A or SIO-B */
+
+SndStr(s)
+	char *s;
+{
+	while(*s)
+		Send(*s++);
 }
 
 /****************************************************************************/
@@ -287,16 +339,11 @@ int SendX(buf, blkno)
 	
 	blklen = 128;
 
-	/*fprintf(fplog, "SendX %04X %d %d\r\n", buf, blklen, blkno);*/
-	
 	rept = FALSE;
 	while(TRUE)
 	{
-		/*fprintf(fplog, "cnt=%d\r\n", cnt);*/
 		if (!rept) blkno++;
 
-		/*fprintf(fplog, "blkno=%d\r\n", blkno);*/
-		
 		if (blklen == 128)
 			Send(SOH);
 		else
@@ -318,14 +365,12 @@ int SendX(buf, blkno)
 		rept = FALSE;
 		
 		ch = Recv(4);
-		/*fprintf(fplog, "resp=%02X\r\n", ch);*/
 		if (ch == ACK) break; /* naechster Block */
 		if (ch == CTRLC) return -1;
 		
 		/* repeat block */
 		rept = TRUE;
 	}
-	/*fprintf(fplog, "ACK return blkno=%d\r\n", blkno);*/
 	return blkno;
 }
 
@@ -363,7 +408,6 @@ BOOL SendDisk(prm)
 		{
 			for (sec = 0; sec < prm->secs; sec++)
 			{
-				/*fprintf(fplog, "read sector %d %d %d %04X\r\n", trk, sid, sec, secbuf);*/
 				success = ReadSector(prm->drive, trk, sid, sec, prm->floreg, secbuf);
 				if (!success)
 				{
@@ -374,7 +418,6 @@ BOOL SendDisk(prm)
 				}
 				for (blk = 0; blk < prm->byts / 128; blk++)
 				{
-					/*fprintf(fplog, "sendx %d %04X\r\n", blk, secbuf + blk * 128);*/
 					blkno = SendX(secbuf + blk * 128, blkno);
 					if (blkno == -1)
 					{
@@ -390,13 +433,12 @@ BOOL SendDisk(prm)
 abort:
 	Send(EOT);
 	ch = Recv(3);
-	/*fprintf(fplog, "recv %02X\r\n", ch);*/
 	if (ch != ACK)
 	{	/* no ACK on EOT... */
 		return FALSE;
 	}
 	
-	cprintf("\r\n%ld bytes send\r\n", blkno * 128L);
+	xprintf("\r\n%ld bytes sent\r\n", blkno * 128L);
 
 	return TRUE;
 }
@@ -440,14 +482,12 @@ int RecvX(buf, prvblk)
 		if (ch == CTRLC)
 		{
 			Send(ACK);
-			/*fprintf(fplog, "CTRL-C\r\n");*/
 			return -1;
 		}
 
 		if (ch == EOT)
 		{
 			Send(ACK);
-			/*fprintf(fplog, "EOT\r\n");*/
 			break;
 		}
 
@@ -483,17 +523,6 @@ int RecvX(buf, prvblk)
 		
 		/* chksum */
 		chksum = Recv(1);
-
-		/*fprintf(fplog,"blkno=%02X %02X\r\n",blkno, blknoc);*/
-		
-		/*
-		for (i = 0; i< 128; i++)
-		{
-			fprintf(fplog, "%3d %02X\r\n", i, secbuf[i]);
-		}
-		*/
-		/*fprintf(fplog, "chk %02X %02X\r\n", chksum, chk);*/
-		
 		if (chksum != chk)
 		{
 			err = TRUE;
@@ -532,22 +561,18 @@ BOOL RecvDisk(prm)
 			{
 				for (blk = 0; blk < blks; blk++)
 				{
-					/*fprintf(fplog, "recvx t=%d s=%d sec=%d b=%d %04X\r\n", trk, sid, sec, blk, secbuf + blk * 128);*/
 					prvblk = RecvX(secbuf + blk * 128, prvblk);
 					if (prvblk == -1)
 					{
-						/*fprintf(fplog, "prvblk==-1, abbruch\r\n");*/
 						cputs("RecvX error/abort\r\n");
 						return FALSE; /* ctrl-c received */
 					}
 					blkcnt++;
 					if (blk < blks - 1)
 					{
-						/*fprintf(fplog, "blk send ack\r\n");*/
 						Send(ACK);
 					}
 				}
-				/*fprintf(fplog, "write sector %d %d %d %04X\r\n", trk, sid, sec, secbuf);*/
 				success = WriteSector(prm->drive, trk, sid, sec, prm->floreg, secbuf);
 				if (!success)
 				{
@@ -556,7 +581,6 @@ BOOL RecvDisk(prm)
 					cputs("WriteSector error\r\n");
 					return FALSE;
 				}
-				/*fprintf(fplog, "sec send ack\r\n");*/
 				Send(ACK);
 			}
 		}
@@ -574,9 +598,8 @@ BOOL RecvDisk(prm)
 			break;
 		}
 	}
-	/*fprintf(fplog, "recv %02X\r\n", ch);*/
 	
-	cprintf("\r\n%ld bytes received\r\n", blkcnt * 128L);
+	xprintf("\r\n%ld bytes received\r\n", blkcnt * 128L);
 
 	return TRUE;
 }
@@ -591,16 +614,12 @@ main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	int ch;
-	int drive, p;
-	int dir, tracks;
+	int ch, p;
+	int drive, port, dir, tracks;
 	BOOL error;
 	phyprm prm;
 
-	SetBios();
-	SA_Init();
-	
-	cputs("NXDISK *dg* v1.0 281003-01\r\n");
+	cputs("NXDISK *dg* v1.1 281004-01\r\n\n");
 
 	error = FALSE;
 	if (argc < 2)
@@ -608,6 +627,7 @@ main(argc, argv)
 
 	dir = DIRNON;
 	tracks = -1;
+	port = 0;
 	if (!error)
 	{
 		for (p = 1; p < argc; p++)
@@ -634,6 +654,11 @@ main(argc, argv)
 						tracks = atoi(argv[p] + 2);
 						if (tracks > 255) error = TRUE;
 					}
+					if (toupper(argv[p][1]) == 'S' && strlen(argv[p]) == 3)
+					{
+						port = argv[p][2] - 'A' + 1;
+						if (port !=1 && port != 2) error = TRUE;
+					}
 					break;
 			}
 			if (error) break;
@@ -643,11 +668,28 @@ main(argc, argv)
 	
 	if (error)
 	{
-		cputs("\r\nusage: NXDISK s/r <d>: -t<n>\r\n");
+		cputs("usage: NXDISK s/r <d>: -s<p> -t<n>\r\n");
 		cputs("  s / r = send or receive\r\n");
 		cputs("  <d>:  = disk drive\r\n");
 		cputs("  -t<n> = tracks\r\n");
+		cputs("  -s<p> = use SIO port instead of console (-sa=SIO-A, S-sb=SIO-B\r\n");
 		return;
+	}
+
+	switch(port)
+	{
+		case 0: /* BIOS console */
+		case 3:
+			SetCon();
+			break;
+		case 1: /* SIO-A */
+			SA_Init();
+			SetSA();
+			break;
+		case 2: /* SIO-B */
+			SA_Init();
+			SetSB();
+			break;
 	}
 
 	/* get disk parameters */
@@ -673,31 +715,37 @@ main(argc, argv)
 		cputs("Recv ");
 	}
 	
-	cprintf("disk = %c: (%d/%d/%d/%d/%02X/%dK)\r\n", drive+'A',
+	switch(port)
+	{
+		case 1: /* SIO A */
+			cputs("via SIO-A");
+			break;
+		case 2: /* SIO BB */
+			cputs("via SIO-B");
+			break;
+		default: /* console */
+			cputs("via CON");
+			break;
+	}
+	cputs("\r\n");
+	
+	cprintf("Disk drive = %c: (%d/%d/%d/%d/%02X/%dK)\r\n", drive+'A',
 		prm.byts, prm.secs, prm.trks, prm.sids, prm.floreg, prm.size);
 
 	cprintf("\r\nInsert disk in drive %c and press ENTER\r\n", drive + 'A');
 	ch = WaitCr();
 	if (ch == CTRLC) EXIT();
 
-	/*
-	fplog = fopen("nxdisk.log", "wa");
-	if (fplog==NULL) return;
-	*/
-
 	if (dir == DIRSND)
 	{
-		cputs("Receive disk image now using Xmodem...");
+		SndStr("\r\nReceive disk image now using Xmodem...");
 		SendDisk(&prm);
 	}
 	else
 	{
-		cputs("Send disk image now using Xmodem...");
+		SndStr("\r\nSend disk image now using Xmodem...");
 		RecvDisk(&prm);
 	}
-	
-
-	/*fclose(fplog);*/
 
 	cputs("\r\nInsert SYSTEM disk and press ENTER\r\n");
 	WaitCr();
