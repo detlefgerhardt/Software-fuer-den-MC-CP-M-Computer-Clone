@@ -28,7 +28,7 @@ Dieses Repository enthält folgende Teilprojekte (noch in Arbeit, Liste nicht im
 - **CPM-Standardsoftware** - Standard CP/M-Programme, die für Entwicklung und die Systemeinrichtung benötigt werde oder nützlich sind.
 - **VT100-Animationen** - Ausgewählte VT-Animationen inkl. Anzeige-Tools.
 
-Achtung. Die Versionierung und die Namen der Dateien wurden gegenüber den Originalen geändert, um eine klaren Schnitt zwischen der Originalsoftare und dieser Software machen.
+Achtung. Die Versionierung und die Namen der Dateien wurden gegenüber den Originalen geändert, um eine klaren Schnitt zwischen der Originalsoftare und den Programmen dieses Projektes zu haben und Verwechselungen zu vermeiden.
 
 Das CP/M wurde auf ein 58K-System geändert. Das CP/M beginnt bei Adresse CC00h und das BIOS bei Adresse E200h. Das war notwendig um ausreichend Platz für BIOS-Erweiterung, Debuggung und Experimente zu schaffen.
 
