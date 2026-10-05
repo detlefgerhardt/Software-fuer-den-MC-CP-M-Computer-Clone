@@ -8,7 +8,7 @@ Dieses Repository enthält Software für den MC CP/M Computer Nachbau von Ulrich
 
 **https://github.com/uli-pi/MC-CPM-Computer-Clone**
 
-Ziel dieses Projektes ist es, die Software des MC CP/M Computer-Clones möglichst gut zu dokumentieren und weiter zu entwickeln.
+Ziel dieses Repositories hier ist es, die Software des MC CP/M Computer-Clones möglichst gut zu dokumentieren und weiter zu entwickeln.
 Der Monitor soll kompatibel bleiben und die Kompatibilität des BIOS ist von CP/M vorgegeben. Teile des Monitors und des BIOS, die nicht für CP/M benötigt werden, wurden bereits weitgehend entfernt.
 
 Geplante Erweiterungen:
