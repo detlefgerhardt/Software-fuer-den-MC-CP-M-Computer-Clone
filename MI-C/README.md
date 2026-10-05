@@ -21,7 +21,7 @@ Aber selbst der alte C Standard hat bereits einen 32 Bit Long Integer, so dass m
 Der MI-C Compiler erzeugt sehr kompakten Z80 Assembler-Code (optional auch 8080), der mit M80 und L80 assmebliert und gelinkt werden kann. Es ist sehr einfach. C und Assemblercode zu mischen. Die Standard-Bibliothek ist sehr limiert, weswegen ich sie stückweise um neue Funktion erweitere, zum Beispiel um die CONIO-Funktionen, die man von ANSI-C gewohnt ist.
 Eine große Einschränkung ist, dass beim  M80 nur die ersten 6 Zeichen eines Labels signifikant sind, so dass diese Einschränkung auch für Variablen und Funktionen in C gilt. Das ist sehr gewöhnungsbedürftig.
 
-Ich verwendete den MI-C-Compiler damals (1984) auf einem Sharp MZ80B mit CP/M 2.2. Keine großem Projekte, leidglich Tools einigen ROM-Code für Z80-basierte Embeded-Projekte.
+Ich verwendete den MI-C-Compiler damals (1984) auf einem Sharp MZ80B mit CP/M 2.2. Keine großem Projekte, lediglich einige Tools und ROM-Code für Z80-basierte Embeded-Projekte.
 
 **Wie für das gesamte Repository gilt auc hier: Vieles ist noch unfertig und im Fluss. Es gibt aktuell noch viele Änderungem und die meisten Programme sind nur rudimentär getestet.**
 
@@ -47,7 +47,6 @@ Die folgende Programme sind Testtools, die ja nach Test im Quelltext angepasst w
 **SERIAL** Ist ein Testprogramm für diediverse Schnittstellen.
 **SKEWTEST** Gewindigkeittests zur Skew/Interleave-Bestimmung.
 **XMODEM** Ist ein Testprogramm für die XModem-Übertragung.
-
 
 
 I'm testing by using it. I lack the time and patience for systematic testing. It's a hobby project. ;-)
