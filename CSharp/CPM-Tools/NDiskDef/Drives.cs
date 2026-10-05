@@ -56,9 +56,9 @@ namespace NDiskDef
 
 	enum DriveTypes
 	{
-		MiniHD = 0, // Maxi=0, DD=0
-		MaxiSD = 1, // Maxi=0, SD=1
-		MiniDD = 2, // Mini=1, DD=0
+		MiniHD = 0, // Maxi=0, DD=0 (HD)
+		MaxiSD = 1, // Maxi=0, SD=1 (8" IBM)
+		MiniDD = 2, // Mini=1, DD=0 (800KBM)
 		MaxiDD = 3, // Mini=1, SD=1
 		None = 255,
 	}
@@ -66,6 +66,8 @@ namespace NDiskDef
 	internal class Drives
 	{
 		public const int BDOS_SEC_LEN = 128;
+
+		public const int FIX_ALV = 64;	// fix alv for all disk drives to allow CHGDRV
 
 		public const string CMD_NDISKDEF = "ndiskdef";
 		public const string CMD_DEFINE = "define";
@@ -163,31 +165,14 @@ namespace NDiskDef
 				}
 			}
 
-			for (int l = 0; l < OUTFILE_CNT; l++)
+			for (int l = 0; l < 3; l++)
 			{
-				if (l < 3)
-				{
-					outLines[l].Add($"; end of {outNames[l]}");
-				}
-				else
-				{
-					string s = "";
-					int cnt = 0;
-					foreach (var item in defineList)
-					{
-						if (item.Value.GapLen > 0)
-						{
-							if (s != "") s += ",";
-							s += item.Value.Name;
-							cnt++;
-						}
-					}
-					outLines[l].Add($"#define FMTCNT {cnt}");
-					outLines[l].Add($"drvprm *fmtlist[] = {{{s}}};");
-					outLines[l].Add("");
-					outLines[l].Add($"/* end of {outNames[l]} */ ");
-				}
-			}
+				outLines[l].Add($"; end of {outNames[l]}");
+			}	
+
+			AddDrvPrmFooter(outNames[3], defineList, outLines[3]);
+
+			AddDskFrmFooter(outNames[4], defineList, outLines[4]);
 
 			for (int l = 0; l < OUTFILE_CNT; l++)
 			{
@@ -222,8 +207,8 @@ namespace NDiskDef
 			physPrm.Name = fmtName;
 			defineList[fmtName] = physPrm;
 
-			AddNDiskDef4(line, physPrm, lines[3]); // part 4
-			AddNDiskDef5(line, physPrm, lines[4]); // part 5
+			AddDrvPrm(line, physPrm, lines[3]); // part 4
+			AddDskFrm(line, physPrm, lines[4]); // part 5
 
 			return null; // no error
 		}
@@ -237,9 +222,9 @@ namespace NDiskDef
 			if (physPrm == null) return errorStr;
 			physList[physPrm.Drive] = physPrm;
 
-			AddNDiskDef1(line, physPrm, lines[0]); // part 1
-			AddNDiskDef2(line, physPrm, lines[1]); // part 2
-			AddNDiskDef3(line, physPrm, lines[2]); // part 3
+			AddDpb(line, physPrm, lines[0]); // part 1
+			AddAlv(line, physPrm, lines[1]); // part 2
+			AddSig(line, physPrm, lines[2]); // part 3
 
 			return null; // no error
 		}
@@ -309,10 +294,21 @@ namespace NDiskDef
 				}
 			}
 
-			bdosPrm.CalcFromPhysPrm(physPrm);
-			if (!string.IsNullOrEmpty(bdosPrm.ErrorStr))
+			if (physPrm.BytesPerSector < 128)
 			{
-				errorStr = bdosPrm.ErrorStr;
+				errorStr = $"Error: bytes/sector < 128 ({useDrive})";
+				return null;
+			}
+
+			bdosPrm.CalcFromPhysPrm(physPrm);
+			if (bdosPrm.Dpb.DsmError)
+			{
+				errorStr = "Error: invalid calculated DSM value (blocksize to small?)";
+				return null;
+			}
+			else if (bdosPrm.Dpb.DrmError)
+			{
+				errorStr = "Error: invalid DRM value (more than 16 direcory blocks)";
 				return null;
 			}
 
@@ -322,7 +318,7 @@ namespace NDiskDef
 			return physPrm;
 		}
 
-		private void AddNDiskDef1(string line, PhysicalParams physPrm, List<string> lines)
+		private void AddDpb(string line, PhysicalParams physPrm, List<string> lines)
 		{
 			BdosParams bdosPrm = physPrm.Bdos;
 			DiskPrmBlock dpb = bdosPrm.Dpb;
@@ -366,11 +362,11 @@ namespace NDiskDef
 			lines.Add($"\t; FLO register");
 			if (physPrm.DriveType != 255)
 			{
-				lines.Add($"\tDB 0{physPrm.FloReg:X02}h\t; Bit6=DD/SS, Bit5=Maxi/Mini");
+				lines.Add($"\tDB {physPrm.FloReg:X02}h\t; Bit5:0=Maxi/1=Mini, Bit4:0=DD/1=SS");
 			}
 			else
 			{
-				lines.Add($"\tDB 0\t; (not used)");
+				lines.Add($"\tDB 00h\t; (not used)");
 			}
 			lines.Add($"\t; physical parameters");
 			lines.Add($"\tDW {physPrm.BytesPerSector}\t; bytes/sector");
@@ -397,17 +393,17 @@ namespace NDiskDef
 			lines.Add("");
 		}
 
-		private void AddNDiskDef2(string line, PhysicalParams physPrm, List<string> lines)
+		private void AddAlv(string line, PhysicalParams physPrm, List<string> lines)
 		{
 			DiskPrmBlock dpb = physPrm.Bdos.Dpb;
 
 			lines.Add($"; drive{physPrm.Drive}");
-			lines.Add($"ALV{physPrm.Drive}:\tDS {dpb.alv}");
+			lines.Add($"ALV{physPrm.Drive}:\tDS {FIX_ALV}\t; needed: {dpb.alv}");
 			lines.Add($"CSV{physPrm.Drive}:\tDS {dpb.csv}");
 			lines.Add("");
 		}
 
-		private void AddNDiskDef3(string line, PhysicalParams physPrm, List<string> lines)
+		private void AddSig(string line, PhysicalParams physPrm, List<string> lines)
 		{
 			DiskPrmBlock dpb = physPrm.Bdos.Dpb;
 
@@ -423,10 +419,10 @@ namespace NDiskDef
 			}
 		}
 
-		/* include file for CHGDRV.C
+		/* include file for CHGDRV.C / PHYDRV.C
 		 * 
 		 */
-		private void AddNDiskDef4(string line, PhysicalParams physPrm, List<string> lines)
+		private void AddDrvPrm(string line, PhysicalParams physPrm, List<string> lines)
 		{
 			DiskPrmBlock dpb = physPrm.Bdos.Dpb;
 
@@ -452,7 +448,14 @@ namespace NDiskDef
 			lines.Add($"\t\t/* blocking/deblocking and FLO reg */");
 			lines.Add($"\t\t{dpb.psh},\t/* psh */");
 			lines.Add($"\t\t{dpb.phm},\t/* phm */");
-			lines.Add($"\t\t{physPrm.FloReg},\t/* FLO reg */");
+			if (physPrm.DriveType != 255)
+			{
+				lines.Add($"\t\t0x{physPrm.FloReg:X02},\t/* FLO reg */");
+			}
+			else
+			{
+				lines.Add($"\t\t0x00,\t/* FLO reg (not used) */");
+			}
 			lines.Add($"\t\t/* physical params */");
 			lines.Add($"\t\t{physPrm.BytesPerSector},\t/* phylen */");
 			lines.Add($"\t\t{physPrm.SectorsPerTrack - 1},\t/* physec */");
@@ -463,17 +466,35 @@ namespace NDiskDef
 			lines.Add("");
 		}
 
+		private void AddDrvPrmFooter(string name, Dictionary<string, PhysicalParams> defineList, List<string> lines)
+		{
+			string s = "";
+			int cnt = 0;
+			foreach (var item in defineList)
+			{
+				if (s != "") s += ",";
+				s += item.Value.Name;
+				cnt++;
+			}
+			lines.Add($"#define PRMCNT {cnt}");
+			lines.Add($"drvprm *prmlist[] = {{{s}}};");
+			lines.Add("");
+			lines.Add($"/* end of {name} */ ");
+
+		}
+
+
 		/* include file for NFORM.C
 		 * 
 		 */
 
-		private void AddNDiskDef5(string line, PhysicalParams physPrm, List<string> lines)
+		private void AddDskFrm(string line, PhysicalParams physPrm, List<string> lines)
 		{
 			if (physPrm.GapLen == 0) return; // no valid low level format
 
 			lines.Add($"/* format {physPrm.Name} {physPrm.DiskSize / 1024}KB " +
 				$" ({physPrm.BytesPerSector}/{physPrm.SectorsPerTrack}/{physPrm.TracksPerSide}/{physPrm.Sides}) */");
-			lines.Add($"drvprm {physPrm.Name} =");
+			lines.Add($"drvfmt {physPrm.Name} =");
 			lines.Add("{");
 			lines.Add($"\t\"{physPrm.Name}\",");
 			lines.Add($"\t{physPrm.DiskSize / 1024},");
@@ -482,10 +503,10 @@ namespace NDiskDef
 			lines.Add($"\t\t{physPrm.SectorsPerTrack},\t/* sectors/track */");
 			lines.Add($"\t\t{physPrm.TracksPerSide},\t/* tracks/side */");
 			lines.Add($"\t\t{physPrm.Sides - 1},\t/* 0=SS/1=DS */");
-			int dd = ((physPrm.DriveType & 0x01)) ^ 0x01; // bit 0, invertiert
-			lines.Add($"\t\t{dd},\t/* 0=DD/1=SD */");
-			int maxi = ((physPrm.DriveType & 0x02) >> 1) ^ 0x01; // bit 1, invertiert;
-			lines.Add($"\t\t{maxi},\t/* 0=Maxi/1=Mini */");
+			int dd = ((physPrm.DriveType & 0x01)) ^ 0x01; // bit 0, invertiert zu FLO-Reg
+			lines.Add($"\t\t{dd},\t/* 0=SD, 1=DD (inverted to FLO reg) */");
+			int maxi = ((physPrm.DriveType & 0x02) >> 1) ^ 0x01; // bit 1, invertiert zu FLO-Reg
+			lines.Add($"\t\t{maxi},\t/* 0=Mini, 1=Maxi/HD (inverted to FLO reg) */");
 			int useSso = physPrm.UseSso ? 1 : 0;
 			lines.Add($"\t\t{useSso},\t/* UseSSO */");
 			lines.Add($"\t\t{physPrm.GapLen},\t/* gap3 length */");
@@ -493,6 +514,26 @@ namespace NDiskDef
 			lines.Add("\t}");
 			lines.Add("};");
 			lines.Add("");
+		}
+
+		private void AddDskFrmFooter(string name, Dictionary<string, PhysicalParams> defineList, List<string> lines)
+		{
+			string s = "";
+			int cnt = 0;
+			foreach (var item in defineList)
+			{
+				if (item.Value.GapLen > 0)
+				{
+					if (s != "") s += ",";
+					s += item.Value.Name;
+					cnt++;
+				}
+			}
+			lines.Add($"#define FMTCNT {cnt}");
+			lines.Add($"drvfmt *fmtlist[] = {{{s}}};");
+			lines.Add("");
+			lines.Add($"/* end of {name} */ ");
+
 		}
 
 		private int[] CalcSkewTable(int physSectorsPerTrack, int bdosSectorsPerTrack, int skew)
@@ -658,9 +699,6 @@ namespace NDiskDef
 			Skew = ParsePrm(parts, PrmEnum.PhysSkew, out errorStr);
 			if (errorStr != null) return errorStr;
 
-			Skew = ParsePrm(parts, PrmEnum.PhysSkew, out errorStr);
-			if (errorStr != null) return errorStr;
-
 			DriveType = ParseDriveType(parts, PrmEnum.PhysDriveType, out errorStr);
 			if (errorStr != null) return errorStr;
 
@@ -803,10 +841,11 @@ namespace NDiskDef
 
 			if (Dpb.dsm > 32767 || BlockSize == 1024 && Dpb.dsm > 255)
 			{
-				// dsm warning
+				Dpb.DsmError = true;
+				return false;
 			}
 
-			// extend mask, Anzahl der Extends pro Eintrag - 1
+			// extent mask, Anzahl der Extents pro Eintrag - 1
 			if (Dpb.dsm < 256)
 			{
 				Dpb.exm = BlockSize / 1024 - 1;
@@ -819,16 +858,18 @@ namespace NDiskDef
 			// directory maximum, Hoechst Eintragsnummer im Directory
 			Dpb.drm = DirEntries - 1;
 
-			if (Dpb.drm > (BlockSize / 32 * 16) - 1)
+			int dirsize = (Dpb.drm + 1) * 32; // directory size in bytes
+			int dav = dirsize / BlockSize; // blocks needed for directory
+
+			//if (Dpb.drm > (BlockSize / 32 * 16) - 1)
+			if (dirsize > BlockSize * 16)
 			{
-				// drm warning: 
+				// more than 16 dir blocks
+				Dpb.DrmError = true;
+				return false;
 			}
-			//Debug.WriteLine($"{drm} {(Blocksize / 32 * 16) - 1}");
 
-			// Anzahl Directory-Bloecke
-			int dav = (Dpb.drm + 1) / (BlockSize / 32);
-
-			// allocation vector (low/high)
+			// create allocation vector (low/high), one bit for each block
 			int alv01 = 0;
 			for (int cnt = 0; cnt < dav; cnt++)
 			{
@@ -842,8 +883,14 @@ namespace NDiskDef
 
 			Dpb.ofs = BootTracks;
 
-			// allocation vector
+			// allocation vector (das ist korrekt so. es ist nicht (Dpb.dsm + 1) / 8)
 			Dpb.alv = Dpb.dsm / 8 + 1;
+			/*
+			if (fixAlv != 0 && Dpb.alv < fixAlv)
+			{
+				Dpb.alv = fixAlv;
+			}
+			*/
 
 			Dpb.csv = 0;
 			if (Dpb.cks > 0)
@@ -899,6 +946,9 @@ namespace NDiskDef
 
 		public int psh;
 		public int phm;
+
+		public bool DsmError = false;
+		public bool DrmError = false;
 	}
 
 	class DiskDefPrm
