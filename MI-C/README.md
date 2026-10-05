@@ -48,5 +48,4 @@ Die folgende Programme sind Testtools, die ja nach Test im Quelltext angepasst w
 - **SKEWTEST** Gewindigkeittests zur Skew/Interleave-Bestimmung.
 - **XMODEM** Ist ein Testprogramm für die XModem-Übertragung.
 
-
-I'm testing by using it. I lack the time and patience for systematic testing. It's a hobby project. ;-)
+Generell teste ich die Programm, indem ich sie benutze. Ich habe weder die Zeit noch die Lust für systematische Tests und das Schreiben von Unit-Tests. Dies ist ein Hobby-Projekt, das mit vor allem Spaß machen soll. ;-)
