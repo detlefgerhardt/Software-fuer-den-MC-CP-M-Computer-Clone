@@ -18,7 +18,7 @@ Geplante Erweiterungen sind:
 - Unterstützung der IDE/CF-Karte gleichzeitig zusammen mit Diskettenlaufwerken (erledigt)
 - Vereinheitlichung der Tools - zum Beispiel für die Nutzung von Disketten und IDE/CF-Laufwerke (hier kann noch weiter optimiert werden. Bisher gibt es noch eigene Tools zum Einrichten von IDE/CF-Laufwerken)
 
-Dieses Repository gliedert sich in (noch in Arbeit):
+Dieses Repository enthält folgende Teilprojekte (noch in Arbeit, Liste nicht immer aktuell):
 - **NMON** - der Monitor für den MC CP/M-Computer, geändert und erweitert, basierendem auf dem Original-Monitor von Rolf-Dieter Klein
 - **NBIOS** - das angepasste BIOS, die Schnittstelle zwischen dem Monitor, der Hardware und CP/M (ebenfalls basierenden auf dem Original-BIOS von RDK)
 - **NBIOS-CF** - angepasstes BIOS und Tools für das IDE/CF-Interface
