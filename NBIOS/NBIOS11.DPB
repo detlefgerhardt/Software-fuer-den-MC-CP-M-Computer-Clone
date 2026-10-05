@@ -1,4 +1,4 @@
-; ndiskdef NBIOS11.DPB created 03.10.26 19:51 by NDiskDef 1.0
+; ndiskdef NBIOS11.DPB created 05.10.26 14:15 by NDiskDef 1.0
 ; drive 0 F800K (800K, 1024 bytes/sec, 5 sec/trk, 80 trks/side, 2 sides, MiniDD)
 ; NDISKDEF 0,1024,5,80,2,MiniDD , 2048,256,256,4
 ; DISKDEF 5,0,39,1,2048,390,256,256,4
@@ -18,7 +18,7 @@ DPB0	EQU $	; disk param block
 	DB 3	; psh (phys. shift)
 	DB 7	; phm (phys. mask)
 	; FLO register
-	DB 0x20h	; Bit5:0=Maxi/1=Mini, Bit4:0=DD/1=SS
+	DB 20h	; Bit5:0=Maxi/1=Mini, Bit4:0=DD/1=SS
 	; physical parameters
 	DW 1024	; bytes/sector
 	DB 5 - 1	; sectors/track - 1 (0..n-1)
@@ -46,7 +46,7 @@ DPB1	EQU $	; disk param block
 	DB 3	; psh (phys. shift)
 	DB 7	; phm (phys. mask)
 	; FLO register
-	DB 0x20h	; Bit5:0=Maxi/1=Mini, Bit4:0=DD/1=SS
+	DB 20h	; Bit5:0=Maxi/1=Mini, Bit4:0=DD/1=SS
 	; physical parameters
 	DW 1024	; bytes/sector
 	DB 5 - 1	; sectors/track - 1 (0..n-1)
@@ -74,7 +74,7 @@ DPB2	EQU $	; disk param block
 	DB 3	; psh (phys. shift)
 	DB 7	; phm (phys. mask)
 	; FLO register
-	DB 0x20h	; Bit5:0=Maxi/1=Mini, Bit4:0=DD/1=SS
+	DB 20h	; Bit5:0=Maxi/1=Mini, Bit4:0=DD/1=SS
 	; physical parameters
 	DW 1024	; bytes/sector
 	DB 5 - 1	; sectors/track - 1 (0..n-1)
@@ -102,7 +102,7 @@ DPB3	EQU $	; disk param block
 	DB 2	; psh (phys. shift)
 	DB 3	; phm (phys. mask)
 	; FLO register
-	DB 0x00h	; Bit5:0=Maxi/1=Mini, Bit4:0=DD/1=SS
+	DB 00h	; Bit5:0=Maxi/1=Mini, Bit4:0=DD/1=SS
 	; physical parameters
 	DW 512	; bytes/sector
 	DB 15 - 1	; sectors/track - 1 (0..n-1)
@@ -130,7 +130,7 @@ DPB4	EQU $	; disk param block
 	DB 1	; psh (phys. shift)
 	DB 1	; phm (phys. mask)
 	; FLO register
-	DB 0x00	; (not used)
+	DB 00h	; (not used)
 	; physical parameters
 	DW 256	; bytes/sector
 	DB 128 - 1	; sectors/track - 1 (0..n-1)

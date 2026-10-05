@@ -1,14 +1,15 @@
 /****************************************************************************/
 /*
-	CHGDRV.C  *dg*  09/2026 for MI-C compiler and MC CP/M clone
+	SETFMTS.C  *dg*  09/2026 for MI-C compiler and MC CP/M clone
 	
 	Changes drive parameters at runtime
 */
 /****************************************************************************/
-/* CHGDRV version history
+/* SETFMTS version history
 
  25.09.2026 *dg* First version
  30.09.2026 *dg* Use library functions
+ 05.10.2026 *dg* Renamed to SETFMTS, new 400K format
  
  */
 
@@ -123,7 +124,7 @@ main(argc, argv)
 	/*int phybyts, physecs, phytrks, physids;*/
 	long size;
 	
-	cputs("CHGDRV *dg* 261004-01, set NBIOS drive data\r\n");
+	cputs("SETFMTS *dg* 261005-01, set NBIOS drive data\r\n");
 
 	error = FALSE;
 	drive = -1;
@@ -161,7 +162,7 @@ main(argc, argv)
 	
 	if (error || drive == -1 || prm == NULL)
 	{
-		cputs("usage: CHGDRV <d>: -F<f>\r\n");
+		cputs("usage: SETFMTS <d>: -F<f>\r\n");
 		cputs("  d = Drive A..D\r\n");
 		cputs("  f = Format\r\n"); 		
 		/* list all formats */

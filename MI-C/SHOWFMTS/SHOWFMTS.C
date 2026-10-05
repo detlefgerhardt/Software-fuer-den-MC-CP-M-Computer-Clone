@@ -1,15 +1,16 @@
 /****************************************************************************/
 /*
-	PHYDRV.C  *dg*  10/2026 for MI-C compiler and MC CP/M clone
+	SHOWFMTS.C  *dg*  10/2026 for MI-C compiler and MC CP/M clone
 	
 	Shows physical drive parameters. Needs NBIOS at least 1.0 with new
 	functions GETVER and GETPHY
 */
 /****************************************************************************/
-/* PHYDRV version history
+/* SHOWFMTS version history
 
  22.09.2026 *dg* First version
  30.09.2026 *dg* Use library functions
+ 05.10.2026 *dg* Renamed to SHOWFMTS
  
  */
 
@@ -61,7 +62,7 @@ main(argc, argv)
 {
 	int ver;
 	
-	cprintf("PHYDRV *dg* 261003-01, physical drive data for NBIOS\r\n");
+	cprintf("SHOWFMTS *dg* 261005-01, show physical drive formats for NBIOS\r\n");
 	
 	ver = GetVer();
 	cprintf("NBIOS version %d.%d\r\n\n", ver / 10, ver % 10);

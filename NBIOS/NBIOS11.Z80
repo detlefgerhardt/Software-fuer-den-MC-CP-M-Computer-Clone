@@ -18,59 +18,57 @@
 ;		  geaendert. CP/M startet dann bei CC00 (58K)
 ; 09.07.2026 *dg* V1.0 Erweitert um 4 IDE/CF-Laufwerke - funktioniert nicht
 ;                 System bootet aber Schreiben auf die IDE-Laufwerke schlaegt fehl.
-; 12.07.2026 *dg* Lesen und Schreiben von CF funktioniert
-; 31.07.2026 *dg* V1.0 Laufwerk C als HD Laufwerk konfiguriert (1.44 MB)
-;                 Probleme immer beim ersten Scheiben nach dem Formatieren
-; 02.08.2026 *dg* Laufwerk B: als 5.25 Zoll HD Laufwerk
-;		  Funktioniert noch nicht, Format und Laufwerksparameter unklar 
-; 03.08.2026 *dg* BIOS Debug-Ausgaben per Ctrl-A toggelbar
-; 06.08.2026 *dg* 5.25 Zoll Format mit 1024*8 funktioniert (1.4 MB)
-;                 5.25 Zoll Format mit 512*15 funktioniert! (1.2 MB)
-; 08.08.2026 *dg* CF-Card Laufwerksparameter geaendert
-; 09.08.2026 *dg* Quick'n dirty fix for Warmboot from IDE/CF
-;		  (Disk-Parameter immer hardcodiert beim Warmboot aber konfigurierbar)
-; 03.09.2026 *dg* Deblocking-Parameter fuer jedes Laufwerk stehen jetzt direkt hinter den
-;		  DPBx Parameter-Bloecken         
-; 05.09.2026 *dg* New 8192K format for CF/IDE with deblocking
-; 06.09.2026 *dg* Cleanup
-; 08.09.2026 *dg* Cleanup
-; 19.09.2026 *dg* Change selection of disk formats (more defines)
-; 21.09.2026 *dg* Die Ausmaskierung von Bit 7 bei CONIN herausgenommen, damit
-;		  Binaer-Transfers wie zum Beispiel Xmodem ueber das BIOS
-;		  funktionieren.
-; 25.09.2026 *dg* Laufwerktabelle als Includes, Erzeugung mit neuem Tool NDiskDef.exe
-;                 NBIOS10 umgenannt in NBIOS11
+; 12.07.2026 *dg* - Lesen und Schreiben von CF funktioniert
+; 31.07.2026 *dg* - V1.0 Laufwerk C als HD Laufwerk konfiguriert (1.44 MB)
+;                 - Probleme immer beim ersten Scheiben nach dem Formatieren
+; 02.08.2026 *dg* - Laufwerk B: als 5.25 Zoll HD Laufwerk
+;		  - Funktioniert noch nicht, Format und Laufwerksparameter unklar 
+; 03.08.2026 *dg* - BIOS Debug-Ausgaben per Ctrl-A toggle-bar
+; 06.08.2026 *dg* - 5.25 Zoll Format mit 1024*8 funktioniert (1.4 MB)
+;                 - 5.25 Zoll Format mit 512*15 funktioniert! (1.2 MB)
+; 08.08.2026 *dg* - CF-Card Laufwerksparameter geaendert
+; 09.08.2026 *dg* - Quick'n dirty fix for Warmboot from IDE/CF 
+;		    (Disk-Parameter immer hardcodiert beim Warmboot aber
+;                   konfigurierbar)
+; 03.09.2026 *dg* - Deblocking-Parameter fuer jedes Laufwerk stehen jetzt
+;                   direkt hinter den DPBx Parameter-Bloecken         
+; 05.09.2026 *dg* - New 8192K format for CF/IDE with deblocking
+; 06.09.2026 *dg* - Cleanup
+; 08.09.2026 *dg* - Cleanup
+; 19.09.2026 *dg* - Change selection of disk formats (more defines)
+; 21.09.2026 *dg* - Die Ausmaskierung von Bit 7 bei CONIN herausgenommen,
+;                   damit Binaer-Transfers wie zum Beispiel Xmodem ueber das
+;                   BIOS funktionieren.
+; 25.09.2026 *dg* - Laufwerktabelle als Includes, Erzeugung mit neuem Tool
+;                   NDiskDef.exe
+;                 - NBIOS10 umgenannt in NBIOS11
 ;
 ; Verbesserung/Veraenderungen zu BIOS 3.1 seit Juni 2026
 ;
-; BIOS vergroessert, dadurch geaenderte Startadressen. CP/M ab CC00-E1FF,
-; BIOS ab E200-EFFF.
-; Dateinamen geaendert, die meisten Files und Tools beginnen mit "N" zu
-; Unterscheidung von den Original-Files.
-; Laufwerksparameter geaendert, A ist 800KB (NDR/NKC), B und C unterschiedlich,
-; D ist IBM 8 Zoll SS/SD.
-; CF/IDE eingebunden, Laufwerke E bis H, je 8 MB, E ist bootfaehig (geaenderte
-; BIOS-Parameter)
-; Blocking/Deblocking geaendert, ist jetzt flexibler und leichter zu
-; konfigurieren max.
-; max. Steprate wird beim Warmstart gesetzt.
-; Debug-Ausgaben im BIOS ueber Compiler-Schalter und zur Laufzeit mit Ctrl-A
-; ein- und ausschaltbar.
-; Diverse Laufwerksformate gestestet, Test mit echten 8 Zoll Laufwerken steht
-; noch aus.
-; MOVCPM und SYSGEN funktionieren mit der geaenderten BIOS-Groesse
-; vermutlich nicht mehr und muessen angasst werden (oder flexible Variante
-; verwenden).
+; - BIOS vergroessert, dadurch geaenderte Startadressen. CP/M ab CC00-E1FF,
+;   BIOS ab E200-EFFF.
+; - Dateinamen geaendert, die meisten Files und Tools beginnen mit "N" zu
+;   Unterscheidung von den Original-Files.
+; - Die Laufwerks-Parameter können über ein Windows-Tool definiert werden.
+;   Dabei werden notwendigen Include-Dateien für das BIOS und einige Tools
+;   erzeugt. Die Parameter einzelner Disk-Laufwerke können dann zu Laufzeit
+;   geändert werden.
+; - CF/IDE eingebunden, Laufwerke E bis H, je 8 MB, E ist bootfaehig
+;   (geaenderte BIOS-Parameter)
+; - Blocking/Deblocking geaendert, ist jetzt flexibler und leichter zu
+;   konfigurieren.
+; - max. Steprate wird beim Warmstart gesetzt.
+; - Debug-Ausgaben im BIOS ueber Compiler-Schalter und zur Laufzeit mit Ctrl-A
+;   ein- und ausschaltbar (über Assemnbler DEFINE komplett deaktivierbar)
+; - Diverse Laufwerksformate gestestet, Test mit echten 8 Zoll Laufwerken
+;   steht noch aus.
+; - MOVCPM und SYSGEN funktionieren mit der geaenderten BIOS-Groesse
+;   vermutlich nicht mehr und muessen angasst werden (oder flexible Variante
+;   verwenden).
 ;
 ; TO-DO:
-; x Drive-spezifische Tabellen direkt bei den Laufwerkstabellen platzieren
-;   (erledigt 03.09.26)
-; - Maxi-Routinen in Mini-Routinen integrieren. Gemeinsame Routinen fuer
-;   Blocking/Deblocking fuer alle Laufwerkstypen.
-; x Make shure not to override the BIOS on WBOOT -> das war schon so
-;   (CP/M Alteration Guide page 17)
 ;
-;------------------------------------------------------------------------------
+;-----------------------------------------------------------------------------
 
 	.LFCOND
 
@@ -710,7 +708,7 @@ SIGNON:	DB 26
 	DB 'K',CR,LF
 	DB 'NBIOS '
 	DB BIOSVER/10+'0','.',BIOSVER MOD 10+'0'
-	DB ' 261003-02'
+	DB ' 261005-02'
 	DB " BOOT=",BTDRV+'A',CR,LF
 
 	IF DG_NEW

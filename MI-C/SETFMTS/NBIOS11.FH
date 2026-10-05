@@ -1,4 +1,4 @@
-/* ndiskdef NBIOS11.FH created 05.10.26 14:15 by NDiskDef 1.0 */
+/* ndiskdef NBIOS11.FH created 05.10.26 12:45 by NDiskDef 1.0 */
 /* format F800K 800KB  (1024/5/80/2) */
 drvfmt F800K =
 {
