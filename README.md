@@ -19,13 +19,14 @@ Geplante Erweiterungen sind:
 - Vereinheitlichung der Tools - zum Beispiel für die Nutzung von Disketten und IDE/CF-Laufwerke (hier kann noch weiter optimiert werden. Bisher gibt es noch eigene Tools zum Einrichten von IDE/CF-Laufwerken)
 
 Dieses Repository gliedert sich in (noch in Arbeit):
-- NMON - der Monitor für den MC CP/M-Computer, geändert und erweitert, basierendem auf dem Original-Monitor von Rolf-Dieter Klein
-- NBIOS - das angepasste BIOS, die Schnittstelle zwischen dem Monitor, der Hardware und CP/M (ebenfalls basierenden auf dem Original-BIOS von RDK)
-- NBIOS-CF - angepasstes BIOS und Tools für das IDE/CF-Interface
-- MI-C - in MI-C programmierte Programme und Tools, um Teil abgestimmt auf das NBIOS und nur mit diesem lauffähig
-- DEV-Tools - Entwicklungstools für CP/M und Windows (Assembler, MI-C-Compiler, eigene Tools)
-- CPM-Standardsoftware - Standard CP/M-Programme, die für Entwicklung und die Systemeinrichtung benötigt werde oder nützlich sind.
-- VT100-Animationen - Ausgewählte VT-Animationen inkl. Anzeige-Tools.
+- **NMON** - der Monitor für den MC CP/M-Computer, geändert und erweitert, basierendem auf dem Original-Monitor von Rolf-Dieter Klein
+- **NBIOS** - das angepasste BIOS, die Schnittstelle zwischen dem Monitor, der Hardware und CP/M (ebenfalls basierenden auf dem Original-BIOS von RDK)
+- **NBIOS-CF** - angepasstes BIOS und Tools für das IDE/CF-Interface
+- **NFORM** ist das originale in Z80 geschrieben Formatierprogramm für den MC CP/M-Computer. Da es lediglich den Monitor vorrausetzt, kann es ohne CP/M direkt im Monitor ausgeführt werden.
+- **MI-C** - in MI-C programmierte Programme und Tools, um Teil abgestimmt auf das NBIOS und nur mit diesem lauffähig
+- **DEV-Tools** - Entwicklungstools für CP/M und Windows (Assembler, MI-C-Compiler, eigene Tools)
+- **CPM-Standardsoftware** - Standard CP/M-Programme, die für Entwicklung und die Systemeinrichtung benötigt werde oder nützlich sind.
+- **VT100-Animationen** - Ausgewählte VT-Animationen inkl. Anzeige-Tools.
 
 Achtung. Die Versionierung und die Namen der Dateien wurden gegenüber den Originalen geändert, um eine klaren Schnitt zwischen der Originalsoftare und dieser Software machen.
 
