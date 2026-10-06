@@ -1,4 +1,4 @@
-# Spiele für den den MC CP/M Computer
+# Spiele für den MC CP/M Computer
 Hier sollen nach und nach einige auf dem MC CP/M-Computer getestete Spiele abgelegt werden. Darunter auch einige selbstprogrammierte Spiele, in der Regel Neuimplementierungen (in C) alter Spieleklassiker aus den 1960er und 1970ern Jahre. Zum Beispiel Hammurabi, Adventure (Colossal Cave Adventure), Lunar Lander usw.
 
 **STARTRAD.COM** war der erste Versuch, ein umfangreicheres Programm mit dem MI-C Compiler zu schreiben und die Tauglichkeit des Compiler für solche Projekte zu prüfen. Gleicheitig war es auf ein Test, in wie weit sich Spiele über VT100 realisieren lassen. Das Ergebnis war soweit positiv.
