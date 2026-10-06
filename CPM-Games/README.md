@@ -6,4 +6,5 @@ Hier sollen nach und nach einige auf dem MC CP/M-Computer getestete Spiele abgel
 Außerdem war das Projekt ein Lückenfüller während ich auf Platinen und Bauteile für den Weiterbau der CP/M-Computers gewartet habe. Daher ist es auch noch unvollendet. Die Weiterentwicklung des BIOS und einiger Tools waren erst mal wichtiger.
 Die aktuelle Implementierung verwendet noch nicht meine später entstandenen Library-Funktionen. Zu gegebener Zeit wird das Programm komplett überarbeitet und fertig gestellt.
 
-STARTRADERS hatte ich 1983 als Basic-Programm bekommen und für den Commodore CBM 3032 und später den C64 angepasst. 
+STARTRADERS habe ich 1983 als Basic-Programm bekommen und für den Commodore CBM 3032 und später den C64 angepasst. 
+Das Programm wurde 1977 in Altair Basis geschrieben. Im Kommentar des Basic-Programms steht "MODIFIED FOR "'ALTAIR BASIC 4.0' BY - S J SINGER". Im Hilfetext findet sich noch der ursprüngliche Titel "STAR LANES".
