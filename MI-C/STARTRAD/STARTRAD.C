@@ -87,49 +87,6 @@ BOOL ask_exit_active;
 
 /****************************************************************************/
 
-/*
-
-more company names:
-
-Andromeda
-Aldebaran
-Atlas
-Aquarius
-Aries
-Bellatrix
-Bosona
-
-Canopus
-Capella
-Copernicus
-Capricorn
-Cassiopheia
-
-Denebola
-Dalim
-Delta Tauri
-Daneb
-
-Electra
-Ebla
-Epsilon
-Eta Ceti
-
-Denebola & Partner
-Aries Trading
-Electra International
-Corporation
-Union
-Line
-Star Line
-Star
-Company
-Shipping
-
-*/
-
-/****************************************************************************/
-
 extern char *InputStr();
 
 /****************************************************************************/
