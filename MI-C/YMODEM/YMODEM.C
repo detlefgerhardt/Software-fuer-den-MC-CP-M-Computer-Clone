@@ -1,20 +1,17 @@
 /****************************************************************************/
 /*
-	XMODEM.C  *dg*  09/2026 for MI-C compiler and CP/M
+	YMODEM.C  *dg*  10/2026 for MI-C compiler and CP/M
 	
 	getpc/putpc/Xmodem implementation
 	
-	Uses BIOS conout/conin/const for fast xmodem transfer
+	Uses BIOS conout/conin/const for fast ymodem transfer
 	
 */
 /****************************************************************************/
-/* XMODEM version history
+/* YMODEM version history
 
- 21.09.2026 *dg* First test version (proof of concept) to test if receive 
-                 function in C via BIOS is fast enough for 19200 baud without
-				 handshake - works!
- 08.10.2026 *dg* Updated to the NXDISK standard - with RecvX() and SendX()
-
+ 08.10.2026 *dg* First version from Xmodem
+ 
  */
 
 #include "stdio.h"
@@ -43,12 +40,14 @@ BCONOUT:DS 3	; JP BCONOUT
 #define EOT	0x04
 #define ACK	0x06
 #define NAK	0x15
+#define NAKCRC 0x43
 #define CTRLC 0x03
 #define LF 0x0A
 #define CR 0x0D
 
-FILE *fplog;
-char blkbuf[1024];
+long crctab[256];
+
+char blkbuf[1024 + 4];
 
 extern sa_out();
 
@@ -243,6 +242,49 @@ xprintf(fmt, args)
 }
 
 /****************************************************************************/
+
+crcinit()
+{
+	int i, j;
+	long crc;
+
+	for (i = 0; i < 256; ++i)
+	{
+		crc = (long)i * 256L;
+
+		for (j = 0; j < 8; ++j)
+		{
+			if (crc & 32768L)
+				crc = ((crc * 2L) & 65535L) ^ 4129L;
+			else
+				crc = (crc * 2L) & 65535L;
+		}
+		crctab[i] = crc;
+	}
+}
+
+/****************************************************************************/
+/*
+ * Berechnet die CRC von n Bytes ab p.
+ * Polynom:     0x1021 (x^16 + x^12 + x^5 + 1)
+ * Startwert:   0x0000
+ * Bytefolge:   hoechstwertiges CRC-Byte zuerst
+ * *hip und *lop erhalten High- bzw. Low-Byte der CRC, jeweils 0..255.
+ * Das '& 0377' macht die Routine unabhaengig davon, ob char signed ist.
+ * erstellt mit OpenAI Codex 10/2026 *
+ */
+
+long crc16(ch, crc)
+	int ch;
+	long crc;
+{
+	int t;
+
+	t = (int)((crc / 256L) ^ (ch & 0377));
+	return ((crc * 256L) & 65535L) ^ crctab[t];
+}
+
+/****************************************************************************/
 /* returns Ctrl-C if Ctrl-C pressed */ 
 
 int Purge()
@@ -258,148 +300,260 @@ int Purge()
 }
 
 /****************************************************************************/
+
+dump(sr, i)
+	int sr, i;
+{
+	char s[3];
+	
+	sa_out(sr);
+	sa_puts(ctohex(i, s));
+	sa_out(' ');
+}
+
+/****************************************************************************/
 /* receive one block */
 
-int RecvX(buf, prvblk)
+int RecvX(init, buf, prvblk, len, flag)
+	BOOL init;
 	char *buf;
 	int prvblk;
+	int *len;
+	int flag;
 {
 	int ch;
-	int i, blkno, blknoc, blklen;
-	int chksum, chk;
+	int i, blkno, blklen;
+	int start;
+	int crc1, crc2;
+	long crc;
 	BOOL restrt, err;
+
+	xprintf("flag=%d\r\n", flag);
+
+	start = NAK;
+	if (init) start = NAKCRC;
 	
-	restrt = TRUE;
-	err = FALSE;
 	while (TRUE)
 	{
-		if (restrt)
+		/*
+		if (flag == 3)
+			dump('S', start);
+		*/
+		Send(start);
+		ch = Recv(3);	/* recv with 3s timeout */
+		if (ch == -1)
 		{
-			ch = Recv(3);	/* recv with 3s timeout */
-			if (ch == -1) err = TRUE;
-			restrt = FALSE;
-		}
-		
-		if (err)
-		{
-			/* timeout, wait until sender done */
 			while(TRUE)
 			{
 				ch = Recv(1);
 				if (ch == -1) break;;
 			}
-			Send(NAK);
-			err = FALSE;
-			restrt = TRUE;
 			continue;
 		}
 
-		if (ch == CTRLC)
+		/*
+		if (flag == 3)
+			dump('R', ch);
+		*/
+
+		blklen = 128;
+		switch(ch)
 		{
-			Send(ACK);
-			return -1;
+			case SOH:
+				blklen = 128;
+				break;
+			case STX:
+				blklen = 1024;
+				break;
+			case 'r': 		/* command:rb\r */
+				Recv(1);	/* remove 'b' */
+				Recv(1);	/* remove '\r' */
+				continue;
+			case EOT:
+				/*sa_puts("rEOT\r\n");*/
+				return -EOT;
+			case CTRLC:
+				/*sa_puts("rCTRLC\r\n");*/
+				return -CTRLC;
+			default:
+				continue;
 		}
 
-		if (ch == EOT)
+		for (i = 0; i < blklen + 4; i++)
 		{
-			Send(ACK);
-			blkno = 0;
-			break;
+			buf[i] = Recv(1);
 		}
 
-		if (ch == SOH)
-			blklen = 128;
-		else if (ch == STX)
-			blklen = 1024;
-		else
+		if (flag == 3)
 		{
-			err = TRUE;
+			dump('R', ch);
+			dump('R', 254);
+			dump('B', buf[0]);
+			dump('B', buf[1]);
+			dump('B', prvblk & 0xFF);
+			dump('B', (prvblk + 1) & 0xFF);
+		}
+
+		/*
+		xprintf("\r\n%d\r\n", blklen);
+		for (i = 0; i < 6; i++)
+		{
+			xprintf("%d %02X %c\r\n", i, buf[i], buf[i]);
+		}
+		for (i = blklen - 2; i < blklen + 4; i++)
+		{
+			xprintf("%d %02X %c\r\n", i, buf[i], buf[i]);
+		}
+		sa_puts("\r\n");
+		*/
+
+		blkno = buf[0];
+		if (blkno != (buf[1] ^ 0xFF))
+		{
 			continue;
 		}
-
-		/* recv block header */
-
-		blkno = Recv(1);
-		blknoc = Recv(1);
-		if (blkno != (blknoc ^ 0xFF))
+		start = NAK;
+		
+		/*xprintf("%d %d\r\n", blkno, (prvblk + 1) & 0xFF);*/
+		if (blkno != ((prvblk + 1) & 0xFF))
 		{
-			err = TRUE;
 			continue;
 		}
 		
-		/* recv block */
-		
-		chk = 0;
+		/*xprintf("blk %d ok\r\n", blkno);*/
+
+		/* crc */
+		crc1 = buf[blklen + 2]; /* crc high byte */
+		crc2 = buf[blklen + 3]; /* crc low byte */
+
+		crc = 0L;
 		for (i = 0; i < blklen; i++)
 		{
-			ch = Recv(1);
-			buf[i] = ch;
-			chk = (chk + ch) & 0xFF;
+			crc = crc16(buf[i+2], crc);
 		}
-		
-		/* chksum */
-		chksum = Recv(1);
-		if (chksum != chk)
+
+		/*
+		xprintf("BLKNO: %02X %02X\r\n", blkno, buf[1]);
+		printf("CRC12: %02X %02X\r\n", crc1, crc2);
+		xprintf("CRC C: %02X %02X\r\n", (int)(crc >> 8), (int)(crc & 0xFF));
+		*/
+
+		if (crc1 != (crc >> 8) || crc2 != (crc & 0xFF))
 		{
-			err = TRUE;
 			continue;
 		}
-		
-		break;
-	}
+		xprintf("crc ok\r\n");
 	
-	return blkno;
+		*len = blklen;
+		return blkno;
+	}
+
 }
 
 /****************************************************************************/
 
-BOOL RecvFile(name)
-	char *name;
+BOOL RecvFiles(drive)
+	char drive;
 {
 	int ch;
-	int blkcnt, prvblk, blklen;
-	BOOL abort;
+	int blkcnt, prvblk, blklen, i;
+	int result;
+	BOOL abort, init;
+	char name[12+1];
 	FILE *fp;
+	int noerr;
+	int flag;
+	long filesize;
 
-	fp = fopen(name, "w");
-	if (fp==NULL) return;
-
-	blkcnt = 0;
-	prvblk = 0;
-	blklen = 128;
-
-	Send(NAK);
-	sa_puts("send NAK\r\n");
-	
+	flag = -1;
 	while(TRUE)
 	{
-		prvblk = RecvX(blkbuf, prvblk);
-		xprintf("prvblk = %d\r\n", prvblk);
-
-		if (prvblk == 0)
+		flag++;
+		xprintf("next file %d\r\n", flag);
+		
+		ch = Purge();
+		if (ch == CTRLC) return FALSE;
+		
+		/* recv block 0 = filename */
+		init = TRUE;
+		result = RecvX(init, blkbuf, 0xFF, &blklen, flag);
+		xprintf("result=%02X blklen=%d\r\n", result, blklen);
+		if (result == -EOT || result == -CTRLC)
 		{
-			/* end of file */
-			abort = FALSE;
-			break;
+			Send(ACK);
+			return FALSE;
+		}
+		
+		for (i = 0; i < 12; i++)
+		{
+			name[i] = blkbuf[i + 2];
+			if (blkbuf[i + 2] == 0) break;
+		}
+		xprintf("name='%s'\r\n", name);
+		if (name[0] == 0)
+		{
+			Send(ACK);
+			return FALSE;
 		}
 
-		if (prvblk == -1)
+		fp = fopen(name, "w");
+		if (fp == NULL)
 		{
-			abort = TRUE;
-			break;
-		}
-		blkcnt++;
-
-		if (fwrite(blkbuf, 1, blklen, fp) != blklen)
-		{
-			Send(CTRLC);
-			abort = TRUE;
-			break;
+			xprintf("error writing %s\r\n", name);
+			return FALSE;
 		}
 		Send(ACK);
+
+		blkcnt = 0;
+		prvblk = 0;
+		abort = FALSE;
+		filesize = 0L;
+
+		while(TRUE)
+		{
+			result = RecvX(init, blkbuf, prvblk, &blklen, flag);
+			xprintf("result=%02X blklen=%d\r\n", result, blklen);
+			if (-result == EOT)
+			{
+				/*sa_puts("EOT1\r\n");*/
+				Send(NAK);
+				ch = Recv(3);
+				xprintf("EOT1/NAK ch=%02X\r\n", ch);
+				if (ch == EOT)
+				{
+					sa_puts("EOT2/ACK\r\n");
+					Send(ACK);
+				}
+				break;	/* next file */
+			}
+			else if (-result == CTRLC)
+			{
+				sa_puts("CTRL-C\r\n");
+				Send(ACK);
+				return FALSE;
+			}
+			prvblk = result;
+
+			init = FALSE;
+			/*xprintf("prvblk=%d, blklen =%d\r\n", prvblk, blklen);*/
+
+			blkcnt++;
+
+			i = fwrite(blkbuf + 2, 1, blklen, fp);
+			xprintf("fwrite=%d\r\n", i);
+			if (i != blklen)
+			{
+				Send(CTRLC);
+				abort = TRUE;
+				break;
+			}
+			filesize += blklen;
+			Send(ACK);
+		}
+		fclose(fp);
+		xprintf("size=%ld\r\n", filesize);
+		if (abort) break;
 	}
-	
-	fclose(fp);
 	
 	if (abort)
 	{
@@ -546,8 +700,10 @@ BOOL SendFile(name)
 main()
 {
 	int ch;
+	int drive;
 	
 	SetBios();
+	crcinit();
 
 	sa_puts("\r\nYModem\r\n");
 	xprintf("YModem %d\r\n", 1234);
@@ -555,6 +711,7 @@ main()
 	Send('A');
 	Send('B');
 	Send('C');
+	dump('X', 192);
 	Send(CR);
 	Send(LF);
 
@@ -563,9 +720,12 @@ main()
 	printf("%d\r\n", ch);
 	*/
 
+	drive = 0;
+
 	/*RecvFile("test.com");*/
-	SendFile("nget.com");
+	RecvFiles(drive);
 	
+	cprintf("\r\n** ende **\r\n");
 }
 
 /****************************************************************************/

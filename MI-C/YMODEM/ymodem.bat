@@ -1,4 +1,4 @@
-set name="XMODEM"
+set name="YMODEM"
 
 echo off > nul
 CPM CCZ /SX %name% > %name%.cerr
