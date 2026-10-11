@@ -29,16 +29,16 @@ Die Projekte liegen in Unterverzeichnissen. Zum compilieren müssen sie in das �
 
 Hier eine Liste der Projekte (nicht immer aktuell):
 
-- **DISCOPY** kopiert Disketten von einem Laufwerk auf ein anderes, wobei über BIOS-Funktionen geprüft wird, ob die Formatdefinitionen der Laufwerke idebtisch sind
-- **KEYCODES** zeigt die Tastencodes (Eingaben) der Terminals an (zum Beispiel um die Belegung von Sondertasten zu ermitteln)
-- **LIBDG** ist die eigene Library mit vielen zusätzlichen und zum Teil systemspezifischen Funktion
-- **NFORM** ist ein komplett neu geschriebens Formatierprogramm
-- **NFORMCF** ist ein neues Formatierprogramm für IDE/CF-Laufwerke. Im wesentlich werden nur die Sektoren mit E5h beschrieben, also eigentlich eher ein Löschprogramm
+- **DISCOPY** kopiert Disketten von einem Laufwerk auf ein anderes, wobei über BIOS-Funktionen geprüft wird, ob die Formatdefinitionen der Laufwerke identisch sind.
+- **KEYCODES** zeigt die Tastencodes (Eingaben) der Terminals an (zum Beispiel um die Belegung von Sondertasten zu ermitteln).
+- **LIBDG** ist die eigene Library mit vielen zusätzlichen und zum Teil systemspezifischen Funktion.
+- **NFORM** ist ein komplett neu geschriebens Formatierprogramm.
+- **NFORMCF** ist ein neues Formatierprogramm für IDE/CF-Laufwerke. Im wesentlich werden nur die Sektoren mit E5h beschrieben, also eigentlich eher ein Löschprogramm.
 - **NXDISK** übertragt komplette Disketten als Image per XModem-Protokoll auf den PC (und wieder zurück). Das kann zur Sicherung von Disketten verwendet werden. Oder zum Kopieren, wenn nur ein Laufwerk zu Verfügung steht. Es werden die Standard-Console (serielle Schnittstelle des SYS-Boards) und die beiden SIO-Port des OUT-Boards unterstützt. Die übertragung über das OUT-Board funktioniert mit bis zu 37800 bit/s.
-- **SETFMTS** erlaubt das umdefinieren der Laufwerkparameter für einzelne Laufwerke zur Laufzeit
+- **SETFMTS** erlaubt das umdefinieren der Laufwerkparameter für einzelne Laufwerke zur Laufzeit.
 - **SHOWFMTS** zeigt die aktuellen Laufwerksparameter aller Laufwerke inkl. des physikalischen Formats.
-- **VT** Zeigt eine VT-Animation auf der Konsole an
-- **VTSHOW** Zeigt alle VT100-Animation auf den angegebenen Laufwerken un zufälliger Reihenfolge an
+- **VT** Zeigt eine VT-Animation auf der Konsole an.
+- **VTSHOW** Zeigt alle VT100-Animation auf den angegebenen Laufwerken un zufälliger Reihenfolge an.
 
 Die folgenden Programme sind Testtools, die ja nach Test im Quelltext angepasst werden. Sie sind nicht universell verwendbar:
 
