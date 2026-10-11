@@ -4,7 +4,7 @@ Dieser Ordner enthält eine Reihe von Programmen und Tools für CP/M, die mit de
 
 Ebenfalls enthalten ist eine eigene Library, die das arbeiten mit dem C-Compiler und den MC CP/M-Computer BIOS erleichtet.
 
-Der MI-C Compiler ist ein deutsches Produkt von 1983 und der erste C-Compiler mit dem ich ab 1984 gearbeitet habe. Er implementiert den K&R (Kernighan & Ritchie) Standard von 1978. Der alte Standard unterscheidet sich stark von den neueren Standard (zum Beispiel ANSI C von 1989). Eine Funktion-Deklaration sieht zum Beispiel so aus:
+Der MI-C Compiler ist ein deutsches Produkt von 1983 und der erste C-Compiler mit dem ich ab 1984 gearbeitet habe. Er implementiert den K&R (Kernighan & Ritchie) Standard von 1978. Der alte Standard unterscheidet sich stark von den neueren Standards (zum Beispiel ANSI C von 1989). Eine Funktiondeklaration sieht zum Beispiel so aus:
 
 ```
   // <- this is NOT allowed
