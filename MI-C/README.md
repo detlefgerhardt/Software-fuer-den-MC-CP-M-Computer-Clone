@@ -45,7 +45,9 @@ Die folgende Programme sind Testtools, die ja nach Test im Quelltext angepasst w
 - **BEBLOCK** wurde zum Testen des Blocking/Deblocking Algorithmus des BIOS verwendet.
 - **DISKTEST** wird zum Testen der Laufdwerksroutinen verwendet.
 - **SERIAL** Ist ein Testprogramm für diediverse Schnittstellen.
+- **SHOWF12** ist der erste Versuch, eine DOS-formatierte Diskette (720KB / 3,5") zu lesen und Dateien zu kopieren. Das Auslesen der Cluster-Kette einer Datei funktioniert schon und damit prinzipiell auch das Lesen von Dateien. Generell funktioniert das Lesen der PC-Disketten problemlos.
 - **SKEWTEST** Gewindigkeittests zur Skew/Interleave-Bestimmung.
-- **XMODEM** Ist ein Testprogramm für die XModem-Übertragung.
+- **XMODEM** ist ein, ob möglich ist, die zeitkritischen XModem-Routinen in C zu implemenieren. Funktioniert bis 37800 Baud (6 MHz CPU).
+- **YMODEM** ist ein Versuch, das YModem/Batch-Protokoll zum Implementieren. Bisher nur Empfangen implementiert und funktioniert noch nicht fehlerfrei.
 
 Generell teste ich die Programm, indem ich sie benutze. Ich habe weder die Zeit noch die Lust für systematische Tests und das Schreiben von Unit-Tests. Dies ist ein Hobby-Projekt, das mit vor allem Spaß machen soll. ;-)
