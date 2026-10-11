@@ -323,31 +323,39 @@ int RecvX(init, buf, prvblk, len, flag)
 {
 	int ch;
 	int i, blkno, blklen;
-	int start;
+	int nak; /* NAK or NAKCRC */
 	int crc1, crc2;
 	long crc;
 	BOOL restrt, err;
 
 	xprintf("flag=%d\r\n", flag);
 
-	start = NAK;
-	if (init) start = NAKCRC;
-	
+	nak = NAK;
+	if (init) nak = NAKCRC;
+
+	restrt = TRUE;
+	err = FALSE;
 	while (TRUE)
 	{
-		/*
-		if (flag == 3)
-			dump('S', start);
-		*/
-		Send(start);
-		ch = Recv(3);	/* recv with 3s timeout */
-		if (ch == -1)
+		if (restrt)
 		{
+			dump('S', nak);
+			Send(nak);
+			ch = Recv(3);	/* recv with 3s timeout */
+			if (ch == -1) err = TRUE;
+			restrt = FALSE;
+		}
+		
+		if (err)
+		{
+			xprintf("purge\r\n");
 			while(TRUE)
 			{
 				ch = Recv(1);
 				if (ch == -1) break;;
 			}
+			err = FALSE;
+			restrt = TRUE;
 			continue;
 		}
 
@@ -368,16 +376,21 @@ int RecvX(init, buf, prvblk, len, flag)
 			case 'r': 		/* command:rb\r */
 				Recv(1);	/* remove 'b' */
 				Recv(1);	/* remove '\r' */
+				sa_puts("rRB\r\n");
+				restrt = TRUE;
 				continue;
 			case EOT:
-				/*sa_puts("rEOT\r\n");*/
+				sa_puts("rEOT\r\n");
 				return -EOT;
 			case CTRLC:
-				/*sa_puts("rCTRLC\r\n");*/
+				sa_puts("rCTRLC\r\n");
 				return -CTRLC;
 			default:
+				xprintf("def: %02X\r\n", ch);
+				err = TRUE;
 				continue;
 		}
+		nak = NAK;
 
 		for (i = 0; i < blklen + 4; i++)
 		{
@@ -410,15 +423,17 @@ int RecvX(init, buf, prvblk, len, flag)
 		blkno = buf[0];
 		if (blkno != (buf[1] ^ 0xFF))
 		{
+			err = TRUE;
 			continue;
 		}
-		start = NAK;
 		
 		/*xprintf("%d %d\r\n", blkno, (prvblk + 1) & 0xFF);*/
+		/*
 		if (blkno != ((prvblk + 1) & 0xFF))
 		{
 			continue;
 		}
+		*/
 		
 		/*xprintf("blk %d ok\r\n", blkno);*/
 
@@ -440,10 +455,11 @@ int RecvX(init, buf, prvblk, len, flag)
 
 		if (crc1 != (crc >> 8) || crc2 != (crc & 0xFF))
 		{
+			err = TRUE;
 			continue;
 		}
+		
 		xprintf("crc ok\r\n");
-	
 		*len = blklen;
 		return blkno;
 	}
@@ -512,17 +528,19 @@ BOOL RecvFiles(drive)
 		while(TRUE)
 		{
 			result = RecvX(init, blkbuf, prvblk, &blklen, flag);
-			xprintf("result=%02X blklen=%d\r\n", result, blklen);
+			xprintf("result=%d blklen=%d\r\n", result, blklen);
 			if (-result == EOT)
 			{
 				/*sa_puts("EOT1\r\n");*/
 				Send(NAK);
-				ch = Recv(3);
-				xprintf("EOT1/NAK ch=%02X\r\n", ch);
-				if (ch == EOT)
+				while(TRUE)
 				{
-					sa_puts("EOT2/ACK\r\n");
-					Send(ACK);
+					ch = Recv(3);
+					xprintf("EOT ch=%02X\r\n", ch);
+					if (ch == EOT)
+						Send(ACK);
+					else
+						break;
 				}
 				break;	/* next file */
 			}
@@ -532,22 +550,30 @@ BOOL RecvFiles(drive)
 				Send(ACK);
 				return FALSE;
 			}
-			prvblk = result;
-
-			init = FALSE;
-			/*xprintf("prvblk=%d, blklen =%d\r\n", prvblk, blklen);*/
-
-			blkcnt++;
-
-			i = fwrite(blkbuf + 2, 1, blklen, fp);
-			xprintf("fwrite=%d\r\n", i);
-			if (i != blklen)
+			
+			if (result == prvblk + 1)
 			{
-				Send(CTRLC);
-				abort = TRUE;
-				break;
+				prvblk = result;
+
+				init = FALSE;
+				/*xprintf("prvblk=%d, blklen =%d\r\n", prvblk, blklen);*/
+
+				blkcnt++;
+
+				i = fwrite(blkbuf + 2, 1, blklen, fp);
+				xprintf("fwrite=%d\r\n", i);
+				if (i != blklen)
+				{
+					Send(CTRLC);
+					abort = TRUE;
+					break;
+				}
+				filesize += blklen;
 			}
-			filesize += blklen;
+			else
+			{
+				xprintf("rpt %d\r\n", result);
+			}
 			Send(ACK);
 		}
 		fclose(fp);
@@ -705,8 +731,11 @@ main()
 	SetBios();
 	crcinit();
 
+	cprintf("\r\nYModem\r\n");
+	cprintf("Send files(s) image now using Ymodem...\r\n");
+	
 	sa_puts("\r\nYModem\r\n");
-	xprintf("YModem %d\r\n", 1234);
+	/*xprintf("YModem %d\r\n", 1234);*/
 
 	Send('A');
 	Send('B');
