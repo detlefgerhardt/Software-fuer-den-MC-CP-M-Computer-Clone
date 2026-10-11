@@ -40,7 +40,7 @@ Hier eine Liste der Projekte (nicht immer aktuell):
 - **VT** Zeigt eine VT-Animation auf der Konsole an
 - **VTSHOW** Zeigt alle VT100-Animation auf den angegebenen Laufwerken un zufälliger Reihenfolge an
 
-Die folgende Programme sind Testtools, die ja nach Test im Quelltext angepasst werden. Sie sind nicht universell verwendbar:
+Die folgenden Programme sind Testtools, die ja nach Test im Quelltext angepasst werden. Sie sind nicht universell verwendbar:
 
 - **BEBLOCK** wurde zum Testen des Blocking/Deblocking Algorithmus des BIOS verwendet.
 - **DISKTEST** wird zum Testen der Laufdwerksroutinen verwendet.
