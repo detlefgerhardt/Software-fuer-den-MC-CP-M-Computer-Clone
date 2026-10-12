@@ -9,6 +9,7 @@
 /* SHOWF12 version history
 
  11.10.2026 *dg* First version
+ 12.10.2026 *dg* Successfully copied a file from FAT12 to CP/M
 
   TODO:
 
@@ -29,7 +30,7 @@ FALSE	EQU 0
 TRUE	EQU NOT FALSE
 
 ; Monitor
-MFLOP	EQU		0F021H	; Monior FLOP routine
+MFLOP	EQU		0F021H	; Monitor floppy routine
 
 #ENDASM
 
@@ -37,24 +38,50 @@ MFLOP	EQU		0F021H	; Monior FLOP routine
 #define CR 0x0D
 #define CTRLC 0x03
 
-#define SECSIZ 512
-char *secbuf;
-
 #define PHYBYTS 512 /* Bytes/Sektor */
 #define PHYSECS 9 /* phys. Sektoren/Track */
 #define PHYTRKS 80 /* phys. Tracks */
 #define PHYSIDS 2 /* phys. Sides */
-#define SECSCLU 2 /* Sektoren/Cluster */
-#define DATSRT 14 /* Beginn des Datenbereichs */
-#define DIRSTR 7 /* Dir Startsektor 7 */
+#define SECCLUS 2 /* Sektoren/Cluster */
+#define DATSTR 14 /* Beginn des Datenbereichs (abs. Sektor) */
+#define DIRSTR 7 /* Dir Startsektor 7 (abs. Sektor) */
 #define DIRLEN 7 /* Dir Anzahl Sektoren */
-#define FATSTR 1 /* FAT Startsektor */
+#define FATSTR 1 /* FAT Startsektor (abs. Sektor) */
 #define FATLEN 3 /* FAT Anzahl Sekoren */
+#define MAXDIR 224 /* max. Root-Eintraege (1,44 MB) */
 
 #define CLUEND 0xFF8 /* Datei-Ende 0xFF8..0xFFF */
-#define CLUDEF 0xFF7 /* defekter Sekor/Cluster  */
+#define CLUDEF 0xFF7 /* defekter Sektor/Cluster  */
+
+char *secbuf;
+
+/* cluster buffer */
+char *clubuf;
+int clusiz;
 
 char *fat;
+
+/****************************************************************************/
+
+Dump(buf, offset, len)
+	char *buf;
+	int offset, len;
+{
+	int col, p;
+
+	col = 16;
+	for (p=0; p < len; p++)
+	{
+		if (col >= 16)
+		{
+			cprintf("\r\n%04X:", offset + p);
+			col = 0;
+		}
+		cprintf(" %02X", buf[offset + p]);
+		col++;
+	}
+	cputs("\r\n");
+}		
 
 /****************************************************************************/
 
@@ -70,12 +97,74 @@ int WaitCr()
 }
 
 /****************************************************************************/
+/* converts filename from dir format "FFFFFFFFXXX" to file format
+   "FFFFFFF.XXX"
+*/
+
+char *fnfile(dest, src)
+	char *dest, *src;
+{
+	int i;
+	char *s;
+	
+	s = src;
+	for (i = 0; i < 8; i++)
+	{
+		if (*s == ' ') break;
+		*dest++ = *s++;
+	}
+	*dest++ = '.';
+	s = src + 8;
+	for (i = 0; i < 3; i++)
+	{
+		if (*s == ' ') break;
+		*dest++ = *s++;
+	}
+	if (*(dest-1) == '.')
+		dest--;
+	
+	*dest++ = 0;
+	return dest;
+}
+
+/****************************************************************************/
+/* converts filename from file format "FFFFFFFF.XXX" to dir format
+   "FFFFFFFXXX"
+*/
+
+char *fndir(dest, src)
+	char *dest, *src;
+{
+	int i;
+	char *d;
+
+	for (i = 0; i < 11; i++)
+		dest[i] = ' ';
+	dest[11] = 0;
+
+	d = dest;
+	for (i = 0; i < 12; i++)
+	{
+		if (*src == 0) break;
+		if (*src == '.')
+		{
+			d = dest + 8;
+			src++;
+			continue;
+		}
+		*d++ = *src;
+		src++;
+	}
+	return dest;
+}
+
+/****************************************************************************/
 /* cluster -> LBA */
 
 int clulba(clu)
 	int clu;
 {
-	return (clu - SECSCLU) * SECSCLU + DATSRT;
+	return (clu - SECCLUS) * SECCLUS + DATSTR;
 }
 
 /****************************************************************************/
@@ -148,7 +237,7 @@ BOOL Flop(cmd, drvcod, track, sector, addr)
 /* FLO register */
 /* addr = buffer address */
 
-int ReadSector(drive, track, side, sector, reg, addr)
+int RdSect(drive, track, side, sector, reg, addr)
 	int drive, track, side, sector, reg;
 	unsigned addr;
 {
@@ -171,7 +260,7 @@ int ReadSector(drive, track, side, sector, reg, addr)
 /* FLO register */
 /* addr = buffer address */
 
-int WriteSector(drive, track, side, sector, reg, addr)
+int WrSect(drive, track, side, sector, reg, addr)
 	int drive, track, side, sector, reg;
 	unsigned addr;
 {
@@ -186,26 +275,51 @@ int WriteSector(drive, track, side, sector, reg, addr)
 }
 
 /****************************************************************************/
+/* asec = absolute sector (0..n-1) */
 
-int ReadAbs(drive, asec, buf)
-	int drive, asec;
+int RdAbs(drive, asec, buf)
+	int drive;
+	unsigned asec;
 	char *buf;
 {
 	int sec, trk, sid;
-	
+
 	sec = abssec(asec);
 	trk = abstrk(asec);
 	sid = abssid(asec);
-	
+
 	/*cprintf("%d %d %d\r\n", sec, trk, sid);*/
-	
-	return ReadSector(drive, trk, sid, sec, 0x20, buf);
+
+	return RdSect(drive, trk, sid, sec, 0x20, buf);
 }
 
 /****************************************************************************/
+/* read cluster */
 
-int WriteAbs(drive, asec, buf)
-	int drive, asec;
+int RdClus(drive, clus, buf)
+	int drive;
+	unsigned clus;
+	char *buf;
+{
+	int i;
+	int	asec;
+
+	asec = DATSTR + (clus - 2) * SECCLUS;
+	
+	for (i = 0; i < SECCLUS; i++)
+	{
+		if (!RdAbs(drive, asec + i, buf + i * PHYBYTS))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+/****************************************************************************/
+/* asec = absolute sector (0..n-1) */
+
+int WrAbs(drive, asec, buf)
+	int drive;
+	unsigned asec;
 	char *buf;
 {
 	int sec, trk, sid;
@@ -214,41 +328,19 @@ int WriteAbs(drive, asec, buf)
 	trk = abstrk(asec);
 	sid = abssid(asec);
 	
-	return WriteSector(drive, trk, sid, sec, 0x20, buf);
+	return WrSect(drive, trk, sid, sec, 0x20, buf);
 }
 
 /****************************************************************************/
 
-Dump(buf, offset, len)
-	char *buf;
-	int offset, len;
-{
-	int col, p;
-
-	col = 16;
-	for (p=0; p < len; p++)
-	{
-		if (col >= 16)
-		{
-			cprintf("\r\n%04X:", offset + p);
-			col = 0;
-		}
-		cprintf(" %02X", buf[offset + p]);
-		col++;
-	}
-	cputs("\r\n");
-}		
-
-/****************************************************************************/
-
-BOOL LoadFat(drive)
+BOOL LdFat(drive)
 	int drive;
 {
 	int i;
 	
 	for (i = 0; i < FATLEN; i++)
 	{
-		if (!ReadAbs(drive, FATSTR + i, fat + i * PHYBYTS))
+		if (!RdAbs(drive, FATSTR + i, fat + i * PHYBYTS))
 			return FALSE;
 	}
 }
@@ -299,18 +391,18 @@ ShowFat12(drive)
 	BOOL ok;
 	char oem[9];
 	int secsiz;
-	int clusiz;
+	int clucnt;
 	int media;
 	
-	/*ok = ReadSector(drive, 0, 0, 1, 0x20, secbuf);*/
-	ok = ReadAbs(drive, 0, secbuf);
+	/*ok = RdSect(drive, 0, 0, 1, 0x20, secbuf);*/
+	ok = RdAbs(drive, 0, secbuf);
 	if (!ok)
 	{
 		cputs("error reading sector\r\n");
 		return;
 	}
 	
-	Dump(secbuf, 0, 128);
+	/*Dump(secbuf, 0, 128);*/
 	
 	strncpy(oem, secbuf + 3, 8);
 	oem[8] = 0;
@@ -319,11 +411,73 @@ ShowFat12(drive)
 	secsiz = secbuf[0x0C] << 8 + secbuf[0x0B];
 	cprintf("secsiz = %d\r\n", secsiz);
 
-	clusiz = secbuf[0x0D];
-	cprintf("clusiz = %d\r\n", clusiz);
+	clucnt = secbuf[0x0D];
+	cprintf("clucnt = %d\r\n", clucnt);
+	clusiz = clucnt * PHYBYTS;
 
 	media = secbuf[0x15];
 	cprintf("media = %02X\r\n", media);
+}
+
+/****************************************************************************/
+/*	Load a file from source disk and write it to fname
+
+	drive: source drive
+	fname: filename (with drive)
+	fsize: filesize (in bytes)
+	clus: start cluster from directory
+*/
+BOOL LdFile(drive, fname, fsize, clus)
+	int drive;
+	char *fname;
+	unsigned fsize, clus;
+{
+	int cnt;
+	int asec;
+	unsigned size, l;
+	int wrsize;
+	BOOL error;
+	FILE *fp;
+
+	fp = fopen(fname, "w");
+	if (fp == NULL) return FALSE;
+
+	cnt = 0; /* cluster count */
+	size = 0;
+	error = FALSE;
+	while(TRUE)
+	{
+		cprintf("cnt=%d clus=%d\r\n", cnt + 1, clus);
+
+		if (!RdClus(drive, clus, clubuf))
+		{
+			cprintf("error reading cluster %d\r\n", clus);
+			error = TRUE;
+			break;
+		}
+
+		cnt++;
+		wrsize = PHYBYTS * SECCLUS;
+		if (size + wrsize > fsize)
+		{
+			wrsize = fsize - size;
+		}
+		cprintf("write cnt=%d clus=%d %u\r\n", cnt, clus, wrsize);
+		
+		if (fwrite(clubuf, wrsize, 1, fp) != 1)
+		{
+			cprintf("error writing cluster %d\r\n", cnt);
+			error = TRUE;
+			break;
+		}
+		size += wrsize;
+		clus = NxtClus(clus);
+		cprintf("nxt clus=%d\r\n", clus);
+		
+		if (clus >= 0xFF8) break;
+	}
+	cprintf("size=%u\r\n", size);
+	fclose(fp);
 }
 
 /****************************************************************************/
@@ -343,9 +497,11 @@ ShowDir(drive)
 	idx = 0;
 	for (as = 0; as < DIRLEN; as++)
 	{
-		ReadAbs(drive, DIRSTR + as, secbuf);
+		RdAbs(drive, DIRSTR + as, secbuf);
+		/*
 		if (as == 0)
 			Dump(secbuf, 0, 256);
+		*/
 		
 		dir = secbuf;
 		for (d = 0; d < 16; d++)
@@ -380,12 +536,38 @@ main(argc, argv)
 	int drive, port, dir, tracks;
 	BOOL error;
 	phyprm prm;
+	char dest1[13], dest2[13];
 
-	cputs("SHOWF12 *dg* v1.0 281011-01\r\n\n");
+	cputs("SHOWF12 *dg* v1.0 281012-01\r\n\n");
 
+	/*
+	fnfile(dest1, "ABC     EXT");
+	cprintf("'%s'\r\n", dest1);
+	fndir(dest2, dest1);
+	cprintf("'%s'\r\n", dest2);
+
+	fnfile(dest1, "ABCDEFGHEXT");
+	cprintf("'%s'\r\n", dest1);
+	fndir(dest2, dest1);
+	cprintf("'%s'\r\n", dest2);
+
+	fnfile(dest1, "ABCDEFGHEX ");
+	cprintf("'%s'\r\n", dest1);
+	fndir(dest2, dest1);
+	cprintf("'%s'\r\n", dest2);
+
+	fnfile(dest1, "ABCDEFGH   ");
+	cprintf("'%s'\r\n", dest1);
+	fndir(dest2, dest1);
+	cprintf("'%s'\r\n", dest2);
+	*/
+
+	drive = 1;
 	error = FALSE;
+	/*
 	if (argc < 2)
 		error = TRUE;
+	*/
 
 	if (!error)
 	{
@@ -400,7 +582,7 @@ main(argc, argv)
 		}
 	}
 	
-	if (error)
+	if (drive == -1 || error)
 	{
 		cputs("usage: SHOWF12 <d>:\r\n");
 		cputs("  <d>:  = disk drive\r\n");
@@ -411,18 +593,18 @@ main(argc, argv)
 	GetPrm(drive, &prm);
 	
 	/* allocate memory for sector buffer */
-	secbuf = CALLOC(SECSIZ, 1);
+	secbuf = CALLOC(PHYBYTS, 1);
 	if (secbuf == NULL)
 	{
-		cprintf("Error: not enough memory (%d)\r\n", SECSIZ);
+		cprintf("Error: not enough memory (%d)\r\n", PHYBYTS);
 		return;
 	}
 
 	/* allocate FAT memory */
-	fat = CALLOC(SECSIZ, FATLEN);
+	fat = CALLOC(PHYBYTS, FATLEN);
 	if (fat == NULL)
 	{
-		cprintf("Error: not enough memory (%d)\r\n", SECSIZ);
+		cprintf("Error: not enough memory (%d)\r\n", PHYBYTS * FATLEN);
 		return;
 	}
 
@@ -436,11 +618,23 @@ main(argc, argv)
 
 	ShowFat12(drive);
 
-	LoadFat(drive);
+	LdFat(drive);
 
 	ShowDir(drive);
 
+	/* allocate cluster buffer */
+	clubuf = CALLOC(clusiz, 1);
+	if (fat == NULL)
+	{
+		cprintf("Error: not enough memory (%d)\r\n", clusiz);
+		return;
+	}
+
+	/*
 	AllClus(22);
+	*/
+
+	LdFile(drive, "A:LOAD.COM", 25088, 22);
 
 	/*
 	cputs("\r\nInsert SYSTEM disk and press ENTER\r\n");

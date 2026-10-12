@@ -7,4 +7,5 @@ CPM L80 %name%/N,XXXMAIN,%name%,LIBDG/S,LIB/S/E/Y > %name%.lerr
 MICERR %name%.cerr %name%.merr %name%.lerr
 
 del %name%.HEX > nul
-copy %name%.COM ..\SYS > nul
+rem copy %name%.COM ..\SYS > nul
+COPY %name%.COM e:\Retro\CPM\RunCPM\F\0\
