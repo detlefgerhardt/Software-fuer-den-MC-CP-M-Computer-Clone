@@ -1,0 +1,53 @@
+; WAITCH.MAC *dg* 14.10.2026
+
+	PUBLIC WAITCH
+
+; wait t seconds (6 Mhz) for character
+; 
+; int waitch(t)
+;     int t;
+
+WAITCH:	POP DE
+	POP BC
+	PUSH BC
+	PUSH DE
+	LD B,C			; timeout value
+
+WAIT1:	;LD DE,120 SHL 8	; 4 Mhz	(low byte must be 0)
+	;LD DE,180 SHL 8	; 6 Mhz	(low byte must be 0)
+	LD DE,43 SHL 8		; 6 Mhz	(low byte must be 0)
+
+WAIT2:	PUSH DE
+	PUSH BC
+	LD C,6			; BDOS get char
+	LD E,0FFh
+	CALL 0005h
+	POP BC
+	POP DE
+	AND A
+	JR NZ,WAIT3
+
+	;CALL BCONST
+	;OR A
+	;JR NZ,WAIT3		; -> got char
+	
+	; wait for char
+	DEC E			; counter low
+	JR NZ,WAIT2
+	DEC D			; counter high
+	JR NZ,WAIT2
+	DEC B			; timeout counter
+	JR NZ,WAIT1
+
+	; timeout, return -1
+	LD HL,0FFFFH
+	RET
+
+WAIT3:	;CALL BCONIN		; char -> A
+	LD L,A			; return char in HL
+	LD H,0
+	RET
+	
+	END
+
+; end of file

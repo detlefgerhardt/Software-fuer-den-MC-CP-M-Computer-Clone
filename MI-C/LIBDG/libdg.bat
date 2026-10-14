@@ -1,10 +1,11 @@
-REM LIBDG.REL *dg* 12.10.2026
+REM LIBDG.REL *dg* 14.10.2026
 REM build LIBDG.REL
 REM
 REM revision history
 REM 12.10.2026 *dg* - Start of history
 REM                 - VT100 added
 REM                 - STRICMP added
+REM 14.10.2026 *dg* - WAITCH added
 REM
 REM compile c modules
 CPM CCZ /SX CONIO > conio.cerr
@@ -35,16 +36,19 @@ CPM M80 =OUTP/Z/L > outp.merr
 CPM M80 =INP/Z/L > inp.merr
 CPM M80 =SIOA/Z/L > sioa.merr
 CPM M80 =SIOB/Z/L > siob.merr
+CPM M80 =WAITCH/Z/L > waitch.merr
 
 REM build library from modules
-CPM LIB80 LIBDG=PHYDRV,MEMSET,MEMCPY,STRICMP,OUTP,INP,VT100,CPRINTF,CONIO,CGETS,SIOA,SIOB,RANDOM,TOHEX,STRUPR,STRLWR/E > libdg.lerr
+CPM LIB80 LIBDG=PHYDRV,MEMSET,MEMCPY,STRICMP,OUTP,INP,VT100,CPRINTF,CONIO,CGETS,SIOA,SIOB,RANDOM,TOHEX,STRUPR,STRLWR/E > libdg1.lerr
+
+CPM LIB80 LIBDG=WAITCH,LIBDG/E > libdg2.lerr
 
 MICERR conio.cerr conio.merr fgets.cerr fgets.merr cprintf.cerr cprintf.merr random.cerr random.merr tohex.cerr tohex.merr
 
-MICERR stricmp.cerr stricmp.merr strupr.cerr strupr.merr strlwr.cerr strlwr.merr phydrv.cerr phydrv.merr memset.merr memcpy.merr outp.merr inp.merr sioa.merr siob.merr
+MICERR stricmp.cerr stricmp.merr strupr.cerr strupr.merr strlwr.cerr strlwr.merr phydrv.cerr phydrv.merr memset.merr memcpy.merr outp.merr inp.merr sioa.merr siob.merr waitch.merr
 
 MICERR vt100.cerr vt100.merr
 
-MICERR libdg.lerr
+MICERR libdg1.lerr libdg2.lerr
 
 COPY LIBDG.REL ..
