@@ -19,7 +19,7 @@ cprintf(char *fmt, int *args)
 
 WAITCH
 
-int waitch(int t)	/* wait t seconds for character, return -1 if non
+int waitch(int t)	/* wait t seconds for character, return -1 if non */
 
 Modul RANDOM
 
@@ -32,6 +32,7 @@ Modul TOHEX
 char *ctohex(int i, char *s)
 char *utohex(unsigned u, char *s)
 char *ltohex(long l, char *s)
+unsigned hextou(char *s) /* hex str to unsigned int */
 
 Modul STRUPR
 
@@ -86,8 +87,11 @@ char *memste(char *mem, int c, int n)
 
 Modul MEMCPY
 
-char *memcpy(char *dst, char *src, int n)
-nutzt LDIR
+char *memcpy(char *dst, char *src, int n) /* nutzt LDIR */
+
+Modul MEMCMP
+
+char *memcmp(char *p1, char *p2, int n) /* nutzt CPI */
 
 Modul OUTP
 

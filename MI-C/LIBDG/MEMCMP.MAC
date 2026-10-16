@@ -1,0 +1,47 @@
+; MEMCMP.MAC *dg* 16.10.2026
+
+	PUBLIC MEMCMP
+
+; liefert 0, wenn die bereiche gleich sind
+; ansonsten zeiger auf ersten unterschied im ersten bereich (p1)
+;
+; char *memcmp(p1, p2, n)
+;     char *p1, *p2;
+;     int n;
+;   return diff or 0
+
+MEMCMP:	LD IX,2		; RET address
+	ADD IX,SP
+
+	; s1 -> DE
+	LD L,(IX+0)
+	LD H,(IX+1)
+
+	; s2 -> HL
+	LD E,(IX+2)
+	LD D,(IX+3)
+
+	; n -> BC
+	LD C,(IX+4)
+	LD B,(IX+5)
+
+	LD A,B
+	OR C
+	JR Z,CMP2	; n = 0
+	
+CMP1:	LD A,(DE)
+	CPI		; compare (HL) with A, inc HL, dec BC
+	JR NZ,CMP3
+	INC DE
+	JP PE,CMP1
+	
+CMP2:	; equal
+	LD HL,0
+	RET
+
+CMP3:	DEC HL		; point to difference
+	RET
+
+	END
+
+; --- end of file ---

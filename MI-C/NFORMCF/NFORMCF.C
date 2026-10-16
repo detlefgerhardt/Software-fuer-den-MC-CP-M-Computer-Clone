@@ -1,16 +1,16 @@
 /****************************************************************************/
 /*
-	NFORM-CF.C  *dg*  08/2026 for MI-C compiler and MC CP/M clone
+	NFORMCF.C  *dg*  08/2026 for MI-C compiler and MC CP/M clone
 	
 	In the first pass overwrites each sector with pattern containing drive,
 	track and sector. Than reads all sector or verify the data and than
 	overwrites the sector with the pattern E5h.
 */
 /****************************************************************************/
-/* DEBLOCK version history
+/* NFORMCF version history
 
  05.09.2026 *dg* First version (from DEBLOCK.C)
- 
+ 14.10.2026 *dg* New format 
  */
 
 #include "stdio.h"
@@ -26,7 +26,7 @@
 
 #define DRV_CNT 8 /* number of drives */
 
-/*#define DEBDRV 4*/
+#define DEBDRV 4
 
 char outbuf[120];
 
@@ -277,6 +277,8 @@ int WaitCr()
 	}
 }
 
+/****************************************************************************/
+
 BOOL Flop(cmd, drive, track, sector, addr)
 	int cmd,drive, track, sector;
 	unsigned addr;
@@ -364,10 +366,11 @@ BOOL WriteDisk(drive, seccnt, trkcnt, sidcnt, debid)
 				wrbuf[3] = debid;
 				trk = track * sidcnt + side;
 				result = WriteSector(drive, trk, side, sector, wrbuf);
-
+				
 				if (result != 0)
 				{
-					stat = InPort(0xC0);
+					/*stat = InPort(0xC0);*/
+					stat = 0;
 				
 					printf("\r\nWrite error drive %c track %d side=%d sector=%d result=%02X stat=%02X\r\n",
 						drive + 'A', track, side, sector, result, stat);
@@ -416,7 +419,8 @@ BOOL TestDisk(drive, seccnt, trkcnt, sidcnt, debid)
 				result = ReadSector(drive, trk, side, sector, rdbuf);
 				if (result != 0)
 				{
-					stat = InPort(0xC0);
+					/*stat = InPort(0xC0);*/
+					stat = 0;
 
 					printf("\r\nRead error drive=%c track=%d side=%d sector=%d result=%02X stat=%02X\r\n",
 						drive + 'A', track, side, sector, result, stat);
@@ -466,12 +470,12 @@ main(argc, argv)
 
 	BiosAddr();
 	
-	PutStr("\r\nNFORM-CF V1.0 *dg* 260905-01\r\n");
+	PutStr("\r\nNFORMCF V1.1 *dg* 261015-02\r\n");
 	PutStr("format/test IDE/CF partition\r\n\n");
 
-	seccnt = 256;
+	secsize = 256;
+	seccnt = 128;
 	trkcnt = 256;
-	secsize = 128;
 	sidcnt = 1;
 	drive = -1;
 
@@ -498,9 +502,9 @@ main(argc, argv)
 				if (toupper(argv[p][2]) == 'I')
 				{
 					/* IDE 8192 */
-					seccnt = 256;
+					secsize = 256;
+					seccnt = 128;
 					trkcnt = 256;
-					secsize = 128;
 					sidcnt = 1;
 				}
 			}
@@ -536,20 +540,20 @@ main(argc, argv)
 	if (error || drive == -1)
 	{
 		/*printf("%d %d %d %d\r\n", drive, seccnt, secsize, trkcnt);*/
-		PutStr("Usage: deblock <d>: -F<f> -S<s> -Z<z> -T<t> -C<c>\r\n");
+		PutStr("Usage: nformcf <d>: -S<s> -Z<z> -T<t> -C<c>\r\n");
 		PutStr("  d = Drive E..H\r\n");
 		/*PutStr("  f = Format [N]KC / [I]DE\r\n");*/
 		PutStr("  s = Sector count [1..256]\r\n");
 		PutStr("  z = Sector size [1..1024]\r\n");
-		PutStr("  t = Track count [1-256]\r\n");
-		PutStr("  c = Side count [2]\r\n");
+		PutStr("  t = Track count [1..256]\r\n");
+		PutStr("  c = Side count [1..2]\r\n");
 		return;
 	}
 #else	
 	drive = DEBDRV;
-	seccnt = 256;
-	trkcnt = 10;
-	secsize = 128;
+	secsize = 256;
+	seccnt = 128;
+	trkcnt = 256;
 	sidcnt = 1;
 #endif
 

@@ -62,7 +62,7 @@ main(argc, argv)
 {
 	int ver;
 	
-	cprintf("SHOWFMTS *dg* 261005-01, show physical drive formats for NBIOS\r\n");
+	cprintf("SHOWFMTS *dg* 261011-01, show physical drive formats for NBIOS\r\n");
 	
 	ver = GetVer();
 	cprintf("NBIOS version %d.%d\r\n\n", ver / 10, ver % 10);

@@ -1,5 +1,5 @@
 ;************************************************************************
-;* NBIOS11.Z80		RDK/UH/*DG*	09/2026				*
+;* NBIOS11.Z80		RDK/UH/*DG*	10/2026				*
 ;*									*
 ;* basiert direct auf der Version 3.1 841220 von Rolf-Dieter Klein	*
 ;* Urspruengliche Version fuer 2 Mini- und 2 Maxi-Laufwerke		*
@@ -107,21 +107,6 @@ DG_DIBM	EQU FALSE	; drive D is IBM
 NEWIDE	EQU TRUE	; new IDE/CF format (8192 KB)
 
 DEBOUT	EQU FALSE	; debug outputs
-BTDRV	EQU 0		; drive A:
-;BTDRV	EQU 4		; drive E: (IDE/CF)
-
-; logical drive to boot from
-	; boot from disk A (800KB NDE/NKC format)
-	IF BTDRV = 0	; drive A
-BTSEC	EQU 8		; start sector of CP/M on disk with 1024 bytes/sector
-BTSECN	EQU 40		; sector per track
-	ENDIF
-	
-	; boot from IDE/CF (2 MB format)
-	IF BTDRV = 4	; drive E
-BTSEC	EQU 1		; start sector of CP/M on IDE/CF (second sector)
-BTSECN	EQU 64		; sector per track
-	ENDIF
 
 ;------------------------------------------------------------------------------
 ; Monitor functions
@@ -158,6 +143,25 @@ CPMB	EQU CCP			; CP/M boot entry
 
 NSECTS	EQU CPML / 128		; Number of logical sectors ocupied by CP/M
 				; (used for for WBOOT)
+
+	IF FALSE
+	
+;BTDRV	EQU 0		; drive A:
+BTDRV	EQU 4		; drive E: (IDE/CF)
+
+	; boot from disk A (800KB NDE/NKC format)
+	IF BTDRV = 0	; drive A
+CPMST	EQU 8		; start sector of CP/M on disk with 1024 bytes/sector
+BTSECN	EQU 40		; sector per track (< 128!)
+	ENDIF
+	
+	; boot from IDE/CF
+	IF BTDRV = 4	; drive E
+CPMST	EQU 2		; start sector of CP/M on IDE/CF (second sector)
+BTSECN	EQU 127		; logical sector per track or any number: BTSEC + NSECS < BTSECN < 128
+	ENDIF
+
+	ENDIF	; FALSE
 
 ;-----------------------------------------------------------------------------
 ; Memory addresses below 0100h
@@ -708,7 +712,7 @@ SIGNON:	DB 26
 	DB 'K',CR,LF
 	DB 'NBIOS '
 	DB BIOSVER/10+'0','.',BIOSVER MOD 10+'0'
-	DB ' 261005-02'
+	DB ' 261015-04'
 	DB " BOOT=",BTDRV+'A',CR,LF
 
 	IF DG_NEW
@@ -805,6 +809,10 @@ BOOT:	LD SP,BUFF+80H	; set stack
 
 	LD HL,SIGNON	; output start message
 	CALL PRMSG
+
+	; DEBUG E710
+	;LD A,(0E710h)
+	;CALL DEBX8
 	
 	; clear / set last used drive
 	LD A,BTDRV
@@ -862,7 +870,7 @@ WBOO2:	; loop, load CP/M
 	CALL SELDSK
 	LD C,0		; track 0
 	CALL SETTRK
-	LD C,BTSEC	; start with first logical sector behind physical boot sector
+	LD C,CPMST	; start with first logical sector behind physical boot sector
 	CALL SETSEC	; (depends on the number of logical sectors per phyiscal sector)
 	POP BC
 	LD B,NSECTS	; number of sectors for CP/M without BIOS, do not overwrite BIOS
@@ -1107,7 +1115,7 @@ GETPHY:	LD HL,(PHYBYTS)
 	LD A,(PHYSIDS)
 	LD B,A
 	LD A,(BLREG)
-	AND 00110000B
+	AND 10110000B
 	LD C,A
 	RET
 
@@ -1138,6 +1146,7 @@ PRMSG: 	LD A,(HL)
 
 READ:
 	IF NEWIDE
+	; reset CF/IDE flag
 	XOR A
 	LD (ISIDE),A
 	ENDIF
@@ -1148,29 +1157,28 @@ READ:
 	
 	; DBANK < 8
 	LD A,(BLREG)
+	AND 10000000B	; flag for IDE disk
+	JR Z,READ1	; -> no IDE disk
+
+	; IDE disk
+	LD A,1
+	LD (ISIDE),A
+	JP MINIRD	; -> IDE disk
+
+READ1:	LD A,(BLREG)
 	AND 00110000B
-	CP 00010000B
+	CP 00010000B	; flag for Maxi disk (bit5=0, bit4=4)
 	JP Z,MAXIRD	; -> Maxi disk
-
-	LD A,(DBANK)	; drive 0..5
-	CP 4
-	JP C,MINIRD	; A < 4 -> Mini disk
+	JP MINIRD	; -> Mini disk
 	
-	;---------------------------------------------------------------------
-	; A >= 4, Read RAM disk
-
 	if NOT NEWIDE
 	
 	CP 8
 	JP C,IDERD	; A < 8 -> IDE disks 4,5,6,7
 	
-	ELSE		; NEWIDE
-	
-	LD A,1
-	LD (ISIDE),A
-	JP C,MINIRD
-	
-	ENDIF		; NEWIDE
+	ENDIF		; NOT NEWIDE
+
+	;---------------------------------------------------------------------
 
 	; error
 RDERR:	LD A,1		; Fehler da, Bank nicht vorhanden,
@@ -1283,32 +1291,31 @@ WRITE:
 	LD A,(DBANK)
 	CP 8
 	JR NC,WRERR	; DBANK >= 8 -> does not exist
-	
+
 	; DBANK < 8
 	LD A,(BLREG)
+	AND 10000000B	; flag for IDE disk
+	JR Z,WRITE1	; -> no IDE disk
+
+	; IDE disk
+	LD A,1
+	LD (ISIDE),A
+	JP MINIWR	; -> IDE disk
+	
+WRITE1:	LD A,(BLREG)
 	AND 00110000B
 	CP 00010000B
 	JP Z,MAXIWR	; -> Maxi disk
-
-	LD A,(DBANK)	; drive 0..3
-	CP 4
-	JP C,MINIWR	; A < 4 -> Mini disk
-	
-	;---------------------------------------------------------------------
-	; A >= 4, Write RAM disk
+	JP MINIWR
 
 	if NOT NEWIDE
 	
 	CP 8
 	JP C,IDEWR	; A < 8 -> IDE disks 4,5,6,7
 	
-	ELSE		; NEWIDE
-
-	LD A,1
-	LD (ISIDE),A
-	JP C,MINIWR
+	ENDIF		; NOT NEWIDE
 	
-	ENDIF		; NEWIDE
+	;---------------------------------------------------------------------
 
 	; error
 WRERR:	LD A,1		; Fehler da, Bank nicht vorhanden,
@@ -1507,7 +1514,7 @@ MINIR2:	; neuen Sektor laden, ggf. alten zurueckschreiben
 
 	CALL PUTPHS	; ALTEN ZURUECKSCHREIBEN
 	JP C,ERRIO
-	
+
 MINIR3:	CALL MINCAL	; BERECHNEN
 
 	LD A,C
@@ -1712,7 +1719,7 @@ GETIDE:	; handle CD/IDE drive
 	;LD D,'R'
 	;CALL DEBIDE	; debug output
 
-	CALL MIDERD	; read sector to CD/IDE
+	CALL MIDERD	; read sector from IDE/CF
 	AND 01h
 	RET
 

@@ -1,4 +1,4 @@
-; ndiskdef NBIOS11.SIG created 05.10.26 14:15 by NDiskDef 1.0
+; ndiskdef NBIOS11.SIG created 15.10.26 20:13 by NDiskDef 1.2
 DB 'A=F800K'
 DB ',B=F800K'
 DB ',C=F800K'

@@ -17,7 +17,7 @@
 
 #include "stdio.h"
 #include "conio.h"
-#include "phydrv.h"
+/*#include "phydrv.h"*/
 
 #define FALSE 0
 #define TRUE 1
@@ -28,11 +28,11 @@
 #ASM
 FALSE	EQU 0
 TRUE	EQU NOT FALSE
-
-; Monitor
 MFLOP	EQU		0F021H	; Monitor floppy routine
-
 #ENDASM
+
+/* set to TRUE so simulate disk access (for testing under RunCPM) */
+#define SIM TRUE
 
 #define LF 0x0A
 #define CR 0x0D
@@ -53,6 +53,18 @@ MFLOP	EQU		0F021H	; Monitor floppy routine
 #define CLUEND 0xFF8 /* Datei-Ende 0xFF8..0xFFF */
 #define CLUDEF 0xFF7 /* defekter Sektor/Cluster  */
 
+typedef struct
+{
+	char name[12]; /* not null-terminated */
+	long size;
+	char attr;
+	unsigned clust;
+} DirEnt;
+
+DirEnt *DirList;
+#define DIRMAX 128
+int dircnt;
+
 char *secbuf;
 
 /* cluster buffer */
@@ -60,6 +72,10 @@ char *clubuf;
 int clusiz;
 
 char *fat;
+
+#if SIM
+FILE *fpsim;
+#endif
 
 /****************************************************************************/
 
@@ -284,6 +300,13 @@ int RdAbs(drive, asec, buf)
 {
 	int sec, trk, sid;
 
+#if SIM
+	/* read from image instead from real disk */
+	long offset;
+	offset = asec * PHYBYTS;
+	fseek(fpsim, offset, 0);
+	return fread(buf, PHYBYTS, 1, fpsim) == 1;
+#ELSE
 	sec = abssec(asec);
 	trk = abstrk(asec);
 	sid = abssid(asec);
@@ -291,6 +314,7 @@ int RdAbs(drive, asec, buf)
 	/*cprintf("%d %d %d\r\n", sec, trk, sid);*/
 
 	return RdSect(drive, trk, sid, sec, 0x20, buf);
+#endif
 }
 
 /****************************************************************************/
@@ -482,19 +506,18 @@ BOOL LdFile(drive, fname, fsize, clus)
 
 /****************************************************************************/
 
-ShowDir(drive)
+LdDir(drive)
 	int drive;
 {
 	int as, d, i, idx;
-	char *dir;
+	char *buf;
+	DirEnt *dir;
 	char name[13];
 	unsigned clus;
 	int attr;
 	long size;
 
-	cputs("");
-
-	idx = 0;
+	dircnt = 0;
 	for (as = 0; as < DIRLEN; as++)
 	{
 		RdAbs(drive, DIRSTR + as, secbuf);
@@ -503,26 +526,29 @@ ShowDir(drive)
 			Dump(secbuf, 0, 256);
 		*/
 		
-		dir = secbuf;
+		buf = secbuf;
 		for (d = 0; d < 16; d++)
 		{
-			attr = dir[0x0B];
-			if (dir[0] != 0 && dir[0] != 0xE5 && (attr & 0x06) == 0x00)
+			attr = buf[0x0B];
+			if (buf[0] != 0 && buf[0] != 0xE5 && (attr & 0x06) == 0x00)
 			{
-				/* name */
-				strncpy(name, dir, 8);
-				name[8] = '.';
-				strncpy(name + 9, dir + 8, 3);
-				name[12] = 0;
-				cprintf("%3d %-12s ", idx + 1, name);
-
-				clus = dir[0x1B] * 256 + dir[0x1A];
-				size = (((dir[0x1F] * 256L) + dir[0x1E]) * 256L + dir[0x1D]) * 256L + dir[0x1C];
-				cprintf("%02X %5u %5ld\r\n", attr, clus, size);
+				dir = DirList[dircnt];
+				memcpy(dir->name, buf, 11);
+				dir->name[11] = 0;
+				dir->attr = attr;
+				dir->clust = buf[0x1B] * 256 + buf[0x1A];
+				dir->size = (((buf[0x1F] * 256L) + buf[0x1E]) * 256L + buf[0x1D]) * 256L + buf[0x1C];
+				cprintf("%s %02X %5u %6ld\r\n", dir->name, dir->attr, dir->clust, dir->size);
+				dircnt++;
 			}
-			idx++;
-			dir += 32;
+			buf += 32;
 		}
+	}
+	
+	for (i = 0; i < dircnt; i++)
+	{
+		dir = DirList[i];
+		cprintf("%02d %s %02X %5u %6ld\r\n", i, dir->name, dir->attr, dir->clust, dir->size);
 	}
 }
 
@@ -532,10 +558,10 @@ main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	int ch, p;
+	int ch, p, i;
 	int drive, port, dir, tracks;
 	BOOL error;
-	phyprm prm;
+	/*phyprm prm;*/
 	char dest1[13], dest2[13];
 
 	cputs("SHOWF12 *dg* v1.0 281012-01\r\n\n");
@@ -590,7 +616,9 @@ main(argc, argv)
 	}
 
 	/* get disk parameters */
+	/*
 	GetPrm(drive, &prm);
+	*/
 	
 	/* allocate memory for sector buffer */
 	secbuf = CALLOC(PHYBYTS, 1);
@@ -608,6 +636,19 @@ main(argc, argv)
 		return;
 	}
 
+	/* allocate dir list */
+	DirList = CALLOC(DIRMAX, sizeof(DirEnt));
+	if (DirList == NULL)
+	{
+		cprintf("Error: not enough memory (%d)\r\n", DIRMAX * sizeof(DirEnt));
+		return;
+	}
+
+	for (i = 0; i < 3; i++)
+	{
+		cprintf("%d %04X\r\n", i, DirList[i]);
+	}
+
 	cputs("\r\n");
 
 	/*
@@ -616,11 +657,19 @@ main(argc, argv)
 	if (ch == CTRLC) EXIT();
 	*/
 
+#if SIM
+	/* open a 720k DOS image to simulate a real DOS disk */
+	fpsim = fopen("msdos.img", "r");
+	if (fpsim == NULL)
+	{
+		cprintf("error opening MSDOS.IMG\r\n");
+		return;
+	}
+#endif
+
 	ShowFat12(drive);
 
 	LdFat(drive);
-
-	ShowDir(drive);
 
 	/* allocate cluster buffer */
 	clubuf = CALLOC(clusiz, 1);
@@ -634,7 +683,11 @@ main(argc, argv)
 	AllClus(22);
 	*/
 
-	LdFile(drive, "A:LOAD.COM", 25088, 22);
+	LdDir(drive);
+
+	/*
+	LdFile(drive, "F:MSDOS.COM", 25088, 22);
+	*/
 
 	/*
 	cputs("\r\nInsert SYSTEM disk and press ENTER\r\n");

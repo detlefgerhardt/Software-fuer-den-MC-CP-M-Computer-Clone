@@ -13,6 +13,11 @@
  04.10.2026 *dg* Switch to SIO-A/SIO-B with parameter -SA/-SB (up to 2,5
                  KByte/s with 37800 baud,
 				 Cleanup
+
+
+  TODO:
+  - Send abort message when CTRL-C is pressed (with Send())
+
 */
 
 #include "stdio.h"

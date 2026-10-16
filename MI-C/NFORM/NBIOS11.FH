@@ -1,4 +1,4 @@
-/* ndiskdef NBIOS11.FH created 03.10.26 19:51 by NDiskDef 1.0 */
+/* ndiskdef NBIOS11.FH created 11.10.26 16:23 by NDiskDef 1.0 */
 /* format F800K 800KB  (1024/5/80/2) */
 drvfmt F800K =
 {
@@ -9,44 +9,26 @@ drvfmt F800K =
 		5,	/* sectors/track */
 		80,	/* tracks/side */
 		1,	/* 0=SS/1=DS */
-		1,	/* 1=DD/0=SD (inverted to FLO reg) */
-		0,	/* 1=Maxi/0=Mini (inverted to FLO reg) */
+		1,	/* 0=SD, 1=DD (inverted to FLO reg) */
+		0,	/* 0=Mini, 1=Maxi/HD (inverted to FLO reg) */
 		1,	/* UseSSO */
 		54,	/* gap3 length */
 		0xE5	/* filler */
 	}
 };
 
-/* format F1440K 1440KB  (1024/9/80/2) */
+/* format F1440K 1440KB  (512/18/80/2) */
 drvfmt F1440K =
 {
 	"F1440K",
 	1440,
 	{
-		1024,	/* bytes/sector */
-		9,	/* sectors/track */
+		512,	/* bytes/sector */
+		18,	/* sectors/track */
 		80,	/* tracks/side */
 		1,	/* 0=SS/1=DS */
-		1,	/* 1=DD/0=SD (inverted to FLO reg) */
-		1,	/* 1=Maxi/0=Mini (inverted to FLO reg) */
-		1,	/* UseSSO */
-		40,	/* gap3 length */
-		0xE5	/* filler */
-	}
-};
-
-/* format F1280K 1280KB  (1024/8/80/2) */
-drvfmt F1280K =
-{
-	"F1280K",
-	1280,
-	{
-		1024,	/* bytes/sector */
-		8,	/* sectors/track */
-		80,	/* tracks/side */
-		1,	/* 0=SS/1=DS */
-		1,	/* 1=DD/0=SD (inverted to FLO reg) */
-		1,	/* 1=Maxi/0=Mini (inverted to FLO reg) */
+		1,	/* 0=SD, 1=DD (inverted to FLO reg) */
+		1,	/* 0=Mini, 1=Maxi/HD (inverted to FLO reg) */
 		1,	/* UseSSO */
 		40,	/* gap3 length */
 		0xE5	/* filler */
@@ -63,10 +45,46 @@ drvfmt F1200K =
 		15,	/* sectors/track */
 		80,	/* tracks/side */
 		1,	/* 0=SS/1=DS */
-		1,	/* 1=DD/0=SD (inverted to FLO reg) */
-		1,	/* 1=Maxi/0=Mini (inverted to FLO reg) */
+		1,	/* 0=SD, 1=DD (inverted to FLO reg) */
+		1,	/* 0=Mini, 1=Maxi/HD (inverted to FLO reg) */
 		1,	/* UseSSO */
 		40,	/* gap3 length */
+		0xE5	/* filler */
+	}
+};
+
+/* format F720K 720KB  (512/9/80/2) */
+drvfmt F720K =
+{
+	"F720K",
+	720,
+	{
+		512,	/* bytes/sector */
+		9,	/* sectors/track */
+		80,	/* tracks/side */
+		1,	/* 0=SS/1=DS */
+		1,	/* 0=SD, 1=DD (inverted to FLO reg) */
+		0,	/* 0=Mini, 1=Maxi/HD (inverted to FLO reg) */
+		1,	/* UseSSO */
+		40,	/* gap3 length */
+		0xE5	/* filler */
+	}
+};
+
+/* format F400K 400KB  (1024/5/40/2) */
+drvfmt F400K =
+{
+	"F400K",
+	400,
+	{
+		1024,	/* bytes/sector */
+		5,	/* sectors/track */
+		40,	/* tracks/side */
+		1,	/* 0=SS/1=DS */
+		1,	/* 0=SD, 1=DD (inverted to FLO reg) */
+		0,	/* 0=Mini, 1=Maxi/HD (inverted to FLO reg) */
+		1,	/* UseSSO */
+		54,	/* gap3 length */
 		0xE5	/* filler */
 	}
 };
@@ -81,15 +99,15 @@ drvfmt IBMSD =
 		26,	/* sectors/track */
 		77,	/* tracks/side */
 		0,	/* 0=SS/1=DS */
-		0,	/* 1=DD/0=SD (inverted to FLO reg) */
-		1,	/* 1=Maxi/0=Mini (inverted to FLO reg) */
+		0,	/* 0=SD, 1=DD (inverted to FLO reg) */
+		1,	/* 0=Mini, 1=Maxi/HD (inverted to FLO reg) */
 		0,	/* UseSSO */
 		27,	/* gap3 length */
 		0xE5	/* filler */
 	}
 };
 
-#define FMTCNT 5
-drvfmt *fmtlist[] = {F800K,F1440K,F1280K,F1200K,IBMSD};
+#define FMTCNT 6
+drvfmt *fmtlist[] = {F800K,F1440K,F1200K,F720K,F400K,IBMSD};
 
 /* end of NBIOS11.FH */ 

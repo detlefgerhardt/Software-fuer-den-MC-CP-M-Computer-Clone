@@ -294,7 +294,7 @@ int WriteSector(drive, track, side, sector, reg, addr)
 
 BOOL ReadTrack(drive, track, prm, buffer)
 	int drive, track;
-	drvprm *prm;
+	phyprm *prm;
 	unsigned buffer;
 {
 	unsigned offset;
@@ -320,7 +320,7 @@ BOOL ReadTrack(drive, track, prm, buffer)
 
 BOOL WriteTrack(drive, track, prm, buffer)
 	int drive, track;
-	drvprm *prm;
+	phyprm *prm;
 	unsigned buffer;
 {
 	unsigned offset;
@@ -379,7 +379,7 @@ BOOL Copy1Drive(drive)
 
 BOOL Copy2Drives(src, dest, prm)
 	int src, dest;
-	drvprm *prm;
+	phyprm *prm;
 {
 	int track, ch, stat;
 	BOOL success;
@@ -419,7 +419,7 @@ BOOL Copy2Drives(src, dest, prm)
 
 BOOL Vfy2Drives(src, dest, prm)
 	int src, dest;
-	drvprm *prm;
+	phyprm *prm;
 {
 	int track, sector, side;
 	int ch;
@@ -475,7 +475,7 @@ BOOL Vfy2Drives(src, dest, prm)
 
 BOOL Copy2(src, dest, prm, verify)
 	int src, dest;
-	drvprm *prm;
+	phyprm *prm;
 	BOOL verify;
 {
 	int ch, bufsiz;
@@ -525,7 +525,7 @@ BOOL Copy2(src, dest, prm, verify)
 #if FALSE
 GetPrm(drive, prm)
 	int drive;
-	drvprm *prm;
+	phyprm *prm;
 {
 	int curdrv;
 
@@ -546,7 +546,7 @@ GetPrm(drive, prm)
 /****************************************************************************/
 
 BOOL cmpprm(src, dst)
-	drvprm *src, *dst;
+	phyprm *src, *dst;
 {
 	if (src->byts != dst->byts) return FALSE;
 	if (src->secs != dst->secs) return FALSE;
@@ -562,7 +562,7 @@ main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	drvprm srcprm, dstprm;
+	phyprm srcprm, dstprm;
 	int src, dest, p;
 	BOOL verify;
 	BOOL error;

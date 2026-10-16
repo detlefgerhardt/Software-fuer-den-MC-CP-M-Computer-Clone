@@ -124,7 +124,7 @@ main(argc, argv)
 	/*int phybyts, physecs, phytrks, physids;*/
 	long size;
 	
-	cputs("SETFMTS *dg* 261005-01, set NBIOS drive data\r\n");
+	cputs("SETFMTS *dg* 261011-01, set NBIOS drive data\r\n");
 
 	error = FALSE;
 	drive = -1;
