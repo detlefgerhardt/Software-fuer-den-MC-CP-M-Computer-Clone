@@ -4,13 +4,15 @@
 ;*									     *
 ;* based on Mon80V1 by Ulrich Haumann 05/2026	        	             *
 ;* V7.2 851216, sowie Teile aus dem Monitor von Donn Stewart ("CPU-Ville"    *
-;* Z80 Computer.)                 					     *
+;* Z80 Computer)                 					     *
 ;* based on RDK Monitor 1.1 850129					     *
+;*                                                                           *
 ;*****************************************************************************
+;
 ; Monitor for MC-Computer board SYS-80 and SYS-80s
 ; Assembliert mit Z80ASM von SLR Systems wegen der langen
 ;
-; Ulrich Haumann:
+; Comment by Ulrich Haumann:
 ; Treiber fuer Serielle Schnittstelle auf CPU-Platine mit UART 8251
 ; implementiert.
 ; Flo1 und Flo2 waehlber auf Hardware Basis Adresse 0C0h.
@@ -34,6 +36,7 @@
 ; NMON Version history
 ;
 ; 01.07.2026 *dg* Komplette Ueberarbeitung der Kommentate ohne funktionale Aenderungen
+; 17.10.2026 *dg* IDE Routinen geaendert
 
 ;------------------------------------------------------------------------------
 ; Mapping of REG4-Latch
@@ -71,13 +74,14 @@ RST7	EQU 38H		; der Vektor RST7 wird fuer Breakpoints gebraucht
 ;------------------------------------------------------------------------------
 ; Variant switches
 
-VERSION	EQU 21
+VERSION	EQU 11
 
 ; aktiviert alle bisherigen Aenderungen gegenueber der Originalversion 7.x
-DG01	EQU FALSE
+DG01	EQU TRUE
+LOAD100	EQU FALSE	; load from 100h
 
 ; 3 Mini drives (A..C), 1 Maxi drives (D), 1 RAM-Disk (E)
-MINI3	EQU FALSE
+;MINI3	EQU FALSE
 
 ; version for CPU80/S with UART 8251
 SYS80S	EQU TRUE
@@ -144,19 +148,26 @@ LI_TXB	EQU SI_TXB
 
 ; Addresses of IDE-80 CF-Adapter card
 
-IDEDATA	EQU 018h	; IDE Data Register
-SECCND	EQU 01Ah	; Sector Count Register
-LBA7	EQU 01Bh	; LBA Bits 0-7
-LBA15	EQU 01Ch	; LBA Bits 8-15
-LBA23	EQU 01Dh	; LBA Bits 16-23
-IDEHEAD	EQU 01Eh	; IDE Drive Head Register
-IDESTAT	EQU 01Fh	; IDE Command/Status Register
+IDE_BASE	EQU 018h	; IDE/CF adapter base address
+
+IDE_DATA	EQU IDE_BASE+0	; IDE Data Register
+IDE_FEAT	EQU IDE_BASE+1	; Feature Register
+IDE_SECCNT	EQU IDE_BASE+2	; Sector Count Register
+IDE_LBA7	EQU IDE_BASE+3	; LBA Bits 0-7
+IDE_LBA15	EQU IDE_BASE+4	; LBA Bits 8-15
+IDE_LBA23	EQU IDE_BASE+5	; LBA Bits 16-23
+IDE_HEAD	EQU IDE_BASE+6	; IDE Drive Head Register
+IDE_STAT	EQU IDE_BASE+7	; IDE Command/Status Register
 
 ;------------------------------------------------------------------------------
 
-	ORG 0000h		; start address in ROM
+IF LOAD100
+	ORG 0100H		; Start after load from command line
+ELSE	
+	ORG 0000h		; Start address in ROM after hardware reset
+ENDIF
 
-	; Copy Monitor from address ROMSTRT in ROM to address F000 in RAM
+	; Copy Monitor from ROM address ROMSTRT to RAM address F000
 
 BEGIN:	LD SP,0FFFFh 		; set Stack to end of memory
 	LD A,0C9h 		; place RET command at F000h
@@ -166,7 +177,7 @@ BEGIN:	LD SP,0FFFFh 		; set Stack to end of memory
 OFFS:	DEC SP  		; get return address from Stack to calculate
 	DEC SP  		; Monitor location in ROM
 	POP DE
-	LD HL,ROMSTRT-OFFS	; offset from BEG to ROMSTRT
+	LD HL,ROMSTRT-OFFS	; offset from BEGIN to ROMSTRT
 	ADD HL,DE		; actual Montor address in ROM as source address in HL
 	LD DE,0F000h 		; dest address in DE
 	LD BC,0FFFh 		; length in BC (4KB - 1)
@@ -183,9 +194,9 @@ ROMSTRT:
 	.PHASE 0F000H	; monitor start address in RAM
 
 	JP INIT
-	JP CONIN	; Console In
+	JP CONIN	; Console In (-> A)
 	JP READIN	; Reader In (<- SIO B)
-	JP CONOUT	; Console Out
+	JP CONOUT	; Console Out (character in C)
 	JP PUNOUT	; Punch Out (-> SIO B)
 	JP LSTOUT	; List Out (-> SIO B)
 	JP CONSTS	; Get console status, 0FFh in A, if character available
@@ -209,13 +220,15 @@ TRAP:	; trap/breakpoint entry -> RSTRT
 	
 	JP IDERD	; Read IDE sector
 	JP IDEWR	; Write IDE Sector
-	JP COLD		; Monitor Cold Start (no Hardware init)
-	JP WARM		; Monitor Warm Start
-	JP WRSTR	; gibt einen 0-terminierten String aus
+	JP COLD		; Monitor Cold Start (no hardware init)
+	JP WARM		; Monitor Warm Start (will be overwritten by BIOS with BIOS Warm Boot)
+	JP WRSTR	; gibt einen 0-terminierten String aus (will be overwritten by BIOS with BIOS Warm Boot)
 
 TABPTR:	DEFW TABSTART 	; Start of user jump table
 ENDPTR:	DEFW LASTMON 	; End address of Monitor
 FREPTR:	DEFW FREEMEM 	; End of Monitor driver section. The area behind it can be overwritten by CP/M.
+
+	IF NOT DG01
 
 	; Jump table for compatibility to FLOMON (NDR-Klein-Computer)
 	
@@ -231,7 +244,8 @@ FREPTR:	DEFW FREEMEM 	; End of Monitor driver section. The area behind it can be
 	JP ILLEGAL 	; warten bis gdp fertig
 	JP ILLEGAL      ; c=befehl fuer gdp  ACHTUNG in C-Register nicht A
 	JP ILLEGAL 	; hl=quelle,de=ziel,c=bank quelle, b=bank ziel
-			; carry wenn bankram auf f000h nicht da ist
+			; carry wenn bankram auf F000h nicht da ist
+	ENDIF
 
 ; End of area of tables and fixed addresses, that are used by CP/M BIOS, UFORMAT etc.
 
@@ -268,6 +282,7 @@ WRSTR:	IN  A,(CO_STS)	; read status
 
 ;------------------------------------------------------------------------------
 ; Console Input main routine (SYS)
+; Input -> A
 
 CONIN:	LD A,(IOBYT)
 	AND 00000011b		; console mask
@@ -276,13 +291,15 @@ CONIN:	LD A,(IOBYT)
 CONI1:	IN A,(CO_STS)
 	AND CO_RXB
 	JR Z,CONI1
-	IN A,(CO_DAT)
+	
+	IN A,(CO_DAT)		; read character
 	RET
 
 CONI2:	JP USERCI  		; user device
 
 ;------------------------------------------------------------------------------
 ; Reader Input routine (SIO B)
+; Input -> A
 
 READIN:	LD A,(IOBYT)
 	AND 00001100b
@@ -290,17 +307,18 @@ READIN:	LD A,(IOBYT)
 
 	CP 00000100B 
 	JP NZ,USERRI
-	
+
 READI1:	; assign: AR=P
 	IN A,(RE_STS)
 	AND RE_RXB
 	JR Z,READI1
-	
-	IN A,(RE_DAT)
+
+	IN A,(RE_DAT)		; read character
 	RET
 
 ;------------------------------------------------------------------------------
 ; Console Output main routine
+; C -> Output
 
 CONOUT:	LD A,(IOBYT)
 	AND 00000011b
@@ -320,7 +338,7 @@ CONO2:	JP USERCO		; user device
 ;------------------------------------------------------------------------------
 ; Punch Output main routine
 ; HIER ABFRAGE IOBYT MOEGLICH
-; char in C
+; Char in C
 ;
 PUNOUT:	LD A,(IOBYT)
 	AND 00110000b
@@ -358,7 +376,7 @@ LO1:	; assign AL=L
 	RET
 
 ;------------------------------------------------------------------------------
-; Console Status main routine
+; Get console status, 0FFh in A, if character available
 
 CONSTS:	LD A,(IOBYT)
 	AND 03h
@@ -477,32 +495,34 @@ KEXEC:	DEFS 3
 ;        maxi,sd =01
 ;        maxi,dd =00
 
+	IF NOT DG01
+
 GETFRM:	DI  		; disable interrupts
 	LD A,0D0H
 	OUT (FLO),A 	; stop controller
 	IN A,(FLO) 	; clear controller interrupts
-	
+
  	; use only drive code and side
 	LD A,C
 	AND 8FH
 	LD C,A
 	
 	CALL WAWA	; short delay (4 ms)
-	
+
 	; try Mini SD
 	LD A,C
 	OR 00110000B
 	LD C,A
 	CALL TSTFRM
 	RET NC		; -> ok
-	
+
 	; try Maxi SD
 	LD A,C
 	AND 10101111B
 	LD C,A
 	CALL TSTFRM
 	RET NC		; -> ok
-	
+
 	; try Mini SD
 	LD A,C
 	AND 10001111B
@@ -518,10 +538,15 @@ GETFRM:	DI  		; disable interrupts
 	CALL TSTFRM
 	RET  		; ok or error (carry=1)
 
-;------------------------------------------------------------------------------
-; TSTFRM
+	ENDIF	; NOT DG01
 
-TSTFRM:	LD A,(FLOTYP)
+;------------------------------------------------------------------------------
+; Subroutine for format detection
+
+	IF NOT DG01	
+
+TSTFRM:	
+	LD A,(FLOTYP)
 	CP 1
 	JP NZ,TSTF1	; -> FLO2
 
@@ -529,14 +554,15 @@ TSTFRM:	LD A,(FLOTYP)
 	LD A,C
 	XOR 10H		; if FLO1 invert density bit
 	JP TSTF2
-	
+;ENDIF
+
 TSTF1:	; FLO2
 	LD A,C
 
 TSTF2:	OUT (FLO+4),A 	; set REG4-Latch
 	LD A,0FH 	; RSTORE command with Verify
 	OUT (FLO),A 	; to controller
-	
+
 TSTF3:	; wait for INT
 	IN A,(FLO+4)
 	AND 40H 	; Bit 6 pruefen
@@ -549,6 +575,8 @@ TSTF3:	; wait for INT
 	
 	XOR A
 	RET  		; return with carry clear (no error)
+
+	ENDIF	; NOT DG01
 
 ;==============================================================================
 
@@ -566,6 +594,8 @@ TSTF3:	; wait for INT
 ; bei Maxi wird die Seite 1 mit Seitenpruefung auf 0
 ; angesprochen, bei Mini mit Seitenpruefung auf 1.
 ; nur fuer SD
+;
+; OBSOLETE! Use FLOP instead. NOTICE: C is different
 
 ; c=0,1,2,3
 ; 	0,2 gekoppelt  1,3 gekoppelt					
@@ -637,7 +667,8 @@ SCODB3:	LD C,10000010B 	; LW 2 seite 1
 
 ;------------------------------------------------------------------------------
 
-; Old MINI routine
+; Old MINI routine (obsolete)
+; Use FLOP instead. NOTICE: C is different
 
 ; Routinen fuer MC-Kompatibilitaet
 ; wie floppy, jedoch Drive-Codierung anders
@@ -646,7 +677,7 @@ SCODB3:	LD C,10000010B 	; LW 2 seite 1
 ; HL = block buffer address
 ; B = 0=set step-rate and SSO, 1=read, 2=write
 ; C = bit0=drive 0/1 (A/B), bit1=side 0/1, bit6=density
-; D = track
+; D = track (0..n-1)
 ; E = physical sector (1..n)
 
 MINI:	LD A,C		; drive code
@@ -748,7 +779,7 @@ INTVEK	EQU 38h 		; Interruptziel
 ; Haupteingang der Floppy-Routinen
 ; HL = Buffer address
 ; E = Physical sector (1..n)
-; D = Track
+; D = Track (0..n-1)
 ; C = Drive-code + Density + Side (REG4-Latch)
 ;   7    6    5    4    3    2    1    0
 ;   sso  mot  min  dens d    d    d    d
@@ -760,7 +791,7 @@ INTVEK	EQU 38h 		; Interruptziel
 ;     normalerweise nur 1,2,4,8 moeglich
 ;     Kombinationen moeglich, wenn binaere
 ;     Dekodierung beim Laufwerk verwendet wird
-; B = 0 Set steprate and SSO-Flag
+; B = 0 Set steprate and SSO-Flag (steprate in D: s00000rr, rr=steprate, s=sso)
 ;   = 1 Read sector
 ;   = 2 Write sector
 
@@ -774,6 +805,8 @@ FLOP:	XOR A  			; SSO-Flag auf 0 setzen
 FLOP1:	; SSO flag in A, only 0 and 2 allowed
 	LD (SSOFLAG),A
 
+	IF NOT DG01
+	
 	PUSH AF
 	LD A,(FLOTYP)
 	CP 1  
@@ -786,6 +819,12 @@ FLOP1:	; SSO flag in A, only 0 and 2 allowed
 	LD C,A
 
 FLOP2:	POP AF
+
+	ELSE
+
+FLOP2:
+	ENDIF
+	
 	LD (SP0),SP 		; save user-stack, maybe to deep for BDOS
 	LD SP,TSTACK 		;
 
@@ -943,7 +982,7 @@ SEEK:	CALL WAWA 		; short delay (4 ms)
 
 ;------------------------------------------------------------------------------
 ; Kopf auf Spur 0 stellen
-			
+
 RSTORE:	CALL WAWA		; short delay (4 ms)
 
 	LD A,C  		; Laufwerkscode (drive)
@@ -965,6 +1004,7 @@ RSTORE:	CALL WAWA		; short delay (4 ms)
 ; D = track (0..?) or parameter for set steprate
 ; E = sector (1..n)
 ; B = command (0=set steprate+SSO, 1=read, 2=write)
+;     B = 0 steprate+sso in D: s00000rr
 ; C = drive code
 ;   REG4-Latch format
 ;   7   6   5   4   3   2   1   0
@@ -1177,7 +1217,7 @@ EXSEEK:	PUSH HL
 ; Buffer Bereich fuer Floppy-Routinen
 
 STEPRATE:
-	DEFB 0    		; Merker fuer die Steprate + SSO-Option
+	DEFB 0    		; Merker fuer die Steprate (bit0..1) und SSO-Option (bit7)
 SSOFLAG:
 	DEFB 0    		; zusaetzlich, dominant, fuer MINI
 SP0:	DEFW 0 			; Stackmerker fuer BDOS
@@ -1204,14 +1244,18 @@ TSTACK:	DEFB 0
 
 ; werden bis auf FLOTYP alle nicht verwendet ???
 
+	IF NOT DG01
+
 TASK:	DEFS 6  		;task block
 OLDSEC:	DEFW 0  		;frueherer sector a 128
 IMWR:	DEFB 0ffh 		;wichtig init auf ff,wiini etc
-HSTBUF:	DEFS 256 		;sector buffer
+HSTBUF: DEFS 256 		;sector buffer
 IMBEF:	DEFB 0  		;befehl =1 read =2 write
 SECTRK:	DEFW 0  		;sectoradresse a 128
 IMDMA:	DEFW 0  		;adresse ziel,quelle
 FLOTYP:	DEFB 0  		;0=FLO2, 1=FLO1
+
+	ENDIF
 
 ;==============================================================================
 ; IDE/CF card interface
@@ -1223,49 +1267,72 @@ FLOTYP:	DEFB 0  		;0=FLO2, 1=FLO1
 ; LBA bits 8 to 15 passed in B
 ; LBA bits 16 to 23 passed in E
 
+	IF NOT DG01
+
 IDERD:
-IDERD1:	IN	A,(IDESTAT)	; check status
+IDERD1:	IN	A,(IDE_STAT)	; check status
 	AND	80H		; check BSY bit
 	JP	NZ,IDERD1	; loop until not busy
 
-IDERD2:	IN	A,(IDESTAT)	; check	status
+IDERD2:	IN	A,(IDE_STAT)	; check	status
 	AND	40H		; check DRDY bit
 	JP	Z,IDERD2	; loop until ready
 
 	LD	A,01H		; number of sectors = 1
-	OUT	(SECCND),A	; sector count register
+	OUT	(IDE_SECCNT),A	; sector count register
 	LD	A,C
-	OUT	(LBA7),A	; lba bits 0 - 7
+	OUT	(IDE_LBA7),A	; lba bits 0 - 7
 	LD	A,B
-	OUT	(LBA15),A	; lba bits 8 - 15
+	OUT	(IDE_LBA15),A	; lba bits 8 - 15
 	LD	A,E
-	OUT	(LBA23),A	; lba bits 16 - 23
+	OUT	(IDE_LBA23),A	; lba bits 16 - 23
 	LD	A,11100000B	; LBA mode, select drive 0
-	OUT	(IDEHEAD),A	; drive/head register
+	OUT	(IDE_HEAD),A	; drive/head register
 	LD	A,20H		; Read sector command
-	OUT	(IDESTAT),A
+	OUT	(IDE_STAT),A
 
 IDERD3:	; wait for drq set
-	IN	A,(IDESTAT)	; read status
+	IN	A,(IDE_STAT)	; read status
 	AND	08H		; DRQ bit
 	JP	Z,IDERD3	; loop until bit set
 	
 IDERD4:	; wait for busy clear
-	IN	A,(IDESTAT)
+	IN	A,(IDE_STAT)
 	AND	80H
 	JP	NZ,IDERD4
 	
-	IN	A,(IDESTAT)	; clear INTRQ
+	IN	A,(IDE_STAT)	; clear INTRQ
 
 IDERD5: ; read loop
-	IN	A,(IDEDATA)	; get data
+	IN	A,(IDE_DATA)	; get data
 	LD	(HL),A
 	INC	HL
-	IN	A,(IDESTAT)	; check status
+	IN	A,(IDE_STAT)	; check status
 	AND	08H		; DRQ bit
 	JP	NZ,IDERD5	; loop until cleared
 	
 	RET
+
+	ELSE
+
+IDERD:	LD D,20h		; read command
+	CALL IDEINI		; do all the settings and wait for DRQ
+
+	CALL IDEBSY
+	
+	IN A,(IDE_STAT)	; clear INTRQ
+
+IDERD1: ; read loop
+	IN A,(IDE_DATA)	; get data
+	LD (HL),A
+	INC HL
+	IN A,(IDE_STAT)	; check status
+	AND 08H		; DRQ bit
+	JR NZ,IDERD1	; loop until cleared
+	
+	RET
+
+	ENDIF 	; DG01
 			
 ;------------------------------------------------------------------------------
 ; Write one IDE/CF-card sector (256 bytes)
@@ -1275,49 +1342,138 @@ IDERD5: ; read loop
 ; LBA bits 8 to 15 passed in B
 ; LBA bits 16 to 23 passed in E
 
+	IF NOT DG01
+
 IDEWR:
-IDEWR1:	IN	A,(IDESTAT)	; check status
+IDEWR1:	IN	A,(IDE_STAT)	; check status
 	AND	80H		; check BSY bit
 	JP	NZ,IDEWR1	; loop until not busy
 
-IDEWR2:	IN	A,(IDESTAT)	; check status
+IDEWR2:	IN	A,(IDE_STAT)	; check status
 	AND	40H		; check DRDY bit
 	JP	Z,IDEWR2	; loop until ready
 
 	LD	A,01H		; number of sectors = 1
-	OUT	(SECCND),A	; sector count register
+	OUT	(IDE_SECCNT),A	; sector count register
 	LD	A,C
-	OUT	(LBA7),A	; lba bits 0 - 7
+	OUT	(IDE_LBA7),A	; lba bits 0 - 7
 	LD	A,B
-	OUT	(LBA15),A	; lba bits 8 - 15
+	OUT	(IDE_LBA15),A	; lba bits 8 - 15
 	LD	A,E
-	OUT	(LBA23),A	; lba bits 16 - 23
+	OUT	(IDE_LBA23),A	; lba bits 16 - 23
 	LD	A,11100000B	; LBA mode, select drive 0
-	OUT	(IDEHEAD),A	; drive/head register
+	OUT	(IDE_HEAD),A	; drive/head register
 	LD	A,30H		; Write sector command
-	OUT	(IDESTAT),A
+	OUT	(IDE_STAT),A
 	
 IDEWR3:	; wait for drq set
-	IN	A,(IDESTAT)	; read status
+	IN	A,(IDE_STAT)	; read status
 	AND	08H		; DRQ bit
 	JP	Z,IDEWR3	; loop until bit set			
 
 IDEWR4:	; write loop
 	LD	A,(HL)
-	OUT	(IDEDATA),A	; write data
+	OUT	(IDE_DATA),A	; write data
 	INC	HL
-	IN	A,(IDESTAT)	; read status
+	IN	A,(IDE_STAT)	; read status
 	AND	08H		; check DRQ bit
 	JP	NZ,IDEWR4	; write until bit cleared
 
 IDEWR5:	; wait for busy clear
-	IN	A,(IDESTAT)
+	IN	A,(IDE_STAT)
 	AND	80H
 	JP	NZ,IDEWR5
 
-	IN	A,(IDESTAT)	; clear INTRQ
+	IN	A,(IDE_STAT)	; clear INTRQ
 	RET
 
+	ELSE
+	
+IDEWR:	LD D,30h		; write command
+	CALL IDEINI		; do all the settings and wait for DRQ
+
+IDEWR1:	; write loop
+	LD A,(HL)
+	OUT (IDE_DATA),A	; write data
+	INC HL
+	IN A,(IDE_STAT)		; read status
+	AND 08H			; check DRQ bit
+	JP NZ,IDEWR1		; write until bit cleared
+
+IDEWR2:	CALL IDEBSY
+
+	IN A,(IDE_STAT)		; clear INTRQ
+	RET
+
+	ENDIF	; DG01
+
+	IF DG01
+
+;------------------------------------------------------------------------------
+; IDE wait for Busy cleared
+
+IDEBSY:	IN A,(IDE_STAT)		; check status
+	AND 80H			; check BSY bit
+	JR NZ,IDEBSY		; loop until not busy
+	RET
+
+;------------------------------------------------------------------------------
+; Read/Write command in D (20h = READ, 30h = WRITE)
+; Address of data in HL
+; LBA bits 0 to 7 passed in C
+; LBA bits 8 to 15 passed in B
+; LBA bits 16 to 23 passed in E
+
+IDESET:	DB 0			; ide initialisation (0 = not, 1 = initalized)
+
+IDEINI:	CALL IDEBSY
+
+IDEIN1:	IN A,(IDE_STAT)		; check status
+	AND 40H			; check DRDY bit
+	JP Z,IDEIN1		; loop until ready
+
+	LD A,(IDESET)
+	AND A
+	JR NZ,IDEIN2		; -> skip init
+
+	; one time initialisation
+	LD A,11100000B		; LBA mode, select drive 0
+	OUT (IDE_HEAD),A	; sector count register
+	;LD A,01		; 8 bit mode
+	;OUT (IDE_FEAT),A	; sector count register
+	LD A,81h		; 16 bit mode (no need to set, is default)
+	OUT (IDE_FEAT),A	; sector count register
+	LD A,0EFH		; set feature command
+	OUT (IDE_STAT),A	; 
+
+	CALL IDEBSY
+
+	LD A,1
+	LD (IDESET),A
+
+IDEIN2:	LD A,01H		; number of sectors = 1
+	OUT (IDE_SECCNT),A	; sector count register
+	LD A,C
+	OUT (IDE_LBA7),A	; lba bits 0 - 7
+	LD A,B
+	OUT (IDE_LBA15),A	; lba bits 8 - 15
+	LD A,E
+	OUT (IDE_LBA23),A	; lba bits 16 - 23
+	;LD A,11100000B	; LBA mode, select drive 0
+	;OUT (IDE_HEAD),A	; drive/head register
+
+	LD A,D		; Read/Write sector command
+	OUT (IDE_STAT),A
+
+IDEIN3:	; wait for drq set
+	IN A,(IDE_STAT)	; read status
+	AND 08H		; DRQ bit
+	JP Z,IDEIN3	; loop until bit set			
+
+	RET
+	
+	ENDIF		; DG01
+	
 ;==============================================================================
 
 ; The driver section of the Monitor that is used by the CP/M BIOS ends here.
@@ -1330,26 +1486,30 @@ FREEMEM EQU $
 
 MSGSTRT:
 MSGCRLF:
-	DEFB CR,LF
-
-	DEFM ESC,"[2J",ESC,"[H",BELL,CR,LF
-	DEFM " -------------------------",CR,LF
-	DEFM " Monitor MC COMPUTER V "
 	
 	IF NOT DG01
 	
-	DEFM "7.1"
+	DEFB CR,LF
+	DEFM ESC,"[2J",ESC,"[H",BELL,CR,LF
+	DEFM "-------------------------",CR,LF
+	DEFM " Monitor MC COMPUTER V7.1",CR,LF
+	DEFM "   RDK/JS 1985 - UH 2026",CR,LF
+	DEFM "-------------------------",CR,LF,LF
+	DEFM " Bootmenue = I",CR,LF,LF,0
 	
 	ELSE
 	
-	DEFM VERSION/10+'0','.',VERSION MOD 10+'0'
+	DEFB CR,LF
+	DEFM ESC,"[2J",ESC,"[H",BELL,CR,LF
+	DEFM "--------------------------",CR,LF
+	DEFM "MC CP/M-Computer NMON V"
+	DEFM VERSION/10+'0','.',VERSION MOD 10+'0',CR,LF
+	DEFM "   UH/*dg* 261017-02",CR,LF
+	DEFM "--------------------------",CR,LF,LF
+	DEFM " Bootmenue = I",CR,LF,0
 	
 	ENDIF
 	
-	DEFM CR,LF
-	DEFM "   RDK/JS 1985 - UH 2026",CR,LF
-	DEFM	" -------------------------",CR,LF,LF
-	DEFM " Bootmenue = I",CR,LF,LF,0
 	MSGL EQU $-MSGSTRT
 
 ;------------------------------------------------------------------------------
@@ -1371,25 +1531,22 @@ INIT1:	; only called once
 	JR SKSKL
 
 TABSIOA:
-	DEFB 1,0
-	DEFB 3,11100001B	; -CTS UND -DCD ENABLE rev 3.4 term1
-	DEFB 4,01001100B
-	DEFB 5,11101010B	; dtr rts +12V bedeutet ready rev 3.4
+	DEFB 1,00000000B	; WR1: IRQ/WAIT/RDY off
+	DEFB 3,11100001B	; WR3: Rx enable, -CTS/-DCD enable (rev 3.4 term1)
+	DEFB 4,01001100B	; WR4: No parity, 1 stopbit, no sync, clock x 16
+	DEFB 5,11101010B	; WR5: RTS inactive, Tx enable, 8 bits active, DTR active (rev 3.4)
 
 TABSIOB:
-	DEFB 1,0
-	DEFB 3,11100001B	; -CTS UND -DCD ENABLE
-	DEFB 4,01001100B
-	DEFB 5,11101010B	; dtr rts +12V bedeutet ready rev 3.4
+	DEFB 1,00000000B	; WR1: IRQ/WAIT/RDY off
+	DEFB 3,11100001B	; WR3: Rx enable, -CTS/-DCD enable
+	DEFB 4,01001100B	; WR4: No parity, 1 stopbit, 8 bit, clock x 16
+	DEFB 5,11101010B	; WR5: RTS inactive, Tx enable, 8 bits active, DTR active (rev 3.4)
 
 ;------------------------------------------------------------------------------
 
 ; Init 8251 (D71051c) on CPU-Board
 
 SKSKL:
-
-	;TODO
-	;IF Z80S
 
 ;INIT_UART:
 	XOR	A		; lt. Datenblatt erst mal 'aufwecken'
@@ -1400,12 +1557,10 @@ SKSKL:
 	LD	A,40H		; Reset
 	OUT	(SU_STS),A	; UART Status Port
 
-	LD	A,04EH		; BAUD x16, 8,1,n
-	OUT	(SU_STS),A	; UART Status Port
+	LD	A,4EH		; BAUD x16, 8,1,n
+	OUT	(SU_STS),A
 	LD	A,37H		; Cmd: TXE,RXE,RTS=LOW,DSR=LOW
-	OUT	(SU_STS),A	; UART Status Port
-
-	;ENDIF
+	OUT	(SU_STS),A
 
 ;------------------------------------------------------------------------------
 ; Monitor cold start
@@ -1428,9 +1583,9 @@ AHEAD:	LD SP,HL		; set stack to end of memory, but before F000h
 	LD BC,-5FH
 	ADD HL,BC
 	PUSH HL
+	
 	LD HL,0
 	LD B,10 		; REGISTER
-
 STKIT:	PUSH HL
 	DJNZ STKIT
 
@@ -1507,7 +1662,11 @@ TBL:	DEFW ASSIGN	; A
 
 BOOTMSG:
 	DEFB CR,LF,LF
+IF NOT DG01
 	DEFM "FLO2-Boot = 1, IDE/CF Karte = 2, FLO1-Boot = 3 : " 
+ELSE
+	DEFM "Boot: Floppy = 1, IDE/CF = 2 ? " 
+ENDIF
 FLPL	EQU $-BOOTMSG
 
 BOOT:	CALL INIFLP 	; Vektoren etc definieren
@@ -1525,7 +1684,8 @@ BOOT:	CALL INIFLP 	; Vektoren etc definieren
 	
 	CP "2"
 	JR Z,IDE_CF	; '2' -> IDE-CF Boot
-	
+
+IF NOT DG01	
 	CP '3'
 	JP NZ,BOOT1
 	
@@ -1544,20 +1704,27 @@ BOOT1:	CP '1'
 
 BOOT2:	JP ERROR
 
+ELSE
+BOOT1:	CP '1' 
+	JP NZ,ERROR
+	
+	; '1' = FLO2
+ENDIF
+
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++		
 ; Ueberspringt autom. Format Erkennung bei boot 
 ; fuer original loeschen oder auskommentieren
 ; 2026 geaendert wg. Boot von DD Disketten
-; FLO1/FLO2 in A
 
-BOOT3:
-	LD C,00100001B 	; immer von Laufwerk A Mini Floppy Seite 0, DD booten
+BOOT3:	LD C,00100001B 	; immer von Laufwerk A Mini Floppy Seite 0, DD booten
 	LD HL,80H	; SD, load 128 byte boot sector to address 0080h
+	
+IF NOT DG01	
 	JP EXEC1
 	
 ; Ende +++++++++++++++++++++++++++++++++++++++++++++++++++++
-			; automatisch Format bestimmen, REV 1.1
-	LD C,00000001b 	; immer von Laufwerk A  Seite 0 booten
+	; automatisch Format bestimmen, REV 1.1
+	LD C,00000001b 	; immer von Laufwerk A Seite 0 booten
 	CALL GETFRM	; Formatierung bestimmen
 	JP C,ERROR	; bei Fehler zurueck ins Menue	
 	LD HL,80H 	; bei einfacher Dichte nach 80h
@@ -1565,24 +1732,26 @@ BOOT3:
 	JR NZ,EXEC1 	; sd
 	LD HL,0FC00H 	; sonst 1K Block ggf. dorthin.
 ; Ende +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ENDIF
 
-EXEC1:	PUSH HL 	; rev (1.5) 1.1
+EXEC1:	PUSH HL		; boot loader address
 	LD B,1  	; lesen
 	LD D,0  	; track 0
 	LD E,1  	; sektor 1
 	CALL FLOP
-	POP HL  	; Boot sector address
+	POP HL  	; boot sector address
 	JP NZ,ERROR
 	
-	JP (HL) 	; Boot sector ausfuehren
+	JP (HL) 	; execute boot sector
 
 ;------------------------------------------------------------------------------
 ; Load boot sector from IDE/CF-card to RAM location 08000h
 
-IDE_CF:	LD HL,08000h
+IDE_CF:	LD HL,08000h	; buffer address
 	LD BC,0000h	; B,C,E = 0 -> LBA = 0
 	LD E,00H
 	CALL IDERD	; IDE read
+
 	JP 08000H	; Execute boot sector
 
 ;------------------------------------------------------------------------------
@@ -2325,7 +2494,7 @@ OUTMSG:	LD C,(HL)
 	; check if char received
 	CALL CONSTS
 	OR A
-	RET Z
+	RET Z	; -> no char
 
 	; check if CTRL-C abort
 	CALL CONIN7
