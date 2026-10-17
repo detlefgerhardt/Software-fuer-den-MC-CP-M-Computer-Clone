@@ -29,11 +29,12 @@ Die Projekte liegen in Unterverzeichnissen. Zum compilieren müssen sie in das �
 
 Hier eine Liste der Projekte (nicht immer aktuell):
 
-- **DISCOPY** kopiert Disketten von einem Laufwerk auf ein anderes, wobei über BIOS-Funktionen geprüft wird, ob die Formatdefinitionen der Laufwerke identisch sind.
+- **DISKCOPY** kopiert Disketten von einem Laufwerk auf ein anderes, wobei über BIOS-Funktionen geprüft wird, ob die Formatdefinitionen der Laufwerke identisch sind.
 - **KEYCODES** zeigt die Tastencodes (Eingaben) der Terminals an (zum Beispiel um die Belegung von Sondertasten zu ermitteln).
 - **LIBDG** ist die eigene Library mit vielen zusätzlichen und zum Teil systemspezifischen Funktion.
 - **NFORM** ist ein komplett neu geschriebens Formatierprogramm.
 - **NFORMCF** ist ein neues Formatierprogramm für IDE/CF-Laufwerke. Im wesentlich werden nur die Sektoren mit E5h beschrieben, also eigentlich eher ein Löschprogramm.
+- **COPYCF** Kopierprogramm für CF-Disk-Partitionen. Arbeitet auf Hardware-Register-Ebene und kann daher mehrere IDE80-Karten auf unterschiedlichen Adressen ansprechen.
 - **NXDISK** übertragt komplette Disketten als Image per XModem-Protokoll auf den PC (und wieder zurück). Das kann zur Sicherung von Disketten verwendet werden. Oder zum Kopieren, wenn nur ein Laufwerk zu Verfügung steht. Es werden die Standard-Console (serielle Schnittstelle des SYS-Boards) und die beiden SIO-Port des OUT-Boards unterstützt. Die übertragung über das OUT-Board funktioniert mit bis zu 37800 bit/s.
 - **SETFMTS** erlaubt das umdefinieren der Laufwerkparameter für einzelne Laufwerke zur Laufzeit.
 - **SHOWFMTS** zeigt die aktuellen Laufwerksparameter aller Laufwerke inkl. des physikalischen Formats.
