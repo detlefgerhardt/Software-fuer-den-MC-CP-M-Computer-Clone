@@ -6,6 +6,6 @@
 
 * **Floppy-Board-Rückwand** ist eine Platine, die den 34 und der 50-poligen Floppy-Anschluss auf der Rückseite eines Systemgehäuses herausführt. Ein passende Halterung findet man im Order 3D-Druck.
 
-    <img src="MC_CPM_Floppyadapter/Floppy-Board-Rückwand.jpg" alt="Rückwand-Adapter" width="300">
+    <img src="Floppy-Board-Rückwand/Floppy-Board-Rückwand.jpg" alt="Rückwand-Adapter" width="300">
 
 Bei Gelegenheit werde ich die Projekte umbenennen und sinnvolle Namen vergeben. ;-)
