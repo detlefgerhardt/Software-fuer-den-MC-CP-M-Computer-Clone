@@ -1,0 +1,23 @@
+%TF.GenerationSoftware,KiCad,Pcbnew,9.0.7*%
+%TF.CreationDate,2026-05-02T08:11:59+02:00*%
+%TF.ProjectId,MC_CPM_Floppyadapter,4d435f43-504d-45f4-966c-6f7070796164,rev?*%
+%TF.SameCoordinates,Original*%
+%TF.FileFunction,Profile,NP*%
+%FSLAX46Y46*%
+G04 Gerber Fmt 4.6, Leading zero omitted, Abs format (unit mm)*
+G04 Created by KiCad (PCBNEW 9.0.7) date 2026-05-02 08:11:59*
+%MOMM*%
+%LPD*%
+G01*
+G04 APERTURE LIST*
+%TA.AperFunction,Profile*%
+%ADD10C,0.200000*%
+%TD*%
+G04 APERTURE END LIST*
+D10*
+X125250000Y-59250000D02*
+X145250000Y-59250000D01*
+X145250000Y-103500000D01*
+X125250000Y-103500000D01*
+X125250000Y-59250000D01*
+M02*
