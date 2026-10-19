@@ -6,7 +6,7 @@ Dieses Repository enthält vollständig überarbeite Software (Monitor, BIOS und
 
 **https://github.com/uli-pi/MC-CPM-Computer-Clone**
 
-Zusätzlich findet man hier 3D-Druckteile und Adapter für den Aufbau mit einem 19" Gehäuse bzw. Baugruppenträger.
+Zusätzlich findet man hier 3D-Druckteile und Adapter für den Einbau des Computers in ein 19" Systemgehäuse oder Baugruppenträger.
 
 Ziel dieses Repositories hier ist es, die Software des MC CP/M Computer-Clones möglichst gut zu dokumentieren und weiter zu entwickeln.
 Der Monitor soll kompatibel bleiben und die Kompatibilität des BIOS ist von CP/M vorgegeben. Teile des Monitors und des BIOS, die nicht für CP/M benötigt werden, wurden bereits weitgehend entfernt.
