@@ -1,5 +1,4 @@
 # Software und Zubehör für den MC CP/M-Computer-Clone
-Software fuer den MC CP/M-Computer Clone
 
 **Dieses Repository befindet sich noch im Aufbau. Die Programme sind teilweise noch unvollständig und ungetestet!**
 
