@@ -1,4 +1,4 @@
-# 3D-Druck-Teile für den Einbau in 19"-Gehäuse und Baugruppenträger
+# 3D-Druck-Teile für den Einbau in 19"-Systemgehäuse und Baugruppenträger
 
 Die 3D-Teile wurden mit DesignSpark Mechanical erstellt, das in der freien Version leider ausser STL keine weiteren Export-Formate unterstützt. Daher können hier nur die STL- und RSDOCX-Files bereit gestellt werden.
 
