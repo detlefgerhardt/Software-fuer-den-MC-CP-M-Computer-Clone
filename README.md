@@ -19,7 +19,7 @@ Geplante Erweiterungen:
 - Vereinheitlichung der Tools - zum Beispiel für die Nutzung von Disketten und IDE/CF-Laufwerke (hier kann noch weiter optimiert werden. Bisher gibt es noch eigene Tools zum Einrichten von IDE/CF-Laufwerken)
 
 Dieses Repository enthält folgende Teilprojekte (noch in Arbeit, Liste nicht immer aktuell):
-- **NMON** - der Monitor für den MC CP/M-Computer, geändert und erweitert, basierendem auf dem Original-Monitor von Rolf-Dieter Klein
+- **NMON** - der Monitor für den MC CP/M-Computer, geändert und erweitert, basierendem auf dem Original-Monitor von Rolf-Dieter Klein und einigen Anpassungen von Ulrich Haumann
 - **NBIOS** - das angepasste BIOS, die Schnittstelle zwischen dem Monitor, der Hardware und CP/M (ebenfalls basierenden auf dem Original-BIOS von RDK)
 - **NBIOS-CF** - angepasstes BIOS und Tools für das IDE/CF-Interface
 - **NFORM** ist das originale in Z80 geschrieben Formatierprogramm für den MC CP/M-Computer. Da es lediglich den Monitor vorrausetzt, kann es ohne CP/M direkt im Monitor ausgeführt werden.
