@@ -4,10 +4,10 @@ Die 3D-Teile wurden mit DesignSpark Mechanical erstellt, das in der freien Versi
 
 Enthaltene Themen:
 
-- **Frontplatten für die bestehenden ECB-Boards** Die Frontplatten werden in einem Stück gedruckt und enthalten die Frontplatte, den Griff und die Platinenhalterung. Ich drucke die Frontplatten mit Vorderseite und Griff nach oben. Die Platinenhalterung wird mit Support-Strukturen aufgefüllt. sdf dfb fgb fgbsfgbsfgb fsgb fgb fgbsfgbsfgbsfgbsfg.+
+* **Frontplatten für die bestehenden ECB-Boards** Die Frontplatten werden in einem Stück gedruckt und enthalten die Frontplatte, den Griff und die Platinenhalterung. Ich drucke die Frontplatten mit Vorderseite und Griff nach oben. Die Platinenhalterung wird mit Support-Strukturen aufgefüllt.
   <img src="Systemgehäuse.jpg" alt="Systemghäuse" width="300">
   
-- **Gehäuseteile für 19"** Hier findet man eine Rückwand mit Halterungen für das Mean Well Netzteil RD50A und einen Einbaunetzstecker mit Schalter. Ausserdem je einen Laufwerkskäfig für 3 1/2 und 5 1/4 Zoll Laufwerke.
+* **Gehäuseteile für 19"** Hier findet man eine Rückwand mit Halterungen für das Mean Well Netzteil RD50A und einen Einbaunetzstecker mit Schalter. Ausserdem je einen Laufwerkskäfig für 3 1/2 und 5 1/4 Zoll Laufwerke.
   <img src="Floppy-Rack 3,5a.jpg" alt="Floppy-Rack 3,5a" width="300">
   
 - weitere Zubehörteile, wie zum Beispiele eine Abdeckung für die Schraubanschlüsse des Meanwell RD50A für den offenen Betrieb in Testaufbauten.
