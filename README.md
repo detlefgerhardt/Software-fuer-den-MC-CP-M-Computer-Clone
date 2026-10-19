@@ -28,7 +28,7 @@ Dieses Repository enthält folgende Teilprojekte (noch in Arbeit, Liste nicht im
 - **CPM-Standardsoftware** - Standard CP/M-Programme, die für Entwicklung und die Systemeinrichtung benötigt werde oder nützlich sind.
 - **VT100-Animationen** - Ausgewählte VT-Animationen inkl. Anzeige-Tools.
 
-Zum Thema Gehäuse und 3D-Druck:
+Zum Thema Gehäuse und 3D-Druck (neu):
 - **Gehäuse und 3D-Druck** enthält Teile wie Fronplatten oder Laufwerkskäfige (Halterungen) für den Einbau in 19" Gehäuse und Baugruppenträger.
 - **KiCAD** enthält derzeit Adapter-Platinen, die den Anschluss von Diskettenlaufwerken erleichtern.
 
