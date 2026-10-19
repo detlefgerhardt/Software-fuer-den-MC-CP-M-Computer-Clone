@@ -12,7 +12,7 @@ Enthaltene Themen:
   
     <img src="Floppy-Rack 3,5a.jpg" alt="Floppy-Rack 3,5 Zoll" width="300">
   
-* weitere Zubehörteile, wie zum Beispiele ein rudimentärer Berührungsschautz für die Schraubanschlüsse des Mean Well RD50A für den offenen Betrieb bei Testaufbauten.
+* weitere Zubehörteile, wie zum Beispiele ein rudimentärer Berührungsschutz für die Schraubanschlüsse des Mean Well RD50A für den offenen Betrieb bei Testaufbauten.
 
     <img src="Meanwell Cover RD50A.jpg" alt="Mean Well Cover RD50A" width="300">
 - 
