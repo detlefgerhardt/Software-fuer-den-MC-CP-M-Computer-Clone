@@ -4,7 +4,7 @@ Die 3D-Teile wurden mit DesignSpark Mechanical erstellt, das in der freien Versi
 
 Enthaltene Themen:
 
-* **Frontplatten für die bestehenden ECB-Boards** Die Frontplatten werden in einem Stück gedruckt und enthalten die Frontplatte, den Griff und die Platinenhalterung. Ich drucke die Frontplatten mit Vorderseite und Griff nach oben. Die Platinenhalterung wird mit Support-Strukturen aufgefüllt.
+* **Frontplatten für die bestehenden ECB-Boards** Die Frontplatten werden in einem Stück gedruckt und enthalten die Frontplatte, den Griff und die Platinenhalterung. Ich drucke die Frontplatten mit Vorderseite und Griff nach oben. Die Seite mit der Platinenhalterung wird komplett mit Support-Strukturen aufgefüllt.
  
     <img src="Systemgehäuse.jpg" alt="Systemghäuse" width="300">
   
