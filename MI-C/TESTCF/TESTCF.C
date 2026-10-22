@@ -44,6 +44,8 @@ InitDisks()
    use dspadr as the displayed address
 */
 
+#if FALSE
+
 dump(p, count, dspadr)
 	char *p;
 	int count;
@@ -92,6 +94,8 @@ dump(p, count, dspadr)
 	}
 }
 
+#endif
+
 /****************************************************************************/
 
 int WaitCr()
@@ -136,52 +140,6 @@ BOOL cmpprm(src, dst)
 	if (src->floreg != dst->floreg) return FALSE;
 	return TRUE;
 }
-
-/****************************************************************************/
-
-#if FALSE
-
-BOOL Copy(srcadr, srcdrv, dstadr, dstdrv, trkcnt, verify)
-	int srcadr, srcdrv;
-	int dstadr, dstdrv;
-	int trkcnt;
-	BOOL verify;
-{
-	int sec, trk, cnt;
-	
-	for (trk = 0; trk < trkcnt; trk++)
-	{
-		cprintf("T=%3d\r", trk);
-		for (sec = 0; sec < SECCNT; sec++)
-		{
-			if (kbhit())
-			{
-				if (getch() == CTRLC)
-				{
-					cputs("\r\n\ncopy aborted\r\n");
-					return FALSE;
-				}
-			}
-			Read(buffer, srcadr, srcdrv, trk, sec);
-			Write(buffer, dstadr, dstdrv, trk, sec);
-			if (verify)
-			{
-				Read(vbuffer, dstadr, dstdrv, trk, sec);
-				if (memcmp(vbuffer, buffer, SECSIZ) != NULL)
-				{
-					cprintf("\r\n\nverify error at sector %d / track %d\r\n", sec, trk);
-					cputs("copy aborted\r\n");
-					return FALSE;
-				}
-			}
-		}
-	}
-
-	cputs("\r\n\ncopy finished\r\n");
-	return TRUE;
-}
-
-#endif
 
 /****************************************************************************/
 
@@ -233,10 +191,10 @@ int TestSize()
 	}
 
 	/*
-	dump(buffer, 256, 0x1800);
+	hexdmp(buffer, 256, 0x1800);
 	cputs("\r\n");
 	RD_LBA(buffer, 0x18, 0x0001L);
-	dump(buffer, 256, 0x1800);
+	hexdmp(buffer, 256, 0x1800);
 	cputs("\r\n");
 	*/
 }
@@ -255,7 +213,7 @@ int NotBsy(flag)
 		d = inp(addr + 7);	/* status */
 		if ((d & 0x80) == 0)
 		{
-			cprintf("BUSY F%d C%d (%02Xh)\r\n", flag, i, d);
+			cprintf("BUSY F%d C%d (%02Xh) ok\r\n", flag, i, d);
 			return TRUE;
 		}
 	}
@@ -276,7 +234,7 @@ int Rdy(flag)
 		d = inp(addr + 7);	/* status */
 		if ((d & 0x40) != 0)
 		{
-			cprintf("RDY F%d C%d (%02Xh)\r\n", flag, i, d);
+			cprintf("RDY F%d C%d (%02Xh) ok\r\n", flag, i, d);
 			return TRUE;
 		}
 	}
@@ -299,7 +257,7 @@ int Drq(flag)
 		{
 			if (flag != 0)
 			{
-				cprintf("DRQ F%d C%d (%02Xh)\r\n", flag, i, d);
+				cprintf("DRQ F%d C%d (%02Xh) ok\r\n", flag, i, d);
 			}
 			return TRUE;
 		}
@@ -316,7 +274,7 @@ BOOL Init(addr)
 	int d, i;
 	int addr = 0x18;
 	
-	cputs("Init\r\n");
+	cputs("init cf\r\n");
 	
 	if (!NotBsy(1)) return FALSE;
 	if (!Rdy(2)) return FALSE;
@@ -351,6 +309,7 @@ BOOL Init(addr)
 TestCard()
 {
 	int i;
+	int size;
 	int addr = 0x18;
 	
 	buffer = calloc(512, 1);
@@ -374,11 +333,13 @@ TestCard()
 		buffer[i] = inp(addr);
 		if ((inp(addr + 7) & 08) == 0)
 		{
-			cprintf("DRQ low at %d\r\n (read)", i);
+			cprintf("DRQ low at %d (read)\r\n", i);
+			size = i + 1;
 			break;
 		}
 	}
-	dump(buffer, 512, 0x0000);
+	cprintf("%d bytes read\r\n", size);
+	hexdmp(buffer, size, 0x0000);
 
 	/* --- write sector */
 
@@ -399,11 +360,14 @@ TestCard()
 		if ((inp(addr + 7) & 08) == 0)
 		{
 			cprintf("DRQ low at %d (write)\r\n", i);
+			size = i + 1;
 			break;
 		}
 	}
 	if (!NotBsy(22)) return;
+	
 	inp(addr + 7);	/* clear INTRQ */
+	cprintf("%d bytes written\r\n", size);
 	
 #if FALSE	
 	outp(addr + 7, 0x04); /* reset command */
@@ -420,7 +384,6 @@ main(argc, argv)
 
 	/*TestSize();*/
 	TestCard();
-	return;
 
 	EXIT();
 }
