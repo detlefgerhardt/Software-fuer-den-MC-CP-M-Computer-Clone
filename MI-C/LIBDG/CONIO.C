@@ -79,6 +79,7 @@ int unget2(c)
 	int c;
 {
 	if (c != -1) lastch = c;
+	return c;
 }
 
 

@@ -1,0 +1,378 @@
+; COPYCFLL.MAC *dg* 16.10.2026
+;
+; low-level assembly routines for COPYCF.C
+; (from MONITOR and BIOS)
+
+FALSE	EQU 0
+TRUE	EQU NOT FALSE
+
+; Addresses of IDE-80 CF-Adapter card
+
+CBASE	EQU 030h	; IDE/CF adapter base address
+
+;CDATA	EQU CBASE+0	; Data Register
+;CCNT	EQU CBASE+2	; Sector Count Register
+;CLBA7	EQU CBASE+3	; LBA Bits 0-7
+;CLBA15	EQU CBASE+4	; LBA Bits 8-15
+;CLBA23	EQU CBASE+5	; LBA Bits 16-23
+;CHEAD	EQU CBASE+6	; IDE Drive Head Register
+;CSTAT	EQU CBASE+7	; IDE Command/Status Register
+
+CDATA	EQU 0		; Data Register
+CCNT	EQU 2		; Sector Count Register
+CLBA7	EQU 3		; LBA Bits 0-7
+CLBA15	EQU 4		; LBA Bits 8-15
+CLBA23	EQU 5		; LBA Bits 16-23
+CHEAD	EQU 6		; IDE Drive Head Register
+CSTAT	EQU 7		; IDE Command/Status Register
+
+ADDR:	DB 0
+DRIVE:	DB 0
+SECTOR:	DB 0
+TRACK:	DB 1
+BUFFER:	DW 0
+
+;-----------------------------------------------------------------------------
+
+; Read(buffer, addr, part, sector, track)
+;	unsigned buffer;
+;	int addr, part, sector, track;
+
+	GLOBAL READ
+
+READ:	LD IX,2		; RET address
+	ADD IX,SP
+
+	LD A,(IX+0)	; buffer low
+	LD (BUFFER),A
+	LD A,(IX+1)	; buffer high
+	LD (BUFFER+1),A
+
+	LD A,(IX+2)	; io address
+	LD (ADDR),A
+
+	LD A,(IX+4)	; partition 0..3
+	LD (DRIVE),A
+
+	LD A,(IX+6)	; sector 0..127
+	LD (SECTOR),A
+
+	LD A,(IX+8)	; track 0..255
+	LD (TRACK),A
+
+	CALL LBA
+	JR IDERD
+
+;-----------------------------------------------------------------------------
+
+; Write(buffer, addr, part, sector, track)
+;	unsigned buffer;
+;	int addr, part, sector, track;
+
+	GLOBAL WRITE
+
+WRITE:	LD IX,2		; RET address
+	ADD IX,SP
+
+	LD A,(IX+0)	; buffer low
+	LD (BUFFER),A
+	LD A,(IX+1)	; buffer high
+	LD (BUFFER+1),A
+
+	LD A,(IX+2)	; io address
+	LD (ADDR),A
+
+	LD A,(IX+4)	; partition 0..3
+	LD (DRIVE),A
+
+	LD A,(IX+6)	; sector 0..127
+	LD (SECTOR),A
+
+	LD A,(IX+8)	; track 0..255
+	LD (TRACK),A
+
+	CALL LBA
+	JP IDEWR
+
+;-----------------------------------------------------------------------------
+; RD_LBA
+;
+; rd_lba(buffer, addr, lba)
+;	char *buffer
+;	int addr;
+;	long lba;
+
+	GLOBAL RD_LBA
+
+RD_LBA:	LD IX,2		; RET address
+	ADD IX,SP
+
+	LD A,(IX+0)	; buffer low
+	LD L,A
+	LD A,(IX+1)	; buffer high
+	LD H,A
+
+	LD A,(IX+2)	; io address
+	LD (ADDR),A
+
+	LD A,(IX+4)	; LBA7
+	LD D,A
+
+	LD A,(IX+5)	; LBA15
+	LD B,A
+
+	LD A,(IX+6)	; LBA15
+	LD E,A
+	
+	JP IDERD
+
+;-----------------------------------------------------------------------------
+; WR_LBA
+;
+; wr_lba(buffer, addr, lba)
+;	char *buffer
+;	int addr;
+;	long lba;
+
+	GLOBAL WR_LBA
+
+WR_LBA:	LD IX,2		; RET address
+	ADD IX,SP
+
+	LD A,(IX+0)	; buffer low
+	LD L,A
+	LD A,(IX+1)	; buffer high
+	LD H,A
+
+	LD A,(IX+2)	; io address
+	LD (ADDR),A
+	
+	LD A,(IX+4)	; LBA7
+	LD D,A
+
+	LD A,(IX+5)	; LBA15
+	LD B,A
+
+	LD A,(IX+6)	; LBA15
+	LD E,A
+	
+	JP IDEWR
+
+;-----------------------------------------------------------------------------
+; Read one IDE/CF card sector (256 bytes)
+; routine from monitor
+;
+; Address for data in HL
+; LBA bits 0 to 7 passed in D
+; LBA bits 8 to 15 passed in B
+; LBA bits 16 to 23 passed in E
+
+IDERD:	LD	A,(ADDR)
+	ADD	A,CSTAT
+	LD	C,A
+IDERD1:	IN	A,(C)		; check status (CSTAT)
+	AND	80H		; check BSY bit
+	JP	NZ,IDERD1	; loop until not busy
+
+	;LD	A,(ADDR)
+	;ADD	A,CSTAT
+	;LD	C,A
+IDERD2:	IN	A,(C)		; check	status (CSTAT)
+	AND	40H		; check DRDY bit
+	JP	Z,IDERD2	; loop until ready
+
+	LD	A,(ADDR)
+	ADD	A,CCNT
+	LD	C,A
+	LD	A,01H		; number of sectors = 1
+	OUT	(C),A		; sector count register (CCNT)
+	
+	LD	A,(ADDR)
+	ADD	A,CLBA7
+	LD	C,A	
+	LD	A,D
+	OUT	(C),A		; lba bits 0 - 7 (CLBA7)
+	
+	LD	A,(ADDR)
+	ADD	A,CLBA15
+	LD	C,A
+	LD	A,B
+	OUT	(C),A		; lba bits 8 - 15 (CLBA15)
+	
+	LD	A,(ADDR)
+	ADD	A,CLBA23
+	LD	C,A
+	LD	A,E
+	OUT	(CLBA23),A	; lba bits 16 - 23 (CLBA23)
+
+	LD	A,(ADDR)
+	ADD	A,CHEAD
+	LD	C,A
+	LD	A,11100000B	; LBA mode, select drive 0
+	OUT	(C),A	; drive/head register (CHEAD)
+	
+	LD	A,(ADDR)
+	ADD	A,CSTAT
+	LD	C,A
+	LD	A,20H		; Read sector command
+	OUT	(C),A		; (CSTAT)
+
+	;LD	A,(ADDR)
+	;ADD	A,CSTAT
+	;LD	C,A
+IDERD3:	; wait for drq set
+	IN	A,(C)		; read status (CSTAT)
+	AND	08H		; DRQ bit
+	JP	Z,IDERD3	; loop until bit set
+
+IDERD4:	; wait for busy clear
+	IN	A,(C)		; (CSTAT)
+	AND	80H
+	JP	NZ,IDERD4
+
+	IN	A,(C)		; clear INTRQ (CSTAT)
+
+	LD	A,(ADDR)
+	ADD	A,CSTAT
+	LD	D,A		; D = CSTAT
+	LD	A,(ADDR)
+	ADD	A,CDATA
+	LD	E,A		; E = CDATA
+
+IDERD5: ; read loop
+	LD	C,E
+	IN	A,(C)		; get data (CDATA)
+	LD	(HL),A
+	INC	HL
+	LD	C,D
+	IN	A,(C)		; check status (CSTAT)
+	AND	08H		; DRQ bit
+	JP	NZ,IDERD5	; loop until cleared
+	
+	RET
+
+;-----------------------------------------------------------------------------
+; Write one IDE/CF-card sector (256 bytes)
+; routine from monitor
+;
+; Address of data in HL
+; LBA bits 0 to 7 passed in D
+; LBA bits 8 to 15 passed in B
+; LBA bits 16 to 23 passed in E
+
+IDEWR:	LD	A,(ADDR)
+	ADD	A,CSTAT
+	LD	C,A
+IDEWR1:	IN	A,(C)		; check status (CSTAT)
+	AND	80H		; check BSY bit
+	JP	NZ,IDEWR1	; loop until not busy
+
+	;LD	A,(ADDR)
+	;ADD	A,CSTAT
+	;LD	C,A
+IDEWR2:	IN	A,(C)		; check status (CSTAT)
+	AND	40H		; check DRDY bit
+	JP	Z,IDEWR2	; loop until ready
+
+	LD	A,(ADDR)
+	ADD	A,CCNT
+	LD	C,A
+	LD	A,01H		; number of sectors = 1
+	OUT	(C),A		; sector count register (CCNT)
+
+	LD	A,(ADDR)
+	ADD	A,CLBA7
+	LD	C,A
+	LD	A,D
+	OUT	(C),A		; lba bits 0 - 7 (CLBA7)
+	
+	LD	A,(ADDR)
+	ADD	A,CLBA15
+	LD	C,A
+	LD	A,B
+	OUT	(C),A		; lba bits 8 - 15 (CLBA15)
+	
+	LD	A,(ADDR)
+	ADD	A,CLBA23
+	LD	C,A
+	LD	A,E
+	OUT	(C),A		; lba bits 16 - 23 (CLBA23)
+	
+	LD	A,(ADDR)
+	ADD	A,CHEAD
+	LD	C,A
+	LD	A,11100000B	; LBA mode, select drive 0
+	OUT	(C),A		; drive/head register (CHEAD)
+	
+	LD	A,(ADDR)
+	ADD	A,CSTAT
+	LD	C,A
+	LD	A,30H		; Write sector command
+	OUT	(C),A		; (CSTAT)
+	
+	;LD	A,(ADDR)
+	;ADD	A,CSTAT
+	;LD	C,A
+IDEWR3:	; wait for drq set
+	IN	A,(C)		; read status (CSTAT)
+	AND	08H		; DRQ bit
+	JP	Z,IDEWR3	; loop until bit set			
+
+	LD	A,(ADDR)
+	ADD	A,CSTAT
+	LD	D,A		; D = CSTAT
+	LD	A,(ADDR)
+	ADD	A,CDATA
+	LD	E,A		; E = CDATA
+
+IDEWR4:	; write loop
+	LD	A,(HL)
+	LD	C,E
+	OUT	(C),A		; write data (CDATA)
+	INC	HL
+	LD	C,D
+	IN	A,(C)		; read status (CSTAT)
+	AND	08H		; check DRQ bit
+	JP	NZ,IDEWR4	; write until bit cleared
+
+	;LD	A,(ADDR)
+	;ADD	A,CSTAT
+	;LD	C,A
+IDEWR5:	; wait for busy clear
+	IN	A,(C)		; (CSTAT)
+	AND	80H
+	JP	NZ,IDEWR5
+
+	;LD	A,(ADDR)
+	;ADD	A,CSTAT
+	;LD	C,A
+	IN	A,(C)		; clear INTRQ (CSTAT)
+
+	RET
+
+;-----------------------------------------------------------------------------
+; LBA assignment (8192K):
+; 00000000 00000000 00000000
+; 0000000d dsssssss tttttttt
+;        E        B        D
+
+LBA:	; LBA0..7 -> D
+	LD A,(TRACK)
+	LD D,A		; LBA0..7 -> B
+
+	LD A,(DRIVE)
+	LD E,A
+	SRL E		; drive bit 1 -> bit 0, bit 0 -> carry
+			; LBA16..23 -> E
+	LD B,0
+	RR B		; carry -> bit 7
+	LD A,(SECTOR)
+	;DEC A		; phys sect. starts wird 1
+	OR B
+	LD B,A		; LBA8..15 -> B
+
+	RET
+
+;-----------------------------------------------------------------------------
+
+	END

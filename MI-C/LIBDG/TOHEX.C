@@ -41,3 +41,27 @@ char *ltohex(l, s)
 	s[8] = 0;
 	return s;
 }
+
+/* hex -> unsigned int */
+unsigned hextou(s)
+	char *s;
+{
+	unsigned val;
+	int i, d;
+
+	val = 0;
+	for (i = 0; i < strlen(s); i++)
+	{
+		val <<= 4;
+		d = tolower(s[i]);
+		if (d >= '0' && d <= '9')
+			d -= '0';
+		else if (d >= 'a' && d <= 'f')
+			d -= 'a';
+		else
+			/* invalid digit */
+			return;
+		val += d;
+	}
+	return val;
+}

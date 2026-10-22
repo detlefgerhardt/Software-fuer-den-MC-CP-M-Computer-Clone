@@ -83,7 +83,7 @@ int GetPrm(int drive, phyprm *prm)
 
 Modul MEMSET
 
-char *memste(char *mem, int c, int n)
+char *memset(char *mem, int c, int n)
 
 Modul MEMCPY
 

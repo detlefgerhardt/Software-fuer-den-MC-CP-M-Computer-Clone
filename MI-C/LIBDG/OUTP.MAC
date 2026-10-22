@@ -20,4 +20,6 @@ OUTP:	LD IX,2		; RET address
 	; return dst
 	LD HL,0
 
+	RET
+
 	END
