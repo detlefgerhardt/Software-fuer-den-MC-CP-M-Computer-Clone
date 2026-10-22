@@ -19,16 +19,16 @@ Geplante Erweiterungen:
 - Vereinheitlichung der Tools - zum Beispiel für die Nutzung von Disketten und IDE/CF-Laufwerke (hier kann noch weiter optimiert werden. Bisher gibt es noch eigene Tools zum Einrichten von IDE/CF-Laufwerken)
 
 Dieses Repository enthält folgende Teilprojekte (noch in Arbeit, Liste nicht immer aktuell):
-- **NMON** - der Monitor für den MC CP/M-Computer, geändert und erweitert, basierendem auf dem Original-Monitor von Rolf-Dieter Klein
+- **NMON** - der Monitor für den MC CP/M-Computer, geändert und erweitert, basierendem auf dem Original-Monitor von Rolf-Dieter Klein und einigen Anpassungen von Ulrich Haumann
 - **NBIOS** - das angepasste BIOS, die Schnittstelle zwischen dem Monitor, der Hardware und CP/M (ebenfalls basierenden auf dem Original-BIOS von RDK)
 - **NBIOS-CF** - angepasstes BIOS und Tools für das IDE/CF-Interface
-- **NFORM** ist das originale in Z80 geschrieben Formatierprogramm für den MC CP/M-Computer. Da es lediglich den Monitor vorrausetzt, kann es ohne CP/M direkt im Monitor ausgeführt werden.
+- **NFORM** ist das originale in Z80 geschrieben Formatierprogramm für den MC CP/M-Computer. Da es lediglich den Monitor vorrausetzt, kann es ohne CP/M und BIOS direkt im Monitor ausgeführt werden.
 - **MI-C** - in MI-C programmierte Programme und Tools, um Teil abgestimmt auf das NBIOS und nur mit diesem lauffähig
 - **DEV-Tools** - Entwicklungstools für CP/M und Windows (Assembler, MI-C-Compiler, eigene Tools)
 - **CPM-Standardsoftware** - Standard CP/M-Programme, die für Entwicklung und die Systemeinrichtung benötigt werde oder nützlich sind.
-- **VT100-Animationen** - Ausgewählte VT-Animationen inkl. Anzeige-Tools.
+- **VT100-Animationen** - Ausgewählte VT100-Animationen inkl. Anzeige-Tools. Die Anzeige-Tools korrigieren nötigenfalls die Zeilenendezeichen und können auf Wunsch alle Dateien auf einem Laufwerk in zufälliger Reihenfolge ausgeben.
 
-Zum Thema Gehäuse und 3D-Druck:
+Zum Thema Gehäuse und 3D-Druck (neu):
 - **Gehäuse und 3D-Druck** enthält Teile wie Fronplatten oder Laufwerkskäfige (Halterungen) für den Einbau in 19" Gehäuse und Baugruppenträger.
 - **KiCAD** enthält derzeit Adapter-Platinen, die den Anschluss von Diskettenlaufwerken erleichtern.
 
