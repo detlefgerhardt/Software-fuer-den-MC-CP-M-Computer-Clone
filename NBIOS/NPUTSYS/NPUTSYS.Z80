@@ -17,15 +17,21 @@
 ; 10.07.2026 *dg* Renamed to NBOOT and reformatted source code
 ;                 Changed CP/M and BIOS start address and sector count
 ; 11.07.2026 *dg* Use new floppy routine 0F021h in Monitor
+; 23.22.2026 *dg* Added some comments
 
 OFFSET	EQU	0A000H-800H	; damit BIOS Start bei E200h
 CPMB	EQU	03400H+OFFSET	; start CP/M
 BIOS	EQU	04A00H+OFFSET	; start BIOS
 
-; sector count (1024 byte sectors)
-; on a mini disk 4 tracks are reserved: 5 * 4 - 1 = 19 sectors
+; This program uses the monitor and physical sectors to write the system to
+; disk. The default sector size for the boot drive is 1024 bytes (800 KB NKC
+; format).
+; The system's start sector is the second sector (after the boot sector).
+; By default, four tracks are reserved for the boot sector and the system.
+
 SECCNT	EQU (0F000h-CPMB)/1024
 ;SECCNT	EQU 7
+SECSTRT	EQU 2	; start with second physical sector
 
 ; Monitor functions
 RSTRT	EQU 0F01EH	; restart
@@ -43,7 +49,7 @@ PUT:	LD SP,200H	;start of stack
 	
 	; start with track 0 and sector 2 (sector 1 is boot sector)
 	LD D,0		; track
-	LD E,2		; sector
+	LD E,SECSTRT	; sector
 
 PUT1:	; sector loop	
 	PUSH HL

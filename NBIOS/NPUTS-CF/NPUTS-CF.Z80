@@ -25,6 +25,8 @@
 ;		  Changed for CF/IDE drives 4..7 (E..H)
 ; 09.08.2026 *dg* Renamed to NPUTS-CF, Jump to BIOS when finished,
 ;		  because the program uses the BIOS and overwrites the monitor.
+; 23.10.2026 *dg* Change system start on disk to second logical sector.
+;		  Added some comments
 
 FALSE	EQU 0
 TRUE	EQU NOT FALSE
@@ -52,14 +54,19 @@ WRITE	EQU BIOS+02AH	; write one CP/M sector to disk
 
 BOOTDRV	EQU 4		; first IDE/CF-drive
 
-; sector count (1024 byte sectors)
-; on a IDE/CF disk 1 track is reserved: 64 sectors
+; This program uses the BIOS and logical sectors to write the system to
+; disk. The logical sector size is always 128 byte.
+; The system's start sector is the first logcial sector of the first physical
+; sector. The first phyiscal sector is the boot sector.
+; By default, one tracks is reserved for the boot sector and the system.
+
 	IF NOT NEWIDE
-SECCNT	EQU 63
+	; on a IDE/CF disk 1 track is reserved: 64 sectors
 SECSTRT	EQU 1
+SECCNT	EQU 63
 	ELSE
+SECSTRT	EQU 2		; 1. logical sector after phyiscal boot sector
 SECCNT	EQU (0F000h-CPM) / 128
-SECSTRT	EQU 2		; 2. physical sector
 	ENDIF
 	
 ;-----------------------------------------------------------------------------
