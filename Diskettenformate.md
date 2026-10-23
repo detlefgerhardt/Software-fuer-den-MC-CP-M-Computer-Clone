@@ -1,4 +1,5 @@
-# Thema Diskettenformate
+# Thema Diskettenformate beim MC CP/M Computer
+
 Bei den Diskettenformaten gibt es beim den CP/M-Rechner und natürlich auch beim MC CP/M-Computer eine babylonische Verwirrung. Es gibt nicht nur viele unterschiedliche Formate für 8 Zoll (Maxi-disk), 5 1/2 Zoll (Mini-Disk) und 3,5 Zoll (gab es historisch bei den CP/M-Rechnern nicht), sondern auch noch die Unterscheidung zwischen dem physikalischen Format und dem logischen Format von CP/M.
 
 Usprünglich verwendete CP/M (CP/M 1.4) 8 Zoll Laufwerke mit 128-Byte-Sektoren. Unter CP/M 2.2 waren dann auch andere Laufwerke mit abweichenden Formaten und Sektorgrößen möglich. CP/M und das BDOS blieben aber immer bei der festen Sektorgröße von 128 Byte. Die Umrechnung (inkl. Blocking und Deblocking) muss das BIOS übernehmen, das für jeden CP/M-Rechner und jeden Diskettentyp individuell angepasst wurde.
