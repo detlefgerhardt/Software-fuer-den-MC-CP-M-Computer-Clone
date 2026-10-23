@@ -9,8 +9,7 @@ namespace NDiskDef
 	internal static class Constants
 	{
 		public const string ProgName = "NDiskDef";
-		public const string ProgVersion = "1.0";
+		public const string ProgVersion = "1.3";
 
-		public const int MAX_DRIVES = 16;
 	}
 }

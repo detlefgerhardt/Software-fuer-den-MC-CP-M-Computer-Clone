@@ -5,6 +5,8 @@ using System.Diagnostics;
 using System.Dynamic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.ConstrainedExecution;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Security.Cryptography;
 using System.Text;
@@ -58,14 +60,20 @@ namespace NDiskDef
 	{
 		MiniHD = 0, // Maxi=0, DD=0 (HD)
 		MaxiSD = 1, // Maxi=0, SD=1 (8" IBM)
-		MiniDD = 2, // Mini=1, DD=0 (800KBM)
+		MiniDD = 2, // Mini=1, DD=0 (800KB)
 		MaxiDD = 3, // Mini=1, SD=1
+		IDE = 4,	// IDE/CF drive (8MB)
 		None = 255,
 	}
 
 	internal class Drives
 	{
 		public const int BDOS_SEC_LEN = 128;
+
+		public const int MAX_DRIVES = 16;
+
+		// size of CP/M without BIOS, in bytes)
+		public const int CPM_SIZE = 0x1600;
 
 		public const int FIX_ALV = 64;	// fix alv for all disk drives to allow CHGDRV
 
@@ -94,7 +102,7 @@ namespace NDiskDef
 			{
 				lines[l] = new List<string>();
 			}
-			string err = CmdNdiskdef(example, lines);
+			string err = CmdNdiskdef(example, lines, out PhysicalParams physPrm);
 			File.WriteAllLines("test1.inc", lines[0]);
 			File.WriteAllLines("test2.inc", lines[1]);
 			File.WriteAllLines("test3.inc", lines[2]);
@@ -111,13 +119,15 @@ namespace NDiskDef
 
 		public string Convert2(string fromFilename)
 		{
-			physList = new PhysicalParams[Constants.MAX_DRIVES];
-			for (int i = 0; i < Constants.MAX_DRIVES; i++)
+			physList = new PhysicalParams[MAX_DRIVES];
+			for (int i = 0; i < MAX_DRIVES; i++)
 			{
 				physList[i] = null;
 			}
 
 			defineList = new Dictionary<string, PhysicalParams>();
+
+			PhysicalParams bootDrive = null;
 
 			string[] lines;
 			try
@@ -149,13 +159,15 @@ namespace NDiskDef
 			}
 
 			int lineCnt = 0;
+			PhysicalParams physPrm;
 			foreach (string line in lines)
 			{
 				lineCnt++;
 				string lin = line.Trim().ToLower();
+				physPrm = null;
 				if (lin.StartsWith(CMD_NDISKDEF))
 				{
-					errorStr = CmdNdiskdef(line, outLines);
+					errorStr = CmdNdiskdef(line, outLines, out physPrm);
 					if (!string.IsNullOrEmpty(errorStr)) return errorStr + $", line {lineCnt}";
 				}
 				else if (lin.StartsWith(CMD_DEFINE))
@@ -163,12 +175,36 @@ namespace NDiskDef
 					errorStr = CmdDefine(line, outLines);
 					if (!string.IsNullOrEmpty(errorStr)) return errorStr + $", line {lineCnt}";
 				}
+
+				if (physPrm != null)
+				{
+					if (physPrm.Bdos.Dpb.spt > 256)
+					{
+						return $"Error: Logical sectors per track > 256 ({physPrm.Bdos.Dpb.spt}), line {lineCnt}";
+					}
+
+					if (physPrm.Boot)
+					{
+						if (bootDrive != null)
+						{
+							return $"Error: more than one boot drives defined, line {lineCnt}";
+						}
+						bootDrive = physPrm;
+					}
+				}
 			}
 
-			for (int l = 0; l < 3; l++)
+			if (bootDrive == null)
+			{
+				return $"Error: No boot drive defined";
+			}
+
+			for (int l = 1; l < 3; l++)
 			{
 				outLines[l].Add($"; end of {outNames[l]}");
-			}	
+			}
+
+			AddDpbFooter(outNames[0], bootDrive, outLines[0]);
 
 			AddDrvPrmFooter(outNames[3], defineList, outLines[3]);
 
@@ -213,12 +249,12 @@ namespace NDiskDef
 			return null; // no error
 		}
 
-		private string CmdNdiskdef(string line, List<string>[] lines)
+		private string CmdNdiskdef(string line, List<string>[] lines, out PhysicalParams physPrm)
 		{
 			line = line.Substring(CMD_NDISKDEF.Length);
 			line = line.Trim();
 
-			PhysicalParams physPrm = ParseNdiskDef(line, false, out string errorStr);
+			physPrm = ParseNdiskDef(line, false, out string errorStr);
 			if (physPrm == null) return errorStr;
 			physList[physPrm.Drive] = physPrm;
 
@@ -257,6 +293,7 @@ namespace NDiskDef
 					physPrm = DeepCopy(defineList[physPrm.UseDefine]);
 					physPrm.Drive = drive;
 					physPrm.Name = fmtName;
+					if (!isDefine) physPrm.Boot = GetBoot(line);
 					return physPrm;
 				}
 				else
@@ -282,6 +319,7 @@ namespace NDiskDef
 				physPrm = DeepCopy(physList[useDrive]);
 				physPrm.Drive = drive;
 				physPrm.UsePrmsFromDrive = useDrive;
+				if (!isDefine) physPrm.Boot = GetBoot(line);
 				bdosPrm = physPrm.Bdos;
 			}
 			else
@@ -314,8 +352,16 @@ namespace NDiskDef
 
 			DiskPrmBlock dpb = bdosPrm.Dpb;
 
+			if (!isDefine) physPrm.Boot = GetBoot(line);
 			physPrm.Bdos = bdosPrm;
 			return physPrm;
+		}
+
+		private bool GetBoot(string line)
+		{
+			string[] parts = line.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+			if (parts.Length < 3) return false;
+			return parts.Last().Trim().ToLower() == "boot";
 		}
 
 		private void AddDpb(string line, PhysicalParams physPrm, List<string> lines)
@@ -360,13 +406,17 @@ namespace NDiskDef
 			lines.Add($"\tDB {bdosPrm.Dpb.psh}\t; psh (phys. shift)");
 			lines.Add($"\tDB {bdosPrm.Dpb.phm}\t; phm (phys. mask)");
 			lines.Add($"\t; FLO register");
-			if (physPrm.DriveType != 255)
+			if (physPrm.DriveType == (int)DriveTypes.IDE)
 			{
-				lines.Add($"\tDB {physPrm.FloReg:X02}h\t; Bit5:0=Maxi/1=Mini, Bit4:0=DD/1=SS");
+				lines.Add($"\tDB {0x80:X02}h\t; code for IDE/CF drive");
+			}
+			else if (physPrm.DriveType == (int)DriveTypes.None)
+			{
+				lines.Add($"\tDB 00h\t; (not used)");
 			}
 			else
 			{
-				lines.Add($"\tDB 00h\t; (not used)");
+				lines.Add($"\tDB {physPrm.FloReg:X02}h\t; Bit5:0=Maxi/1=Mini, Bit4:0=DD/1=SS");
 			}
 			lines.Add($"\t; physical parameters");
 			lines.Add($"\tDW {physPrm.BytesPerSector}\t; bytes/sector");
@@ -398,7 +448,9 @@ namespace NDiskDef
 			DiskPrmBlock dpb = physPrm.Bdos.Dpb;
 
 			lines.Add($"; drive{physPrm.Drive}");
-			lines.Add($"ALV{physPrm.Drive}:\tDS {FIX_ALV}\t; needed: {dpb.alv}");
+			int alv = FIX_ALV;
+			if (dpb.alv > FIX_ALV) alv = dpb.alv;
+			lines.Add($"ALV{physPrm.Drive}:\tDS {alv}\t; needed: {dpb.alv}");
 			lines.Add($"CSV{physPrm.Drive}:\tDS {dpb.csv}");
 			lines.Add("");
 		}
@@ -464,6 +516,19 @@ namespace NDiskDef
 			lines.Add("\t}");
 			lines.Add("};");
 			lines.Add("");
+		}
+
+		private void AddDpbFooter(string name, PhysicalParams physPrm, List<string> lines)
+		{
+			lines.Add(";");
+			lines.Add("; boot drive parameters");
+			lines.Add($"BTDRV\tEQU\t{physPrm.Drive}\t; boot drive ({(char)(physPrm.Drive + 'A')}:)");
+			lines.Add($"CPMST\tEQU\t{physPrm.CpmStartSector}\t; logical CP/M start sector on boot drive");
+			lines.Add($"BTSECN\tEQU\t{physPrm.BtSectN}\t; logical sectors per track on boot drive");
+			lines.Add("\t\t\t; or any value: CPMST + CPMLEN/128 < value < 256");
+			lines.Add(";");
+			lines.Add($"; end of {name}");
+			lines.Add(";");
 		}
 
 		private void AddDrvPrmFooter(string name, Dictionary<string, PhysicalParams> defineList, List<string> lines)
@@ -596,6 +661,8 @@ namespace NDiskDef
 	{
 		public int Drive { get; set; }
 
+		public bool Boot { get; set; }
+
 		public int UsePrmsFromDrive { get; set; }
 
 		public string UseDefine { get; set; }
@@ -638,6 +705,29 @@ namespace NDiskDef
 
 		public int FloReg => DriveType << 4; // -> bits 4 & 5
 
+		/* first logical sector number after physical boot sector, start of CP/M on disk */
+		public int CpmStartSector => Bdos.Dpb != null ? BytesPerSector / Drives.BDOS_SEC_LEN : 0;
+
+		/* BtSectN is the number of logical tracks per sector. It used to determine track change
+		 * in CP/M warmstart routine. It is only relevant if the start sector and the length of
+		 * CP/M is greater than the number of logical tracks. So it ist set to 255 if the logical
+		 * track number ist greater then 255 */
+		public int BtSectN
+		{
+			get
+			{
+				int btsecn = Bdos.Dpb.spt; // logical sectors per track
+				if (btsecn > 255)
+				{
+					if (CpmStartSector + Drives.CPM_SIZE / Drives.BDOS_SEC_LEN < 256)
+						btsecn = 255;
+					else
+						btsecn = -1;
+				}
+				return btsecn;
+			}
+		}
+
 		public string ErrorStr { get; set; }
 
 		public PhysicalParams(string prms)
@@ -649,7 +739,7 @@ namespace NDiskDef
 		{
 			string[] parts = prms.Split(',');
 
-			if (parts.Length != 2 && parts.Length != 14)
+			if (parts.Length != 2 && parts.Length != 3 && parts.Length != 14 && parts.Length != 15)
 			{
 				return $"Error: Invalid parameter count in NDISKDEF ({parts.Length})";
 			}
@@ -661,12 +751,11 @@ namespace NDiskDef
 
 			prmStr = parts[(int)PrmEnum.Drive].Trim();
 			error = !int.TryParse(prmStr, out prm);
-			if (error || prm >= Constants.MAX_DRIVES)
+			if (error || prm >= Drives.MAX_DRIVES)
 			{
 				return $"Error in NDISKDEF paramter {PrmEnum.Drive} ({prmStr})";
 			}
 			Drive = prm;
-
 
 			prm = ParsePrm(parts, PrmEnum.PhysBytesPerSectors, out errorStr);
 			if (errorStr != null)

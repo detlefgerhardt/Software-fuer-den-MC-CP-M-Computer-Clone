@@ -1,4 +1,4 @@
-/* ndiskdef NBIOS11.DH created 05.10.26 12:45 by NDiskDef 1.0 */
+/* ndiskdef NBIOS11.DH created 23.10.26 09:42 by NDiskDef 1.2 */
 /* format F800K 800KB  (1024/5/80/2) */
 drvprm F800K =
 {
@@ -27,7 +27,7 @@ drvprm F800K =
 	}
 };
 
-/* format F1440K 1440KB  (1024/9/80/2) */
+/* format F1440K 1440KB  (512/18/80/2) */
 drvprm F1440K =
 {
 	"F1440K",
@@ -44,12 +44,12 @@ drvprm F1440K =
 		64,	/* cks */
 		2,	/* ofs */
 		/* blocking/deblocking and FLO reg */
-		3,	/* psh */
-		7,	/* phm */
+		2,	/* psh */
+		3,	/* phm */
 		0x00,	/* FLO reg */
 		/* physical params */
-		1024,	/* phylen */
-		8,	/* physec */
+		512,	/* phylen */
+		17,	/* physec */
 		79,	/* phytrk */
 		2	/* sides */
 	}
@@ -78,6 +78,34 @@ drvprm F1200K =
 		/* physical params */
 		512,	/* phylen */
 		14,	/* physec */
+		79,	/* phytrk */
+		2	/* sides */
+	}
+};
+
+/* format F720K 720KB  (512/9/80/2) */
+drvprm F720K =
+{
+	"F720K",
+	720,
+	{
+		36,	/* spt */
+		4,	/* bsh */
+		15,	/* blm */
+		0,	/* exm */
+		350,	/* dsm */
+		255,	/* drm */
+		240,	/* al0 */
+		0,	/* al1 */
+		64,	/* cks */
+		4,	/* ofs */
+		/* blocking/deblocking and FLO reg */
+		2,	/* psh */
+		3,	/* phm */
+		0x20,	/* FLO reg */
+		/* physical params */
+		512,	/* phylen */
+		8,	/* physec */
 		79,	/* phytrk */
 		2	/* sides */
 	}
@@ -149,16 +177,16 @@ drvprm CF2M =
 		5,	/* bsh */
 		31,	/* blm */
 		1,	/* exm */
-		511,	/* dsm */
+		509,	/* dsm */
 		255,	/* drm */
 		192,	/* al0 */
 		0,	/* al1 */
 		0,	/* cks */
-		0,	/* ofs */
+		1,	/* ofs */
 		/* blocking/deblocking and FLO reg */
 		0,	/* psh */
 		0,	/* phm */
-		0x00,	/* FLO reg (not used) */
+		0x40,	/* FLO reg */
 		/* physical params */
 		128,	/* phylen */
 		63,	/* physec */
@@ -177,16 +205,16 @@ drvprm CF8M =
 		6,	/* bsh */
 		63,	/* blm */
 		3,	/* exm */
-		1023,	/* dsm */
+		1019,	/* dsm */
 		255,	/* drm */
 		128,	/* al0 */
 		0,	/* al1 */
 		0,	/* cks */
-		0,	/* ofs */
+		1,	/* ofs */
 		/* blocking/deblocking and FLO reg */
 		1,	/* psh */
 		1,	/* phm */
-		0x00,	/* FLO reg (not used) */
+		0x40,	/* FLO reg */
 		/* physical params */
 		256,	/* phylen */
 		127,	/* physec */
@@ -195,7 +223,7 @@ drvprm CF8M =
 	}
 };
 
-#define PRMCNT 7
-drvprm *prmlist[] = {F800K,F1440K,F1200K,F400K,IBMSD,CF2M,CF8M};
+#define PRMCNT 8
+drvprm *prmlist[] = {F800K,F1440K,F1200K,F720K,F400K,IBMSD,CF2M,CF8M};
 
 /* end of NBIOS11.DH */ 

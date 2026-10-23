@@ -1,4 +1,4 @@
-; ndiskdef NBIOS11.ALV created 05.10.26 12:45 by NDiskDef 1.0
+; ndiskdef NBIOS11.ALV created 23.10.26 09:42 by NDiskDef 1.2
 ; drive0
 ALV0:	DS 64	; needed: 49
 CSV0:	DS 64
@@ -12,23 +12,23 @@ ALV2:	DS 64	; needed: 49
 CSV2:	DS 64
 
 ; drive3
-ALV3:	DS 64	; needed: 24
-CSV3:	DS 32
+ALV3:	DS 64	; needed: 37
+CSV3:	DS 64
 
 ; drive4
-ALV4:	DS 64	; needed: 128
+ALV4:	DS 128	; needed: 128
 CSV4:	DS 0
 
 ; drive5
-ALV5:	DS 64	; needed: 128
+ALV5:	DS 128	; needed: 128
 CSV5:	DS 0
 
 ; drive6
-ALV6:	DS 64	; needed: 128
+ALV6:	DS 128	; needed: 128
 CSV6:	DS 0
 
 ; drive7
-ALV7:	DS 64	; needed: 128
+ALV7:	DS 128	; needed: 128
 CSV7:	DS 0
 
 ; end of NBIOS11.ALV
