@@ -37,10 +37,12 @@ IDESTAT	EQU 010+0FH		; Hardwareadresse IDE Statusregister
 
 	IF NOT NEWIDE
 	; on a IDE/CF disk 1 track is reserved: 64 sectors
+SECSIZ	EQU 128
 SECCNT	EQU 50
 	ELSE
 	; on a IDE/CF disk 1 track is reserved: 128 sectors
-SECCNT	EQU (0F000h-CPM)/128
+SECSIZ	EQU 256
+SECCNT	EQU (0F000h-CPM)/SECSIZ
 	ENDIF
 	
 ;-----------------------------------------------------------------------------
@@ -69,9 +71,9 @@ BOOT1:	; read track 0 loop
 	INC A
 	LD (SECTOR),A
 
-	; (DMAAD) += 128
+	; (DMAAD) += SECSIZ
 	LD HL,(DMAAD)
-	LD DE,128
+	LD DE,SECSIZ
 	ADD HL,DE
 	LD (DMAAD),HL
 	
@@ -103,7 +105,7 @@ RDSEC:
 	LD HL,(DMAAD)	; memory location to place data read from disk
 	LD DE,HSTBUF	; host buffer
 
-	LD B,128	; size of CP/M sector
+	LD B,SECSIZ	; size of CP/M sector
 
 RDSEC1:	; read sector bytes loop
 	LD A,(DE)	; get byte from host buffer
@@ -145,7 +147,7 @@ RDSEC1:	; read sector bytes loop
 	LD HL,HSTBUF	; buffer to place raw disk sector (256 bytes)
 
 	CALL IDEREAD	; ide read routine in Monitor
-			; Transfer top 128-bytes out of buffer to memory
+			; Transfer top 256-bytes out of buffer to memory
 			
 	IN A,(IDESTAT)	; get status
 	AND 01H		; error bit
@@ -167,7 +169,7 @@ WRSTR:	LD A,(HL)	; get char from string
 CR	EQU 0DH
 LF	EQU 0AH
 
-MSG:	DEFB CR,LF,"NBOOT-CF 1.1 260906",CR,LF,0
+MSG:	DEFB CR,LF,"NBOOT-CF 1.1 261015-01",CR,LF,0
 
 ;-----------------------------------------------------------------------------
 

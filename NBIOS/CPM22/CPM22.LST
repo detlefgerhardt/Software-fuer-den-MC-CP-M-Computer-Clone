@@ -35,7 +35,7 @@ CPM22   Z80
    32         0003      IOBYTE:	EQU	3		;i/o definition byte.
    33         0004      TDRIVE:	EQU	4		;current drive name and user number.
    34         0005      ENTRY:	EQU	5		;entry point for the cp/m bdos.
-   35         005C      TFCB:	EQU	5CH			;default file control block.
+   35         005C      TFCB:	EQU	5CH		;default file control block.
    36         0080      TBUFF:	EQU	80H		;i/o buffer and command line storage.
    37         0100      TBASE:	EQU	100H		;transiant program storage area.
    38                   ;
@@ -3991,4 +3991,4 @@ CPM22   Z80
  0 Error(s) Detected.
  5632 Absolute Bytes. 506 Symbols Detected.
 ) sector of block (physical sector).
- 3775 E1E9  00          FCBPOS:
+ 3775 E1E9  00          FCBPOS:	

@@ -1,0 +1,126 @@
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   1
+NBOOT   Z80
+
+    1                   	.Z80
+    2                   	
+    3                   ;*****************************************************************************
+    4                   ; NBOOT.Z80
+    5                   ;
+    6                   ; Boot loader for MC CP/M-Computer Mini drive
+    7                   ;
+    8                   ; based on BOOZ80 by Rolf-Dieter Klein 841204 1.0
+    9                   ;
+   10                   ;*****************************************************************************
+   11                   ; 80 Spur Laufwerke   1K pro Sektor Boot        *
+   12                   ; das programm wird auf sektor 1 track 0 abgelegt
+   13                   ;
+   14                   ; PLEASE NOTE THE CHANGED CPM & BIOS START ADDRESS!!!
+   15                   ;
+   16                   ; Version history
+   17                   ;
+   18                   ; 10.07.2026 *dg* Renamed to NBOOT and reformatted source code
+   19                   ; 11.07.2026 *dg* Use new floppy routine 0F021h in Monitor
+   20                   ; 25.07.2026 *dg* Added short message output
+   21                   
+   22         9800      OFFSET	EQU 0A000H-800H		; damit BIOS Start bei E200h
+   23         CC00      CPMB	EQU 03400H+OFFSET	; start CP/M
+   24         E200      BIOS	EQU 04A00H+OFFSET	; start BIOS
+   25                   
+   26         0005      PHYSEC	EQU 5			; 5 physical sectors
+   27                   
+   28                   ; sector count (1024 byte sectors)
+   29                   ; on a mini disk 4 tracks are reserved: 5 * 4 - 1 = 19 sectors
+   30         0009      SECCNT	EQU (0F000h-CPMB)/1024
+   31                   ;SECCNT	EQU 7
+   32                   
+   33                   ; Monitor functions
+   34         F009      CONOUT	EQU 0F009H	; Console out
+   35         F01E      RSTRT	EQU 0F01EH	; restart
+   36         F021      FLOP	EQU 0F021H	; Monitor Floppy routine
+   37                   ;MINI	EQU 0F027H	; Old MINI routine in Monitor (obsolete)
+   38                   
+   39                   ;-----------------------------------------------------------------------------
+   40                   
+   41         0080      	ORG 080H	; boot loader is loaded to this address
+   42                   
+   43 0080  31 1000     BOOT:	LD SP,1000H	; start of stack
+   44                   
+   45 0083  21 00C9     	LD HL,MSG
+   46 0086  CD 00BF     	CALL WRSTR
+   47                   
+   48 0089  21 CC00     	LD HL,CPMB	; CP/M start address
+   49 008C  06 09       	LD B,SECCNT	; number of sectors to read
+   50                   	
+   51                   	; start with track 0 and sector 2 (sector 1 is boot sector)
+   52 008E  16 00       	LD D,0		; track 0
+   53 0090  1E 02       	LD E,2		; start with 2. sector (1. sector is boot sector)
+   54                   
+   55 0092  E5          BOOT1:	PUSH HL
+   56 0093  D5          	PUSH DE
+   57 0094  C5          	PUSH BC
+   58                   	
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
+NBOOT   Z80
+
+   59                   	;LD C,11010000B	; drive 0 double dense mini
+   60                   	;LD B,1		; 1 = read 
+   61                   	;CALL MINI	; Obsolet Monitor entry for Mini drive
+   62                   	
+   63                   	; use new floppy routine instead
+   64 0095  0E 21       	LD C,00100001B	; drive 0, dd, mini
+   65 0097  06 01       	LD B,1		; 1 = read
+   66 0099  CD F021     	CALL FLOP	; -> read sector
+   67                   	
+   68 009C  C1          	POP BC
+   69 009D  D1          	POP DE
+   70 009E  E1          	POP HL
+   71 009F  38 15       	JR C,ERROR	; -> print error msg and restart Monitor
+   72                   
+   73 00A1  D5          	PUSH DE		; next address
+   74 00A2  11 0400     	LD DE,1024	; double dense bloecke
+   75 00A5  19          	ADD HL,DE
+   76 00A6  D1          	POP DE
+   77 00A7  1C          	INC E		; sector count + 1
+   78 00A8  7B          	LD A,E
+   79 00A9  FE 06       	CP PHYSEC+1	; 1..5, erst bei 6 neue Spur (4 max)
+   80 00AB  38 03       	JR C,BOOT2
+   81                   
+   82                   	; new track
+   83 00AD  1E 01       	LD E,1		; start again with sector 1 on new track
+   84 00AF  14          	INC D
+   85                   
+   86 00B0  05          BOOT2:	DEC B
+   87 00B1  20 DF       	JR NZ,BOOT1	; solange bis fertig
+   88                   	
+   89 00B3  C3 E200     	JP BIOS		; start coldbios
+   90                   
+   91                   ;-----------------------------------------------------------------------------
+   92                   
+   93 00B6  21 00E6     ERROR:	LD HL,ERRMSG
+   94 00B9  CD 00BF     	CALL WRSTR
+   95 00BC  C3 F01E     	JP RSTRT
+   96                   
+   97                   ;-----------------------------------------------------------------------------
+   98                   
+   99 00BF  7E          WRSTR:	LD A,(HL)	; get char from string
+  100 00C0  A7          	AND A		; check if 0
+  101 00C1  C8          	RET Z		; -> end of string
+  102                   	
+  103 00C2  4F          	LD C,A
+  104 00C3  CD F009     	CALL CONOUT
+  105 00C6  23          	INC HL		; next char in string
+  106 00C7  18 F6       	JR WRSTR	; start over
+  107                   
+  108 00C9  0D 0A 0A 4E MSG:	DEFM		0Dh,0Ah,0Ah,"NBOOT 1.0 NDR/"
+  109 00DA  30 39 53 2F 	DEFM		SECCNT/10+'0',SECCNT MOD 10+'0',"S/1024B",0Dh,0Ah,0
+  110 00E6  52 45 41 44 ERRMSG:	DEFM		"READ ERROR",0Dh,0Ah,0
+  111                   
+  112                   ;-----------------------------------------------------------------------------
+  113                   
+  114                   	END
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   3
+
+
+ 0 Error(s) Detected.
+ 128 Absolute Bytes. 15 Symbols Detected.
+-----------------------------------------------

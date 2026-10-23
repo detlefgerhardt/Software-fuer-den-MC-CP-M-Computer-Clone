@@ -14,6 +14,8 @@
 ;		Replaced empty BIOS jump table EQU for BIOS
 ;		functions. The CPM file has now the correct
 ;               length.
+; 22.08.26 *dg* Input buffer and copyright message corrected.
+;               Space for auto command.
 ;
 ;**************************************************************
 
@@ -30,7 +32,7 @@ DG01	EQU FALSE
 IOBYTE:	EQU	3		;i/o definition byte.
 TDRIVE:	EQU	4		;current drive name and user number.
 ENTRY:	EQU	5		;entry point for the cp/m bdos.
-TFCB:	EQU	5CH			;default file control block.
+TFCB:	EQU	5CH		;default file control block.
 TBUFF:	EQU	80H		;i/o buffer and command line storage.
 TBASE:	EQU	100H		;transiant program storage area.
 ;
@@ -86,19 +88,19 @@ SECTRN	EQU	BIOS + 30h
 CBASE:	JP	COMMAND		;execute command processor (ccp).
 	JP	CLEARBUF	;entry to empty input buffer before starting ccp.
 
-;
-;   Standard cp/m ccp input buffer. Format is (max length),
+;  Standard cp/m ccp input buffer. Format is (max length),
 ; (actual length), (char #1), (char #2), (char #3), etc.
 ;
 INBUFF:	DB	127		;length of input buffer.
 	DB	0		;current length of contents.
-	DEFM	"Copyright"
-	DEFM	" 1979 (c) by Digital Research      "
+	DEFM	"                "	; space for auto command
+	DEFM	"COPYRIGHT (C)"
+	DEFM	"1979, DIGITAL RESEARCH   "
 	IF NOT DG01
 	DB	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 	DB	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 	DB	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-	DB	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	DB	0,0,0,0,0
 	ELSE
 	DB	0
 	ENDIF
@@ -1381,7 +1383,7 @@ ERROR5:	CALL	PRTERR
 ;
 BDOSERR:DEFM	"Bdos Err On "
 
-	; error fixed by *dg* 260726, additional " removed
+	; error fixed by *dg* 260726, additional '' removed
 ;BDOSDRV:DEFM	022h,020h,03Ah,020h,024h,022h	;" : $"
 BDOSDRV:DEFM	020h,03Ah,020h,024h		;" : $"
 

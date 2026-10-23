@@ -64,9 +64,6 @@ FORM0:	CALL CONIN
 	CP CR
 	JR NZ,FORM0		; wait for CR or CTRL-C
 
-	LD HL,FRMMSG
-	CALL WRSTR		; output start message
-
 	LD A,0
 	LD (CHRCNT),A
 	
@@ -77,6 +74,19 @@ FORM1:	; disk loop
 	LD A,(CURDSK)
 	LD C,A			; set current disk
 	CALL SELDSK
+
+	; disk message
+	LD HL,FRMMSG
+	CALL WRSTR		; output start message
+	LD A,(CURDSK)
+	ADD 'A'
+	LD C,A
+	CALL CONOUT
+	LD C,CR
+	CALL CONOUT
+	LD C,LF
+	CALL CONOUT
+
 	LD A,1			; starting track (offset = 1)
 	LD (CURTRK),A
 
@@ -150,13 +160,14 @@ FORM6:	; next disk
 	LD (CHRCNT),A
 	LD A,(CURDSK)		; naechste virtuelle Diskette
 	INC A
-	CP ENDDSK+1		; fertig ?
-	JR Z,FORM7		; -> done
-
 	LD (CURDSK),A
-	LD HL,NXTMSG		; next Disk ausgeben
-	CALL WRSTR
-	JP FORM1		; -> next disk
+	CP ENDDSK+1		; fertig ?
+	JP NZ,FORM1		; -> next disk
+
+	;LD (CURDSK),A
+	;LD HL,NXTMSG		; next Disk ausgeben
+	;CALL WRSTR
+	;JP FORM1		; -> next disk
 
 FORM7:	; done
 	LD HL,CPLMSG		; success message
@@ -196,7 +207,7 @@ STRMSG:		DEFM	CR,LF,LF,"NFORM-CF V1.1 260907 - Formating 4 virtual disks E..H",C
 
 NXTMSG:		DEFM	CR,LF,'Next disk',CR,LF,0
 
-FRMMSG		DEFM	CR,LF,"Disk 1",CR,LF,0
+FRMMSG:		DEFM	CR,LF,"Disk ",0
 
 CPLMSG:		DEFM	CR,LF,'Formatting completed',CR,LF,0
 

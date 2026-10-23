@@ -16,7 +16,7 @@
 ; Copies the memory image of CP/M loaded at CPM onto track 0 of the first CP/M disk
 ; Writes track 0, sectors 1 to 50 (sector 0 has cpm loader)
 ;
-; PLEASE NOTE THE CHANGED CP/M & BIOS START ADDRESS AND CF/IDE DRIVES !!!
+; PLEASE NOTE THE CHANGED CP/M & BIOS START ADDRESS AND IDE/CF DRIVES !!!
 ;
 ; Version history
 ;
@@ -56,8 +56,10 @@ BOOTDRV	EQU 4		; first IDE/CF-drive
 ; on a IDE/CF disk 1 track is reserved: 64 sectors
 	IF NOT NEWIDE
 SECCNT	EQU 63
+SECSTRT	EQU 1
 	ELSE
 SECCNT	EQU (0F000h-CPM) / 128
+SECSTRT	EQU 2		; 2. physical sector
 	ENDIF
 	
 ;-----------------------------------------------------------------------------
@@ -71,8 +73,8 @@ PUT:	LD HL,MSG1
 	CALL WRSTR
 
 	LD C,BOOTDRV	; first CF/IDE drive
-	CALL SELDSK		
-	LD A,1		; starting with 2. sector (0..n-1) 
+	CALL SELDSK
+	LD A,SECSTRT	; starting with 2. physical sector (0..n-1)
 	LD (SECTOR),A
 	LD HL,CPM	; memory address to start
 	LD (ADDR),HL
