@@ -1,38 +1,13 @@
-# Software und Zubehör für den MC CP/M-Computer-Clone
+# Thema Diskettenformate
+Bei den Diskettenformaten gibt es beim den CP/M-Rechner und natürlich auch beim MC CP/M-Computer eine babylonische Verwirrung. Es gibt nicht nur viele unterschiedliche Formate für 8 Zoll (Maxi-disk), 5 1/2 Zoll (Mini-Disk) und 3,5 Zoll (gab es historisch bei den CP/M-Rechnern nicht), sondern auch noch die Unterscheidung zwischen dem physikalischen Format und dem logischen Format von CP/M.
+Hier mal ein kurzer Überblick, welche Formate beim hier entwickelten NMON (Monitor) und NBIOS (CP/M-BIOS) an welcher Stelle verwendet werden.
 
-**Dieses Repository befindet sich noch im Aufbau. Die Programme sind teilweise noch unvollständig und ungetestet!**
-
-Dieses Repository enthält vollständig überarbeite Software (Monitor, BIOS und Tools) für den MC CP/M Computer Nachbau von Ulrich Haumann. Die Software basiert sowohl auf der Originalsoftware von Rolf-Dieter Klein als auch auf Änderungen und neuen Programmen von Ulrich Haumann.
-
-**https://github.com/uli-pi/MC-CPM-Computer-Clone**
-
-Zusätzlich findet man hier 3D-Druckteile und Adapter für den Einbau des Computers in ein 19" Systemgehäuse oder Baugruppenträger.
-
-Ziel dieses Repositories hier ist es, die Software des MC CP/M Computer-Clones möglichst gut zu dokumentieren und weiter zu entwickeln.
-Der Monitor soll kompatibel bleiben und die Kompatibilität des BIOS ist von CP/M vorgegeben. Teile des Monitors und des BIOS, die nicht für CP/M benötigt werden, wurden bereits weitgehend entfernt.
-
-Geplante Erweiterungen:
-- Optimierung, unnötige Routinen entfernen (im BIOS weitgehend erledigt, im Monitor ist noch einiges zu tun)
-- Unterstützung weiterer Diskettenformate und eine einfacher Implementierung neuer Formate (weitgehend erledigt inkl. der dynmaischen Umkonfiguration der Laufwerksdaten zur Laufzweit (inzwischen implementiert und im Test)
-- Die Hardwareunterstützung auf die aktuelle Hardware des MC CP/M-Clones reduzieren, um die Software zu vereinfachen. Wer erweiterte Kompatibilität benötigt, kann auf die Originalsoftware zurückgreifen).
-- Unterstützung der IDE/CF-Karte gleichzeitig zusammen mit Diskettenlaufwerken (erledigt)
-- Vereinheitlichung der Tools - zum Beispiel für die Nutzung von Disketten und IDE/CF-Laufwerke (hier kann noch weiter optimiert werden. Bisher gibt es noch eigene Tools zum Einrichten von IDE/CF-Laufwerken)
-
-Dieses Repository enthält folgende Teilprojekte (noch in Arbeit, Liste nicht immer aktuell):
-- **NMON** - der Monitor für den MC CP/M-Computer, geändert und erweitert, basierendem auf dem Original-Monitor von Rolf-Dieter Klein und einigen Anpassungen von Ulrich Haumann
-- **NBIOS** - das angepasste BIOS, die Schnittstelle zwischen dem Monitor, der Hardware und CP/M (ebenfalls basierenden auf dem Original-BIOS von RDK)
-- **NBIOS-CF** - angepasstes BIOS und Tools für das IDE/CF-Interface
-- **NFORM** ist das originale in Z80 geschrieben Formatierprogramm für den MC CP/M-Computer. Da es lediglich den Monitor vorrausetzt, kann es ohne CP/M und BIOS direkt im Monitor ausgeführt werden.
-- **MI-C** - in MI-C programmierte Programme und Tools, um Teil abgestimmt auf das NBIOS und nur mit diesem lauffähig
-- **DEV-Tools** - Entwicklungstools für CP/M und Windows (Assembler, MI-C-Compiler, eigene Tools)
-- **CPM-Standardsoftware** - Standard CP/M-Programme, die für Entwicklung und die Systemeinrichtung benötigt werde oder nützlich sind.
-- **VT100-Animationen** - Ausgewählte VT100-Animationen inkl. Anzeige-Tools. Die Anzeige-Tools korrigieren nötigenfalls die Zeilenendezeichen und können auf Wunsch alle Dateien auf einem Laufwerk in zufälliger Reihenfolge ausgeben.
-
-Zum Thema Gehäuse und 3D-Druck (neu):
-- **Gehäuse und 3D-Druck** enthält Teile wie Fronplatten oder Laufwerkskäfige (Halterungen) für den Einbau in 19" Gehäuse und Baugruppenträger.
-- **KiCAD** enthält derzeit Adapter-Platinen, die den Anschluss von Diskettenlaufwerken erleichtern.
-
-Achtung. Die Versionierung und die Namen der Dateien wurden gegenüber den Originalen geändert, um eine klaren Schnitt zwischen der Originalsoftare und den Programmen dieses Projektes zu haben und Verwechselungen zu vermeiden.
-
-Das CP/M wurde auf ein 58K-System geändert. Das CP/M beginnt bei Adresse CC00h und das BIOS bei Adresse E200h. Das war notwendig um ausreichend Platz für BIOS-Erweiterung, Debuggung und Experimente zu schaffen.
-
+1. Beim Booten eines Datenträgers liest der Monitor eine physikalischen Boot-Sektor vom Datenträger
+2. Dieser Boot-Sektor enthält den Boot-Loader, der über den Monitor die physikalischen Sektoren mit dem CP/M-Betriebssystem lädt
+3. Daraufhin übernimmen BDOS und BIOS und greifen über logische Sektoren auf das Laufwerk zu.
+4. Das Formatprogramm NFORM (und das Original UFORMAT) arheiten mit physikalischen Sektoren direkt auf der Controller-Hardware.
+5. Das Tool NPUTSYS zum Schreiben des CP/M-Systems + BIOS auf einen Diskette, verwendet den Monitor und schreibt physikalische Sektoren.
+6. Das Tool NPUTBOOT zum Schreiben des Bootloaders auf eine Diskette, verwendet den Monitor und schreibt den Boot-Sektor als physikalischen Sektor.
+7. Das Tool NPUTS-CF zum Schreiben des CP/M-Systems + BIOS auf ein Compact-Flash-Volumne verwendet das BIOS und schreibt logische Sektoren.
+8. Das Tool NPUTB-CF zum Schreiben des Bootloaders auf ein Compact-Flash-Volumne verwendet den Monitor und schreibt den Boot-Sektor als physikalischen Sektor.
+9. Das Tool DISKCOPY verwendet aus Performance-Gründen den Monitor und zum Lesen und Schreiben von physikalische Sektoren.
