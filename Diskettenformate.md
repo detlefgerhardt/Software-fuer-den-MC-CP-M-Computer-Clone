@@ -7,7 +7,7 @@ Bei 800KB NKC Format, das NMON und NBIOS standardmäßig als Boot-Disketten-Form
 Das entsprechende logische CP/M-Format ist: 128 Bytes/Sektor, 40 Sektoren/Track, 160 Tracks/Disk.
 Weiterhin ist zu beachten, dass beim Monitor die physikalischen Sektoren bei 1 beginnen (1..n) und beim BIOS die logischen Sektoren bei 0 (0..n-1).
 
-Hier mal ein kurzer Überblick, welche Format-Arten beim dem entwickelten NMON (Monitor) und NBIOS (CP/M-BIOS) an welcher Stelle verwendet werden. Es ist geplant, den physikalischen bzw. logischen Zugriff so weit wie möglich zu vereinheitlichen, zum Beispiel bei dem Compact-Flash-Laufwerken.
+Hier mal ein kurzer Überblick, welche Format-Arten beim dem entwickelten NMON (Monitor) und NBIOS (CP/M-BIOS) an welcher Stelle verwendet werden. Es ist geplant, die Zugriffsarten (physikalischen oder logischen) so weit wie möglich zu vereinheitlichen, zum Beispiel bei dem Compact-Flash-Laufwerken.
 
 1. Beim Booten eines Datenträgers liest der Monitor einen physikalischen Boot-Sektor vom Datenträger.
 2. Dieser Boot-Sektor enthält den Boot-Loader, der über den Monitor die physikalischen Sektoren mit dem CP/M-Betriebssystem lädt
