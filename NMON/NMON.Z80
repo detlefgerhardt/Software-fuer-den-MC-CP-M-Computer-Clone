@@ -37,6 +37,8 @@
 ;
 ; 01.07.2026 *dg* Komplette Ueberarbeitung der Kommentate ohne funktionale Aenderungen
 ; 17.10.2026 *dg* IDE Routinen geaendert
+; 25.10.2026 *dg* IDE Routinen geaendert, uebergaben von Drive, Track und Sector statt LBA Daten
+;		  added debug outputs (decimal, hex)
 
 ;------------------------------------------------------------------------------
 ; Mapping of REG4-Latch
@@ -74,7 +76,7 @@ RST7	EQU 38H		; der Vektor RST7 wird fuer Breakpoints gebraucht
 ;------------------------------------------------------------------------------
 ; Variant switches
 
-VERSION	EQU 11
+VERSION	EQU 12		; Version 1.2
 
 ; aktiviert alle bisherigen Aenderungen gegenueber der Originalversion 7.x
 DG01	EQU TRUE
@@ -223,6 +225,11 @@ TRAP:	; trap/breakpoint entry -> RSTRT
 	JP COLD		; Monitor Cold Start (no hardware init)
 	JP WARM		; Monitor Warm Start (will be overwritten by BIOS with BIOS Warm Boot)
 	JP WRSTR	; gibt einen 0-terminierten String aus (will be overwritten by BIOS with BIOS Warm Boot)
+	
+	JP DEBDEC	; debug display unsigned 16 bit value in HL (decimal)
+	JP DEBX16	; debug display unsigned 16 bit value in HL (4 digit hex)
+	JP DEBX8	; debug display unsigned 8 bit value in A (2 digit hex)
+
 
 TABPTR:	DEFW TABSTART 	; Start of user jump table
 ENDPTR:	DEFW LASTMON 	; End address of Monitor
@@ -245,10 +252,11 @@ FREPTR:	DEFW FREEMEM 	; End of Monitor driver section. The area behind it can be
 	JP ILLEGAL      ; c=befehl fuer gdp  ACHTUNG in C-Register nicht A
 	JP ILLEGAL 	; hl=quelle,de=ziel,c=bank quelle, b=bank ziel
 			; carry wenn bankram auf F000h nicht da ist
+
 	ENDIF
 
+;------------------------------------------------------------------------------
 ; End of area of tables and fixed addresses, that are used by CP/M BIOS, UFORMAT etc.
-
 ;------------------------------------------------------------------------------
 
 ILLEGAL:
@@ -1315,7 +1323,13 @@ IDERD5: ; read loop
 
 	ELSE
 
-IDERD:	LD D,20h		; read command
+; Read one IDE/CF card sector (256 bytes)
+; HL = Buffer address
+; E = Physical sector (1..n)
+; D = Track (0..n-1)
+; C = Volume
+
+IDERD:	LD B,20h		; read command
 	CALL IDEINI		; do all the settings and wait for DRQ
 
 	CALL IDEBSY
@@ -1389,7 +1403,13 @@ IDEWR5:	; wait for busy clear
 
 	ELSE
 	
-IDEWR:	LD D,30h		; write command
+; Read one IDE/CF card sector (256 bytes)
+; HL = Buffer address
+; E = Physical sector (1..n)
+; D = Track (0..n-1)
+; C = Volume
+	
+IDEWR:	LD B,30h		; write command
 	CALL IDEINI		; do all the settings and wait for DRQ
 
 IDEWR1:	; write loop
@@ -1424,6 +1444,18 @@ IDEBSY:	IN A,(IDE_STAT)		; check status
 ; LBA bits 8 to 15 passed in B
 ; LBA bits 16 to 23 passed in E
 
+; Read one IDE/CF card sector (256 bytes)
+; HL = Buffer address
+; E = Physical sector (1..n)
+; D = Track (0..n-1)
+; C = Volume (0..3)
+; B = Command (20h = read, 30h = write)
+
+; NEWIDE LBA assignment (8192K):
+; 00000000 00000000 00000000
+; 0000000d dsssssss tttttttt
+;        E        B        C
+
 IDESET:	DB 0			; ide initialisation (0 = not, 1 = initalized)
 
 IDEINI:	CALL IDEBSY
@@ -1451,8 +1483,12 @@ IDEIN1:	IN A,(IDE_STAT)		; check status
 	LD A,1
 	LD (IDESET),A
 
-IDEIN2:	LD A,01H		; number of sectors = 1
+IDEIN2:	; set number of sectors to read/write
+	LD A,01H		; read 1 sector
 	OUT (IDE_SECCNT),A	; sector count register
+
+	IF FALSE
+	
 	LD A,C
 	OUT (IDE_LBA7),A	; lba bits 0 - 7
 	LD A,B
@@ -1461,9 +1497,34 @@ IDEIN2:	LD A,01H		; number of sectors = 1
 	OUT (IDE_LBA23),A	; lba bits 16 - 23
 	;LD A,11100000B	; LBA mode, select drive 0
 	;OUT (IDE_HEAD),A	; drive/head register
-
-	LD A,D		; Read/Write sector command
+	LD A,D			; Read/Write sector command
 	OUT (IDE_STAT),A
+
+	ELSE
+
+	; set LBA7
+	LD A,D			; track (0..255)
+	OUT (IDE_LBA7),A
+	
+	; set LBA23
+	LD A,C			; volume (0..3)
+	SRL A			; drive bit1 -> bit0, bit0 -> carry
+	OUT (IDE_LBA23),A	; drive bit1
+	
+	; set LBA15
+	LD C,0
+	RR C			; carry -> bit 7
+	LD A,E
+	DEC A			; phys. sector starts with 1
+	OR C
+	OUT (IDE_LBA15),A	; sector (0..128) + drive bit0
+
+	; set read/write command
+	LD A,B			; Read/Write sector command
+	OUT (IDE_STAT),A
+	
+	ENDIF	; FALSE
+	
 
 IDEIN3:	; wait for drq set
 	IN A,(IDE_STAT)	; read status
@@ -1474,6 +1535,95 @@ IDEIN3:	; wait for drq set
 	
 	ENDIF		; DG01
 	
+;==============================================================================
+; Debug - Routinen
+;==============================================================================
+
+; Display value in HL as decimal
+
+DEBDEC:	PUSH AF
+	PUSH BC
+
+	LD BC,-10000	; 1. Zehnerpotenz: Zehntausender
+	CALL DEBDE1
+	LD BC,-1000	; 2. Zehnerpotenz: Tausender
+	CALL DEBDE1
+	LD BC,-100	; 3. Zehnerpotenz: Hunderter
+	CALL DEBDE1
+	LD BC,-10	; 4. Zehnerpotenz: Zehner
+	CALL DEBDE1
+	LD C,-1		; 5. Zehnerpotenz: Einer (immer ausgeben)
+	CALL DEBDE1
+	
+	POP BC
+	POP AF
+	RET
+
+
+DEBDE1:	LD A,'0' - 1	; Startwert fuer ASCII-Zeichen ('0' minus 1)
+
+DEBDE2:	INC A		; Zeichen um 1 erhoehen (ASCII-Code weiterzaehlen)
+	ADD HL,BC	; Zehnerpotenz abziehen
+	JR C,DEBDE2	; Wenn kein Uebertrag (Zahl war groesser), weiter abziehen
+
+	SBC HL,BC	; Uebertrag korrigieren (zu viel abgezogen, also wieder drauf)
+    
+	; Das Zeichen (ASCII-Code) befindet sich jetzt im Akkumulator (A).
+	;PUSH BC	; Register sichern
+	;PUSH HL
+	LD C,A		; character to print
+	CALL CONOUT	; uses A
+	;POP HL
+	;POP BC
+	RET
+
+;-----------------------------------------------------------------------------
+; Output HL as 4-digit hex string
+
+DEBX16:	PUSH AF
+
+	LD A,H
+	CALL DEBX8
+	LD A,L
+	CALL DEBX8
+	
+	POP AF
+	RET
+
+;-----------------------------------------------------------------------------
+; Output A as 2-digit hex string
+
+DEBX8:	PUSH AF
+	PUSH BC
+
+	PUSH AF
+	SRL A
+	SRL A
+	SRL A
+	SRL A
+	CALL DEBXN
+	POP AF
+	CALL DEBXN
+
+	POP BC
+	POP AF
+	RET
+
+;-----------------------------------------------------------------------------
+; Output low-nibble in A 1-digit hex string
+
+DEBXN:	AND 0Fh
+	CP 0Ah
+	JR C,DEBXN1
+	
+	ADD A,'A'-10
+	JR DEBXN2
+
+DEBXN1:	ADD A,'0'
+
+DEBXN2:	LD C,A
+	JP CONOUT
+
 ;==============================================================================
 
 ; The driver section of the Monitor that is used by the CP/M BIOS ends here.
@@ -1504,7 +1654,7 @@ MSGCRLF:
 	DEFM "--------------------------",CR,LF
 	DEFM "MC CP/M-Computer NMON V"
 	DEFM VERSION/10+'0','.',VERSION MOD 10+'0',CR,LF
-	DEFM "   UH/*dg* 261017-02",CR,LF
+	DEFM "   UH/*dg* 261025-05",CR,LF
 	DEFM "--------------------------",CR,LF,LF
 	DEFM " Bootmenue = I",CR,LF,0
 	
@@ -1748,8 +1898,11 @@ EXEC1:	PUSH HL		; boot loader address
 ; Load boot sector from IDE/CF-card to RAM location 08000h
 
 IDE_CF:	LD HL,08000h	; buffer address
-	LD BC,0000h	; B,C,E = 0 -> LBA = 0
-	LD E,00H
+	LD C,0		; volumne
+	LD D,0		; track
+	LD E,1		; sector
+	;LD BC,0000h	; B,C,E = 0 -> LBA = 0
+	;LD E,00H
 	CALL IDERD	; IDE read
 
 	JP 08000H	; Execute boot sector

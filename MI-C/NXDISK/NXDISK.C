@@ -2,7 +2,7 @@
 /*
 	NXDISK.C  *dg*  10/2026 for MI-C compiler and CP/M
 	
-	Send / Receiove whole disk with Xmodem
+	Send / Receive whole disk with Xmodem
 
 	Uses BIOS conout/conin/const for fast xmodem transfer
 */
@@ -13,7 +13,8 @@
  04.10.2026 *dg* Switch to SIO-A/SIO-B with parameter -SA/-SB (up to 2,5
                  KByte/s with 37800 baud,
 				 Cleanup
-
+ 23.10.2026 *dg* Support IDE volumes
+ 25.10.2026 *dg* Adapted to new monitor IDE/CF routines
 
   TODO:
   - Send abort message when CTRL-C is pressed (with Send())
@@ -34,14 +35,15 @@
 FALSE	EQU 0
 TRUE	EQU NOT FALSE
 
-; BIOS
-;BIOS:	DW 0
+; BIOS jumps for send/recv Xmodem characters
 BCONST: DS 3	; JP get status in A
 BCONIN:	DS 3	; JP char in in A
 BCONOUT:DS 3	; JP char out from A or C
 
 ; Monitor
-MFLOP	EQU		0F021H	; Monior FLOP routine
+MFLOP	EQU		0F021H	; Montior FLOP routine
+MIDERD	EQU		0F02AH	; Monitor IDERD routine
+MIDEWR	EQU		0F02DH	; Monitor IDEWR routine
 
 EXTERNAL	SAST
 EXTERNAL	SAIN
@@ -273,26 +275,55 @@ BOOL Flop(cmd, drvcod, track, sector, addr)
 }
 
 /****************************************************************************/
-/* drive 0..n-1 */
-/* track 0..n-1 */
-/* side 0..n.1 */
-/* sector 0..n-1 */
-/* FLO register */
-/* addr = buffer address */
+/* Monitor: read IDE sector */
+/*
+; HL = Buffer address
+; E = Physical sector (1..n)
+; D = Track (0..n-1)
+; C = Volume (0..3)
+*/
 
-int ReadSector(drive, track, side, sector, reg, addr)
-	int drive, track, side, sector, reg;
+IdeRd(vol, trk, sect, addr)
+	int vol, sect, trk;
 	unsigned addr;
 {
-	int drvcod;
-	
-	/*xprintf("%d %d %d %d %02X %04X\r\n", drive, track, side, sector, reg, addr);*/
-	
-	/*int drvcod = (1 << drive) | 0x20;*/
-	drvcod = (1 << drive) | reg;
-	if (side == 1) drvcod |= 0x80;
-	 /* read sector by Monitor */
-	return Flop(1, drvcod, track, sector + 1, addr) == 0;
+#ASM
+	LD IX,2		; RET
+	ADD IX,SP
+	LD C,(IX+0)	; volumne
+	LD D,(IX+2)	; track
+	LD E,(IX+4)	; sector
+	LD L,(IX+6)	; addr (low)
+	LD H,(IX+7)	; addr (high)
+	CALL MIDERD	; Monitor IDERD routine
+	LD HL,0		; no return code
+#ENDASM
+}
+
+/****************************************************************************/
+/* Monitor: write IDE sector */
+/*
+; HL = Buffer address
+; E = Physical sector (1..n)
+; D = Track (0..n-1)
+; C = Volume (0..3)
+*/
+
+IdeWr(vol, trk, sect, addr)
+	int vol, sect, trk;
+	unsigned addr;
+{
+#ASM
+	LD IX,2		; RET
+	ADD IX,SP
+	LD C,(IX+0)	; volumne
+	LD D,(IX+2)	; track
+	LD E,(IX+4)	; sector
+	LD L,(IX+6)	; addr (low)
+	LD H,(IX+7)	; addr (high)
+	CALL MIDEWR	; Monitor IDEWR routine
+	LD HL,0		; no return code
+#ENDASM
 }
 
 /****************************************************************************/
@@ -303,18 +334,62 @@ int ReadSector(drive, track, side, sector, reg, addr)
 /* FLO register */
 /* addr = buffer address */
 
-int WriteSector(drive, track, side, sector, reg, addr)
+BOOL ReadSector(drive, track, side, sector, reg, addr)
 	int drive, track, side, sector, reg;
 	unsigned addr;
 {
 	int drvcod;
+	
+	/*cprintf("%d %d %d %d %02X %04X\r\n", drive, track, side, sector, reg, addr);*/
+	
+	if (drive < 4)
+	{
+		/*int drvcod = (1 << drive) | 0x20;*/
+		drvcod = (1 << drive) | reg;
+		if (side == 1) drvcod |= 0x80;
+		 /* read sector by Monitor */
+		return Flop(1, drvcod, track, sector + 1, addr) == 0;
+	}
+	else if (drive < 8)
+	{
+		IdeRd(drive - 4, track, sector + 1, addr);
+		return TRUE;
+	}
+	
+	return FALSE; /* error */
+}
+
+/****************************************************************************/
+/* drive 0..n-1 */
+/* track 0..n-1 */
+/* side 0..n.1 */
+/* sector 0..n-1 */
+/* FLO register */
+/* addr = buffer address */
+
+BOOL WriteSector(drive, track, side, sector, reg, addr)
+	int drive, track, side, sector, reg;
+	unsigned addr;
+{
+	int drvcod;
+	int lba7, lba15, lba23;
 	/*cprintf("\r\nWR %d %d %d %d %u\t\n", drive, track, side, sector, addr);*/
 	
-	/*int drvcod = (1 << drive) | 0x20;*/
-	drvcod = (1 << drive) | reg;
-	if (side == 1) drvcod |= 0x80;
-	 /* write sector by Monitor */
-	return Flop(2, drvcod, track, sector + 1, addr) == 0;
+	if (drive < 4)
+	{
+		/*int drvcod = (1 << drive) | 0x20;*/
+		drvcod = (1 << drive) | reg;
+		if (side == 1) drvcod |= 0x80;
+		 /* write sector by Monitor */
+		return Flop(2, drvcod, track, sector + 1, addr) == 0;
+	}
+	else if (drive < 8)
+	{
+		IdeWr(drive - 4, track, sector + 1, addr);
+		return TRUE;
+	}
+
+	return FALSE; /* error */
 }
 
 /****************************************************************************/
@@ -421,9 +496,9 @@ BOOL SendDisk(prm)
 					cputs("ReadSector error\r\n");
 					goto abort;
 				}
-				for (blk = 0; blk < prm->byts / 128; blk++)
+				for (blk = 0; blk < prm->byts / blklen; blk++)
 				{
-					blkno = SendX(secbuf + blk * 128, blkno);
+					blkno = SendX(secbuf + blk * blklen, blkno);
 					if (blkno == -1)
 					{
 						cputs("SendX error/abort\r\n");
@@ -624,7 +699,7 @@ main(argc, argv)
 	BOOL error;
 	phyprm prm;
 
-	cputs("NXDISK *dg* v1.1 281004-01\r\n\n");
+	cputs("NXDISK *dg* v1.3 281025-03\r\n\n");
 
 	error = FALSE;
 	if (argc < 2)
@@ -677,7 +752,7 @@ main(argc, argv)
 		cputs("  s / r = send or receive\r\n");
 		cputs("  <d>:  = disk drive\r\n");
 		cputs("  -t<n> = tracks\r\n");
-		cputs("  -s<p> = use SIO port instead of console (-sa=SIO-A, S-sb=SIO-B\r\n");
+		cputs("  -s<p> = use SIO port instead of console (-sa=SIO-A, S-sb=SIO-B)\r\n");
 		return;
 	}
 
@@ -704,7 +779,8 @@ main(argc, argv)
 	if (tracks != -1) prm.trks = tracks;
 
 	/* allocate memory for sector buffer */
-	secbuf = CALLOC(prm.byts, 1);
+	/*secbuf = CALLOC(prm.byts, 1);*/
+	secbuf = CALLOC(1024, 1);
 	if (secbuf == NULL)
 	{
 		cprintf("Error: not enough memory (%d)\r\n", prm.byts);

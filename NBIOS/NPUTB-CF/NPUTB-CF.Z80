@@ -21,6 +21,7 @@
 ;
 ; 10.07.2026 *dg* Renamed to NBPUT-CF and reformatted
 ; 09.08.2026 *dg* Renamed to NPUTB-CF
+; 25.10.2026 *dg* Adapted to new Monitor IDE/CF routines
 ;
 
 ;-----------------------------------------------------------------------------
@@ -29,7 +30,7 @@ BOOTADR	EQU 01000H	; the bootloader was loaded to this address before
 
 ; calls to Monitor
 CONOUT	EQU 0F009h	; Output a chracter
-IDEWR	EQU 0F02DH	; IDE/CF write routine in Monitor
+MIDEWR	EQU 0F02DH	; IDE/CF write routine in Monitor
 MWARM	EQU 0F033H	; goto Monitor
 
 BOOTDRV	EQU 4		; first IDE/CF-drive (only used for message)
@@ -38,15 +39,16 @@ BOOTDRV	EQU 4		; first IDE/CF-drive (only used for message)
 
 	ORG 0100H	; start program here
 
-START:	
-	LD HL,MSG1
+	; Monitor stack is used
+
+START:	LD HL,MSG1
 	CALL WRSTR
 
 	LD HL,BOOTADR
-	LD C,00H
-	LD B,00H
-	LD E,00H
-	CALL IDEWR	; write one 128 byte sector
+	LD C,00H	; volume 0
+	LD D,00H	; track 0
+	LD E,01H	; sector 1 (boot sector)
+	CALL MIDEWR	; write one 256 byte sector
 	
 	LD HL,MSG2
 	CALL WRSTR
@@ -73,7 +75,7 @@ WRSTR:	LD A,(HL)	; get char from string
 CR	EQU 0DH
 LF	EQU 0AH
 
-MSG1:	DEFB CR,LF,"NPUTB-CF V1.0 260809-01",CR,LF,0
+MSG1:	DEFB CR,LF,"NPUTB-CF V1.1 261025-02",CR,LF,0
 
 MSG2:	DEFM "Bootloader written from 1000h to drive ",BOOTDRV+'A'," on IDE/CF",CR,LF,0
 

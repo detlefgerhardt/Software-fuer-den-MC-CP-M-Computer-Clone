@@ -1,5 +1,7 @@
 echo off > nul
-cpm z80asm NBOOT-CF/f,NBOOT-CF/h
-hexreset NBOOT-CF.HEX
-del NBOOT-CF.COM
-copy NBOOT-CF.HEX ..\SYS
+set name="NBOOT-CF"
+
+cpm z80asm %name%/f,%name%/h
+hexreset %name%.HEX
+del %name%.COM > nul
+copy %name%.HEX ..\SYS > nul
