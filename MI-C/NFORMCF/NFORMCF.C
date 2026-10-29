@@ -471,7 +471,7 @@ main(argc, argv)
 	BiosAddr();
 	
 	PutStr("\r\nNFORMCF V1.1 *dg* 261015-02\r\n");
-	PutStr("format/test IDE/CF partition\r\n\n");
+	PutStr("format/test IDE/CF volume\r\n\n");
 
 	secsize = 256;
 	seccnt = 128;

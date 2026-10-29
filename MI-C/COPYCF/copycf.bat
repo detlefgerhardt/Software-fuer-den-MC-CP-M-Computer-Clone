@@ -8,4 +8,4 @@ CPM L80 %name%/N,XXXMAIN,%name%,%name2%,LIBDG/S,LIB/S/E/Y > %name%.lerr
 
 MICERR %name%.cerr %name%.merr %name2%.merr %name%.lerr
 
-COPY %name%.COM \Retro\CPM\RunCPM\F\0
+COPY %name%.COM ..\SYS

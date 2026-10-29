@@ -1,0 +1,30 @@
+; GETINT.MAC *dg* 29.10.2026
+; get int from memory address
+
+	PUBLIC GETINT
+
+; int getint(mem)
+;     char *mem;
+;   return value
+;
+GETINT:	LD IX,2		; RET address
+	ADD IX,SP
+
+	; mem -> HL
+	LD L,(IX+0)
+	LD H,(IX+1)
+
+	; byte0 -> E
+	LD A,(HL)
+	LD E,A
+	INC HL
+	; byte1 -> D
+	LD A,(HL)
+	LD D,A
+
+	EX DE,HL
+	RET
+
+	END
+
+; end of file

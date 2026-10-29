@@ -1,7 +1,6 @@
 /****************************************************************************/
 /*
 	LIBTEST.C  *dg*  08/2026 for MI-C compiler and CP/M
-	
 */
 /****************************************************************************/
 
@@ -138,6 +137,10 @@ main(argc, argv)
 	strintst("ABd", "abc", 3);
 	strintst("ABC", "abcd", 3);
 	strintst("ABCd", "abc", 3);
+
+	cputs("\r\nwaitch: ");
+	c = waitch(10);
+	cprintf("c = %02X\r\n", c);
 
 
 	cputs("\r\ntest kbhit()/getch(), abort with CTRL-C:");

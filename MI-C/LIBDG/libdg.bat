@@ -1,4 +1,4 @@
-REM LIBDG.REL *dg* 16.10.2026
+REM LIBDG.REL *dg* 29.10.2026
 REM build LIBDG.REL
 REM
 REM revision history
@@ -7,6 +7,9 @@ REM                 - VT100 added
 REM                 - STRICMP added
 REM 14.10.2026 *dg* - WAITCH added
 REM 16.10.2026 *dg* - hextou() in TOHEX added
+REM 22.10.2026 *dg* - hexdmp() in HEXDMP added
+REM 29.10.2026 *dg* - getlng() in GETLNG added
+REM                 - getint() in GETINT added
 REM
 REM compile c modules
 CPM CCZ /SX CONIO > conio.cerr
@@ -29,11 +32,15 @@ CPM CCZ /SX VT100 > vt100.cerr
 CPM M80 =VT100/Z/L > vt100.merr
 CPM CCZ /SX STRICMP > stricmp.cerr
 CPM M80 =STRICMP/Z/L > stricmp.merr
+CPM CCZ /SX HEXDMP> hexdmp.cerr
+CPM M80 =HEXDMP/Z/L > hexdmp.merr
 
 REM assemble assembler modules
 CPM M80 =MEMSET/Z/L > memset.merr
 CPM M80 =MEMCPY/Z/L > memcpy.merr
 CPM M80 =MEMCMP/Z/L > memcmp.merr
+CPM M80 =GETLNG/Z/L > getlng.merr
+CPM M80 =GETINT/Z/L > getint.merr
 CPM M80 =OUTP/Z/L > outp.merr
 CPM M80 =INP/Z/L > inp.merr
 CPM M80 =SIOA/Z/L > sioa.merr
@@ -41,15 +48,15 @@ CPM M80 =SIOB/Z/L > siob.merr
 CPM M80 =WAITCH/Z/L > waitch.merr
 
 REM build library from modules
-CPM LIB80 LIBDG=PHYDRV,MEMSET,MEMCPY,MEMCMP,STRICMP,VT100,CPRINTF,CONIO,CGETS,SIOA,SIOB,TOHEX,STRUPR,STRLWR/E > libdg1.lerr
+CPM LIB80 LIBDG=PHYDRV,MEMSET,MEMCPY,MEMCMP,STRICMP,GETLNG,GETINT,VT100,CPRINTF,HEXDMP,SIOA,SIOB,TOHEX/E > libdg1.lerr
 
-CPM LIB80 LIBDG=RANDOM,WAITCH,OUTP,INP,LIBDG/E > libdg2.lerr
+CPM LIB80 LIBDG=STRUPR,STRLWR,RANDOM,WAITCH,OUTP,INP,CONIO,CGETS,LIBDG/E > libdg2.lerr
 
-MICERR conio.cerr conio.merr fgets.cerr fgets.merr cprintf.cerr cprintf.merr random.cerr random.merr tohex.cerr tohex.merr
+MICERR conio.cerr conio.merr fgets.cerr fgets.merr cprintf.cerr cprintf.merr random.cerr random.merr tohex.cerr tohex.merr getlng.merr getint.merr
 
 MICERR stricmp.cerr stricmp.merr strupr.cerr strupr.merr strlwr.cerr strlwr.merr phydrv.cerr phydrv.merr memset.merr memcpy.merr memcmp.merr outp.merr inp.merr sioa.merr siob.merr waitch.merr
 
-MICERR vt100.cerr vt100.merr
+MICERR vt100.cerr vt100.merr hexdmp.cerr hexdmp.merr
 
 MICERR libdg1.lerr libdg2.lerr
 

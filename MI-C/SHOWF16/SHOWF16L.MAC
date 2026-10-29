@@ -1,0 +1,395 @@
+; SHOWMBLL.MAC *dg* 29.10.2026
+;
+; low-level assembly routines for IDE/CF access
+
+FALSE	EQU 0
+TRUE	EQU NOT FALSE
+
+; Addresses of IDE-80 CF-Adapter card
+
+CDATA	EQU 0		; Data Register
+CFEAT	EQU 1		; Feature Register
+CCNT	EQU 2		; Sector Count Register
+CLBA7	EQU 3		; LBA Bits 0-7
+CLBA15	EQU 4		; LBA Bits 8-15
+CLBA23	EQU 5		; LBA Bits 16-23
+CHEAD	EQU 6		; IDE Drive Head Register
+CSTAT	EQU 7		; IDE Command/Status Register
+
+IOADDR:	DB 0
+DRIVE:	DB 0
+SECTOR:	DB 0
+TRACK:	DB 1
+MODE8:	DB 1		; 8/16 bit mode (01h = 8bit, 00h = 16bit)
+BUFFER:	DW 0		; buffer address (512 byte in 8bit mode, 256 byte in 16bit mode)
+
+LBA7:	DB 1
+LBA15:	DB 1
+LBA23:	DB 1
+
+;-----------------------------------------------------------------------------
+; volume 0..3
+; sector 0..128
+; track 0..255
+
+; Read(buffer, ioaddr, part, sector, track, mode8)
+;	unsigned buffer;
+;	int ioaddr, part, sector, track, mode8;
+
+	GLOBAL READ
+
+READ:	LD IX,2		; RET address
+	ADD IX,SP
+
+	LD A,(IX+0)	; buffer low
+	LD (BUFFER),A
+	LD A,(IX+1)	; buffer high
+	LD (BUFFER+1),A
+
+	LD A,(IX+2)	; io address
+	LD (IOADDR),A
+
+	LD A,(IX+4)	; partition 0..3
+	LD (DRIVE),A
+
+	LD A,(IX+6)	; sector 0..127
+	LD (SECTOR),A
+
+	LD A,(IX+8)	; track 0..255
+	LD (TRACK),A
+	
+	LD A,(IX+10)	; mode8
+	LD (MODE8),A
+
+	CALL LBA
+	JP IDERD
+
+;-----------------------------------------------------------------------------
+; volume 0..3
+; sector 0..128
+; track 0..255
+
+; Write(buffer, ioaddr, part, sector, track, mode8)
+;	unsigned buffer;
+;	int ioaddr, part, sector, track, mode8;
+
+	GLOBAL WRITE
+
+WRITE:	LD IX,2		; RET address
+	ADD IX,SP
+
+	LD A,(IX+0)	; buffer low
+	LD (BUFFER),A
+	LD A,(IX+1)	; buffer high
+	LD (BUFFER+1),A
+
+	LD A,(IX+2)	; io address
+	LD (IOADDR),A
+
+	LD A,(IX+4)	; partition 0..3
+	LD (DRIVE),A
+
+	LD A,(IX+6)	; sector 0..127
+	LD (SECTOR),A
+
+	LD A,(IX+8)	; track 0..255
+	LD (TRACK),A
+
+	LD A,(IX+10)	; mode8
+	LD (MODE8),A
+
+	CALL LBA
+	JP IDEWR
+
+;-----------------------------------------------------------------------------
+; RD_LBA
+;
+; rd_lba(buffer, ioaddr, lba, mode8)
+;	char *buffer
+;	int ioaddr, mode8;
+;	long lba;
+
+	GLOBAL RD_LBA
+
+RD_LBA:	LD IX,2		; RET address
+	ADD IX,SP
+
+	LD A,(IX+0)	; buffer low
+	LD L,A
+	LD A,(IX+1)	; buffer high
+	LD H,A
+
+	LD A,(IX+2)	; io address
+	LD (IOADDR),A
+
+	LD A,(IX+4)	; LBA7
+	LD (LBA7),A
+
+	LD A,(IX+5)	; LBA15
+	LD (LBA15),A
+
+	LD A,(IX+6)	; LBA15
+	LD (LBA23),A
+
+	LD A,(IX+8)	; mode8
+	LD (MODE8),A
+	
+	JP IDERD
+
+;-----------------------------------------------------------------------------
+; WR_LBA
+;
+; wr_lba(buffer, ioaddr, lba, mode8)
+;	char *buffer
+;	int ioaddr, mode8;
+;	long lba;
+
+	GLOBAL WR_LBA
+
+WR_LBA:	LD IX,2		; RET address
+	ADD IX,SP
+
+	LD A,(IX+0)	; buffer low
+	LD L,A
+	LD A,(IX+1)	; buffer high
+	LD H,A
+
+	LD A,(IX+2)	; io address
+	LD (IOADDR),A
+	
+	LD A,(IX+4)	; LBA7
+	LD (LBA7),A
+
+	LD A,(IX+5)	; LBA15
+	LD (LBA15),A
+
+	LD A,(IX+6)	; LBA15
+	LD (LBA23),A
+	
+	LD A,(IX+8)	; mode8
+	LD (MODE8),A
+	
+	JP IDEWR
+
+;-----------------------------------------------------------------------------
+; Read one IDE/CF card sector
+; Address of data in HL
+; Address for data in HL
+; LBA in LBA7,LBA15,LBA23
+
+IDERD:	LD B,20h		; read command
+	CALL IDEINI		; do all the settings and wait for DRQ
+
+	CALL IDEBSY
+
+IDERD4:	; wait for busy clear
+	IN A,(C)		; (CSTAT)
+	AND 80H
+	JP NZ,IDERD4
+
+	LD A,(IOADDR)
+	ADD A,CSTAT
+	LD C,A
+	IN A,(C)		; clear INTRQ (CSTAT)
+
+	LD A,(IOADDR)
+	ADD A,CSTAT
+	LD D,A			; D = CSTAT
+	LD A,(IOADDR)
+	ADD A,CDATA
+	LD E,A			; E = CDATA
+
+IDERD5: ; read loop
+	LD C,E
+	IN A,(C)		; get data (CDATA)
+	LD (HL),A
+	INC	HL
+	LD C,D
+	IN A,(C)		; check status (CSTAT)
+	AND 08H			; DRQ bit
+	JP NZ,IDERD5		; loop until cleared
+	
+	RET
+
+;-----------------------------------------------------------------------------
+; Write one IDE/CF-card sector
+;
+; Address of data in HL
+; Init sector read / write
+; IO address in IOADDR
+; read/write in B (20h = read, 30 = write)
+; LBA in LBA7,LBA15,LBA23
+
+IDEWR:	LD B,30h		; write sector command
+	CALL IDEINI
+
+	LD A,(IOADDR)
+	ADD A,CSTAT
+	LD D,A			; D = CSTAT
+	LD A,(IOADDR)
+	ADD A,CDATA
+	LD E,A			; E = CDATA
+
+IDEWR4:	; write loop
+	LD A,(HL)
+	LD C,E
+	OUT (C),A		; write data (CDATA)
+	INC	HL
+	LD C,D
+	IN A,(C)		; read status (CSTAT)
+	AND 08H			; check DRQ bit
+	JP NZ,IDEWR4		; write until bit cleared
+
+	CALL IDEBSY
+
+	LD A,(IOADDR)
+	ADD A,CSTAT
+	LD C,A
+	IN A,(C)		; clear INTRQ (CSTAT)
+
+	RET
+
+;-----------------------------------------------------------------------------
+; Init sector read / write
+; base address in IOADDR
+; read/write in B (20h = read, 30 = write)
+; LBA in LBA7/LBA15/LBA23
+
+IDEINI:	CALL IDEBSY
+	CALL IDERDY
+
+	; 8/16 bit mode
+	LD A,(IOADDR)
+	ADD A,CFEAT
+	LD C,A
+	LD A,(MODE8)
+	AND A
+	JR Z,IDEIN3	; -> 16 bit
+	; 8 bit
+	LD A,01h
+	JR IDEIN4
+IDEIN3:	; 16 bit
+	LD A,81h
+IDEIN4:	OUT (C),A
+
+	; set feature command
+	LD A,(IOADDR)
+	ADD A,CSTAT
+	LD C,A
+	LD A,0EFH		; set feature command
+	OUT (C),A
+	CALL IDEBSY
+
+	; sector count
+	LD A,(IOADDR)
+	ADD A,CCNT
+	LD C,A
+	LD A,01H		; number of sectors = 1
+	OUT (C),A		; sector count register (CCNT)
+
+	; LBA7
+	LD A,(IOADDR)
+	ADD A,CLBA7
+	LD C,A
+	LD A,(LBA7)
+	OUT (C),A		; lba bits 0 - 7 (CLBA7)
+
+	; LBA15
+	LD A,(IOADDR)
+	ADD A,CLBA15
+	LD C,A
+	LD A,(LBA15)
+	OUT (C),A		; lba bits 8 - 15 (CLBA15)
+
+	; LBA23
+	LD A,(IOADDR)
+	ADD A,CLBA23
+	LD C,A
+	LD A,(LBA23)
+	OUT (CLBA23),A		; lba bits 16 - 23 (CLBA23)
+
+	; LBA-mode, volume
+	LD A,(IOADDR)
+	ADD A,CHEAD
+	LD C,A
+	LD A,11100000B		; LBA mode, select volume
+	OUT (C),A		; drive/head register (CHEAD)
+	
+	LD A,(IOADDR)
+	ADD A,CSTAT
+	LD C,A
+	LD A,B			; Read/write sector command
+	OUT (C),A		; (CSTAT)
+
+	; wait for DRQ = 1
+	LD A,(IOADDR)
+	ADD A,CSTAT
+	LD C,A
+IDEIN5:	; wait for drq set
+	IN A,(C)		; read status (CSTAT)
+	AND 08H			; DRQ bit
+	JP Z,IDEIN5		; loop until bit set
+
+	RET
+
+;-----------------------------------------------------------------------------
+; convert DRIVE, SECTOR, TRACK to LBA7, LBA15, LBA23
+;
+; volume 0..3
+; sector 0..128
+; track 0..255
+;
+; LBA assignment (8192K):
+;
+; LBA23    LBA15    LBA7
+; 00000000 00000000 00000000
+; 0000000d dsssssss tttttttt
+
+LBA:	; LBA0..7
+	LD A,(TRACK)
+	LD (LBA7),A
+
+	LD A,(DRIVE)
+	;LD E,A
+	;SRL E		; drive bit 1 -> bit 0, bit 0 -> carry
+			; LBA16..23 -> E
+	SRL A
+	LD (LBA23),A
+			
+	LD B,0
+	RR B		; carry -> bit 7
+	LD A,(SECTOR)
+	OR B
+	;LD B,A		; LBA8..15 -> B
+	LD (LBA15),A
+
+	RET
+
+;-----------------------------------------------------------------------------
+; IDE wait for Busy cleared
+
+IDEBSY:	LD A,(IOADDR)
+	ADD A,CSTAT
+	LD C,A
+IDEBS1:	IN A,(C)		; check status (CSTAT)
+	AND 80H		; check BSY bit
+	JP NZ,IDEBS1	; loop until not busy
+
+	RET
+
+;-----------------------------------------------------------------------------
+
+IDERDY:	LD A,(IOADDR)
+	ADD A,CSTAT
+	LD C,A
+IDERD1:	IN A,(C)		; check status (CSTAT)
+	AND 40H		; check DRDY bit
+	JR Z,IDERD1	; loop until ready
+
+	RET
+
+;-----------------------------------------------------------------------------
+
+	END
+
+; end of file

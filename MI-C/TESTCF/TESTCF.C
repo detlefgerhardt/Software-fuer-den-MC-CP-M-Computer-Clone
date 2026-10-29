@@ -31,6 +31,25 @@
 char *buffer;
 char *vbuffer;
 
+char *secbuf;
+
+#ASM
+BIOS:	DW	0
+#ENDASM
+
+/****************************************************************************/
+
+unsigned int BiosAddr()
+{
+#ASM
+	LD HL,(0001H)	; BIOS address
+	DEC HL
+	DEC HL
+	DEC HL
+	LD (BIOS),HL
+#ENDASM
+}
+
 /****************************************************************************/
 /* BDOS init disk system */
 
@@ -126,6 +145,127 @@ BOOL CtrlC()
 		}
 	}
 	return FALSE;
+}
+
+/****************************************************************************/
+/* BIOS select drive for read/write */
+/* returns pointer to drive parameter table */
+
+char *SelDrv(drive)
+	int drive;
+{
+#ASM
+	POP BC
+	POP HL
+	PUSH HL
+	PUSH BC
+	LD C,L
+	LD HL,(BIOS)
+	LD DE,001BH		; function SELDSK
+	ADD HL,DE
+	LD DE,seldrv1
+	PUSH DE
+	JP (HL)
+seldrv1:
+#ENDASM	
+}
+
+/****************************************************************************/
+/* BIOS set track for read/write */
+
+SetTrk(track)
+	int track;
+{
+#ASM
+	POP BC
+	POP HL
+	PUSH HL
+	PUSH BC
+	LD C,L
+	LD HL,(BIOS)
+	LD DE,001EH		; function SETTRK
+	ADD HL,DE
+	LD DE,settrk1
+	PUSH DE
+	JP (HL)
+settrk1:
+#ENDASM	
+}
+
+/****************************************************************************/
+/* BIOS set sector for read/write */
+
+SetSec(sector)
+	int sector;
+{
+#ASM
+	POP BC
+	POP HL
+	PUSH HL
+	PUSH BC
+	LD C,L
+	LD HL,(BIOS)
+	LD DE,0021H		; function SETSEC
+	ADD HL,DE
+	LD DE,setsec1
+	PUSH DE
+	JP (HL)
+setsec1:
+#ENDASM	
+}
+
+/****************************************************************************/
+/* BIOS set buffer address for read/write */
+
+SetDma(dma)
+	char *dma;
+{
+#ASM
+	POP BC			; DMA
+	POP HL
+	PUSH HL
+	PUSH BC
+	LD B,H
+	LD C,L
+	LD HL,(BIOS)
+	LD DE,0024H		; function SETDMA
+	ADD HL,DE
+	LD DE,setdma1
+	PUSH DE
+	JP (HL)
+setdma1:
+#ENDASM	
+}
+
+/****************************************************************************/
+/* BIOS read sector from disk */
+/* call BiosAddr to initialise BIOS start address !!! */
+
+BiosRead()
+{
+#ASM
+	LD HL,(BIOS)
+	LD DE,0027H		; function DISK READ
+	ADD HL,DE
+	LD DE,read1
+	PUSH DE
+	JP (HL)
+read1:
+	LD L,A
+	LD H,0
+#ENDASM	
+}
+
+/****************************************************************************/
+
+ReadSec(drv, trk, sec)
+	int drv, trk, sec;
+{
+	SelDrv(drv);
+	SetTrk(trk);
+	SetSec(sec);
+	SetDma(secbuf);
+	BiosRead();
 }
 
 /****************************************************************************/
@@ -341,6 +481,8 @@ TestCard()
 	cprintf("%d bytes read\r\n", size);
 	hexdmp(buffer, size, 0x0000);
 
+
+#if FALSE
 	/* --- write sector */
 
 	cputs("--- Write ---\r\n");
@@ -368,6 +510,7 @@ TestCard()
 	
 	inp(addr + 7);	/* clear INTRQ */
 	cprintf("%d bytes written\r\n", size);
+#endif
 	
 #if FALSE	
 	outp(addr + 7, 0x04); /* reset command */
@@ -380,10 +523,21 @@ main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	cputs("\r\nTESTCF V1.0 for MC CP/M *dg* 261022-01\r\n\n");
+	cputs("\r\nTESTCF V1.1 for MC CP/M *dg* 261025-01\r\n\n");
 
 	/*TestSize();*/
 	TestCard();
+	return;
+
+	BiosAddr();
+
+	secbuf = CALLOC(256, 1);
+	if (secbuf == NULL)
+	{
+		cputs("Memory error\r\n");
+		return FALSE;
+	}
+	ReadSec(5, 2, 3);
 
 	EXIT();
 }

@@ -93,6 +93,10 @@ Modul MEMCMP
 
 char *memcmp(char *p1, char *p2, int n) /* nutzt CPI */
 
+Modul HEXDMP
+
+hexdmp(char *p, int size, unsigned disp)
+
 Modul OUTP
 
 outp(int port, int c)

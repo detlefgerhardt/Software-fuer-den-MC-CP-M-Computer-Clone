@@ -1,4 +1,4 @@
-/* ndiskdef NBIOS11.FH created 11.10.26 16:23 by NDiskDef 1.0 */
+/* ndiskdef NBIOS.FH created 25.10.26 09:58 by NDiskDef 1.2 */
 /* format F800K 800KB  (1024/5/80/2) */
 drvfmt F800K =
 {
@@ -110,4 +110,4 @@ drvfmt IBMSD =
 #define FMTCNT 6
 drvfmt *fmtlist[] = {F800K,F1440K,F1200K,F720K,F400K,IBMSD};
 
-/* end of NBIOS11.FH */ 
+/* end of NBIOS.FH */ 

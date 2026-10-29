@@ -5,9 +5,11 @@
 	Copy a CF cards
 */
 /****************************************************************************/
-/* DISKCOPY version history
+/* COPYCF version history
 
- 16.10.2026 *dg* First version
+ 16.10.2026 *dg* - First version
+ 29.10.2026 *dg* - Fix -t paramater
+			     - Rename 'drive' to 'volume'
  
  */
 
@@ -22,7 +24,7 @@
 #define CTRLC 3
 #define CR 13
 
-#define DRVCNT 4 /* number of drives */
+#define VOLCNT 4 /* number of volumes */
 #define SECSIZ 256
 #define SECCNT 128
 #define TRKCNT 256
@@ -138,9 +140,9 @@ BOOL cmpprm(src, dst)
 
 /****************************************************************************/
 
-BOOL Copy(srcadr, srcdrv, dstadr, dstdrv, trkcnt, verify)
-	int srcadr, srcdrv;
-	int dstadr, dstdrv;
+BOOL Copy(srcadr, srcvol, dstadr, dstvol, trkcnt, verify)
+	int srcadr, srcvol;
+	int dstadr, dstvol;
 	int trkcnt;
 	BOOL verify;
 {
@@ -159,17 +161,17 @@ BOOL Copy(srcadr, srcdrv, dstadr, dstdrv, trkcnt, verify)
 					return FALSE;
 				}
 			}
-			if (srcdrv != -1)
+			if (srcvol != -1)
 			{
-				Read(buffer, srcadr, srcdrv, trk, sec);
+				Read(buffer, srcadr, srcvol, trk, sec);
 			}
-			if (dstdrv != -1)
+			if (dstvol != -1)
 			{
-				Write(buffer, dstadr, dstdrv, trk, sec);
+				Write(buffer, dstadr, dstvol, trk, sec);
 			}
 			if (verify)
 			{
-				Read(vbuffer, dstadr, dstdrv, trk, sec);
+				Read(vbuffer, dstadr, dstvol, trk, sec);
 				if (memcmp(vbuffer, buffer, SECSIZ) != NULL)
 				{
 					cprintf("\r\n\nverify error at sector %d / track %d\r\n", sec, trk);
@@ -389,12 +391,12 @@ main(argc, argv)
 	phyprm srcprm, dstprm;
 	int p, ch;
 	int srcadr, dstadr;
-	int srcdrv, dstdrv;
+	int srcvol, dstvol;
 	int tracks;
 	BOOL verify;
 	BOOL error;
 
-	cputs("\r\nCOPYCF V1.0 for MC CP/M *dg* 261022-03\r\n\n");
+	cputs("\r\nCOPYCF V1.1 for MC CP/M *dg* 261029-02\r\n\n");
 
 	tracks = TRKCNT;
 	verify = FALSE;
@@ -402,15 +404,26 @@ main(argc, argv)
 
 #if TRUE	
 	if (argc < 4)
+	{
+		cputs("invalid number of parameters\r\n");
 		error = TRUE;
+	}
 	else
 	{
 		srcadr = hextou(argv[1]);
-		srcdrv = atoi(argv[2]);
-		if (srcdrv < -1 || srcdrv > DRVCNT) error = TRUE;
+		srcvol = atoi(argv[2]);
+		if (srcvol < -1 || srcvol > VOLCNT)
+		{
+			cputs("invalid source volume\r\n");
+			error = TRUE;
+		}
 		dstadr = hextou(argv[3]);
-		dstdrv = atoi(argv[4]);
-		if (dstdrv < 0 || dstdrv > DRVCNT) error = TRUE;
+		dstvol = atoi(argv[4]);
+		if (dstvol < 0 || dstvol > VOLCNT)
+		{
+			cputs("invalid destination volume\r\n");
+			error = TRUE;
+		}
 	}
 
 	if (!error)
@@ -424,9 +437,10 @@ main(argc, argv)
 			}
 			if (toupper(argv[p][1]) == 'T' && strlen(argv[p]) >= 3)
 			{
-				tracks = atoi(argv[p]);
+				tracks = atoi(argv[p] + 2);
 				if (tracks < 1 || tracks > 256)
 				{
+					cprintf("invalid -t value (%d)\r\n", tracks);
 					error = TRUE;
 					break;
 				}
@@ -435,9 +449,9 @@ main(argc, argv)
 	}
 #else
 	srcadr = 0x30
-	srcdrv = 0;
+	srcvol = 0;
 	dstadr = 0x18
-	dstdrv = 0;
+	dstvol = 0;
 	tracks = 256;
 	error = FALSE;
 	verify = FALSE;
@@ -446,14 +460,13 @@ main(argc, argv)
 
 	if (error)
 	{
-		cprintf("Usage: copycf src-adr src-drv dst-adr dst-drv -v\r\n");
+		cprintf("\r\nUsage: copycf src-adr src-vol dst-adr dst-vol -v\r\n");
 		cputs  ("  src-adr,dst-adr = controllar address as 2 char hex value (e.g. 30)\r\n");
-		cputs  ("  src-drv,dst-drv = partition number 0..3\r\n");
+		cputs  ("  src-vol,dst-vol = volume number 0..3\r\n");
 		cputs  ("  -v = optional verify\r\n");
 		cputs  ("  -t = optional number of tracks to copy (1..256)\r\n");
-		cputs  ("  -t = optional number of tracks to copy (1..256)\r\n");
-		cputs  ("  src-drv = -1: no src-drv, clear dst-drv with E5h\r\n");
-		cputs  ("  dst-drv = -1: no dst-drv, test-read src-drv\r\n");
+		cputs  ("  src-vol = -1: no src-vol, clear dst-vol with E5h\r\n");
+		cputs  ("  dst-vol = -1: no dst-vol, test-read src-col\r\n");
 		return;
 	}
 
@@ -472,7 +485,7 @@ main(argc, argv)
 		return FALSE;
 	}
 	
-	if (dstdrv == -1) verify = FALSE;
+	if (dstvol == -1) verify = FALSE;
 	if (verify)
 	{
 		vbuffer = calloc(SECSIZ, 1);
@@ -483,7 +496,7 @@ main(argc, argv)
 		}
 	}
 
-	cprintf("Copy from [%02Xh #%d] to [%02Xh #%d]\r\n", srcadr, srcdrv, dstadr, dstdrv);
+	cprintf("Copy from [%02Xh #%d] to [%02Xh #%d]\r\n", srcadr, srcvol, dstadr, dstvol);
 	if (verify)
 	{
 		cputs("verify = ON\r\n");
@@ -493,12 +506,12 @@ main(argc, argv)
 	ch = WaitCr();
 	if (ch == CTRLC) return;
 
-	if (srcdrv == -1)
+	if (srcvol == -1)
 	{
 		memset(buffer, 0xE5, SECSIZ);
 	}
 
-	Copy(srcadr, srcdrv, dstadr, dstdrv, tracks, verify);
+	Copy(srcadr, srcvol, dstadr, dstvol, tracks, verify);
 
 	/*InitDisks();
 	return; */

@@ -68,7 +68,7 @@ typedef struct
 	drvtab tab;
 } drvfmt;
 
-#include "NBIOS11.FH"
+#include "NBIOS.FH"
 
 #IF FALSE
 

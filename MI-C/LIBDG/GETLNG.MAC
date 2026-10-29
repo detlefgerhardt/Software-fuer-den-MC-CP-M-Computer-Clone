@@ -1,0 +1,38 @@
+; GETLNG.MAC *dg* 29.10.2026
+; get long from memory address
+
+	PUBLIC GETLNG
+	EXTERNAL CLPRIM
+
+; long getlng(mem)
+;     char *mem;
+;   return value
+
+GETLNG:	LD IX,2		; RET address
+	ADD IX,SP
+
+	; mem -> HL
+	LD L,(IX+0)
+	LD H,(IX+1)
+
+	; byte0 -> E
+	LD A,(HL)
+	LD E,A
+	INC HL
+	; byte1 -> D
+	LD A,(HL)
+	LD D,A
+	INC HL
+	; byte2 -> CLPRIM
+	LD A,(HL)
+	LD (CLPRIM),A
+	INC HL
+	; byte3 -> CLPRIM+1
+	LD A,(HL)
+	LD (CLPRIM+1),A
+	EX DE,HL
+	RET
+
+	END
+
+; end of file

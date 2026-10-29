@@ -59,7 +59,7 @@ typedef struct
 	drvtab tab;
 } drvprm;
 
-#include "NBIOS11.DH"
+#include "NBIOS.DH"
 
 /****************************************************************************/
 
