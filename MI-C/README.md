@@ -41,13 +41,15 @@ Hier eine Liste der Projekte (nicht immer aktuell):
 - **VT** Zeigt eine VT-Animation auf der Konsole an.
 - **VTSHOW** Zeigt alle VT100-Animation auf den angegebenen Laufwerken un zufälliger Reihenfolge an.
 
-Die folgenden Programme sind Testtools, die ja nach Test im Quelltext angepasst werden. Sie sind nicht universell verwendbar:
+Die folgenden Programme sind Testtools, die ja nach Test im Quelltext angepasst werden. Sie sind nicht universell verwendbar, teilweise nur Proof-of-Concepts:
 
 - **BEBLOCK** wurde zum Testen des Blocking/Deblocking Algorithmus des BIOS verwendet.
 - **DISKTEST** wird zum Testen der Laufdwerksroutinen verwendet.
 - **SERIAL** Ist ein Testprogramm für die diversen seriellen Schnittstellen (bisher 8251 und SIO)
-- **SHOWF12** ist der erste Versuch, eine DOS-formatierte Diskette (720KB / 3,5") zu lesen und Dateien zu kopieren. Das Auslesen der Cluster-Kette einer Datei funktioniert schon und damit prinzipiell auch das Lesen von Dateien. Generell funktioniert das Lesen der PC-Disketten problemlos.
+- **SHOWF12** ist der erste Versuch, eine DOS-formatierte Diskette (720KB / 3,5") zu lesen und Dateien zu kopieren. Das Auslesen der Cluster-Kette einer Datei funktioniert und das Kopieren einer Datei von der PC-Diskette funktioniert prinzipiell.
+- **SHOWF16** ähnlich wie SHOWF12, aber hier wird einen auf dem PC (Win10) eingerichtete Compact-Flash mit FAT16 gelesen. Das funktioniert ebenfalls soweit, dass eine Datei gelesen werden kann. Die Compact-Flash wurde auf dem PC als Wechseldatenträger ohne MBR eingerichtet.
 - **SKEWTEST** Gewindigkeittests zur Skew/Interleave-Bestimmung.
+- **TESTCF** enthält Testroutinenen für den Zugriff auf Compact-FLash.
 - **XMODEM** ist ein Versuch, ob es möglich ist, die zeitkritischen XModem-Routinen in C zu implemenieren. Funktioniert bis 37800 Baud (6 MHz CPU).
 - **YMODEM** ist ein Versuch, das YModem/Batch-Protokoll zu implementieren. Bisher nur Empfangen von Dateien und selbst das funktioniert noch nicht fehlerfrei.
 
