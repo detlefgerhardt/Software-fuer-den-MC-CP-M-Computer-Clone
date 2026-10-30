@@ -1,0 +1,440 @@
+	MACRO-80 3.44	09-Dec-81	PAGE	1
+
+
+                                ; SHOWMBLL.MAC *dg* 29.10.2026
+                                ;
+                                ; low-level assembly routines for IDE/CF access
+                                
+  0000                          FALSE	EQU 0
+  FFFF                          TRUE	EQU NOT FALSE
+                                
+                                ; Addresses of IDE-80 CF-Adapter card
+                                
+  0000                          CDATA	EQU 0		; Data Register
+  0001                          CFEAT	EQU 1		; Feature Register
+  0002                          CCNT	EQU 2		; Sector Count Register
+  0003                          CLBA7	EQU 3		; LBA Bits 0-7
+  0004                          CLBA15	EQU 4		; LBA Bits 8-15
+  0005                          CLBA23	EQU 5		; LBA Bits 16-23
+  0006                          CHEAD	EQU 6		; IDE Drive Head Register
+  0007                          CSTAT	EQU 7		; IDE Command/Status Register
+                                
+  0000'   00                    IOADDR:	DB 0
+  0001'   00                    DRIVE:	DB 0
+  0002'   00                    SECTOR:	DB 0
+  0003'   01                    TRACK:	DB 1
+  0004'   01                    MODE8:	DB 1		; 8/16 bit mode (01h = 8bit, 00h = 16bit)
+  0005'   0000                  BUFFER:	DW 0		; buffer address (512 byte in 8bit mode, 256 byte in 16bit mode)
+                                
+  0007'   01                    LBA7:	DB 1
+  0008'   01                    LBA15:	DB 1
+  0009'   01                    LBA23:	DB 1
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; volume 0..3
+                                ; sector 0..128
+                                ; track 0..255
+                                
+                                ; Read(buffer, ioaddr, part, sector, track, mode8)
+                                ;	unsigned buffer;
+                                ;	int ioaddr, part, sector, track, mode8;
+                                
+                                	GLOBAL READ
+                                
+  000A'   DD 21 0002            READ:	LD IX,2		; RET address
+  000E'   DD 39                 	ADD IX,SP
+                                
+  0010'   DD 7E 00              	LD A,(IX+0)	; buffer low
+  0013'   32 0005'              	LD (BUFFER),A
+  0016'   DD 7E 01              	LD A,(IX+1)	; buffer high
+  0019'   32 0006'              	LD (BUFFER+1),A
+                                
+  001C'   DD 7E 02              	LD A,(IX+2)	; io address
+  001F'   32 0000'              	LD (IOADDR),A
+                                
+  0022'   DD 7E 04              	LD A,(IX+4)	; partition 0..3
+  0025'   32 0001'              	LD (DRIVE),A
+                                
+  0028'   DD 7E 06              	LD A,(IX+6)	; sector 0..127
+  002B'   32 0002'              	LD (SECTOR),A
+                                
+  002E'   DD 7E 08              	LD A,(IX+8)	; track 0..255
+  0031'   32 0003'              	LD (TRACK),A
+                                	
+  0034'   DD 7E 0A              	LD A,(IX+10)	; mode8
+  0037'   32 0004'              	LD (MODE8),A
+	MACRO-80 3.44	09-Dec-81	PAGE	1-1
+
+
+                                
+  003A'   CD 01A2'              	CALL LBA
+  003D'   C3 00D4'              	JP IDERD
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; volume 0..3
+                                ; sector 0..128
+                                ; track 0..255
+                                
+                                ; Write(buffer, ioaddr, part, sector, track, mode8)
+                                ;	unsigned buffer;
+                                ;	int ioaddr, part, sector, track, mode8;
+                                
+                                	GLOBAL WRITE
+                                
+  0040'   DD 21 0002            WRITE:	LD IX,2		; RET address
+  0044'   DD 39                 	ADD IX,SP
+                                
+  0046'   DD 7E 00              	LD A,(IX+0)	; buffer low
+  0049'   32 0005'              	LD (BUFFER),A
+  004C'   DD 7E 01              	LD A,(IX+1)	; buffer high
+  004F'   32 0006'              	LD (BUFFER+1),A
+                                
+  0052'   DD 7E 02              	LD A,(IX+2)	; io address
+  0055'   32 0000'              	LD (IOADDR),A
+                                
+  0058'   DD 7E 04              	LD A,(IX+4)	; partition 0..3
+  005B'   32 0001'              	LD (DRIVE),A
+                                
+  005E'   DD 7E 06              	LD A,(IX+6)	; sector 0..127
+  0061'   32 0002'              	LD (SECTOR),A
+                                
+  0064'   DD 7E 08              	LD A,(IX+8)	; track 0..255
+  0067'   32 0003'              	LD (TRACK),A
+                                
+  006A'   DD 7E 0A              	LD A,(IX+10)	; mode8
+  006D'   32 0004'              	LD (MODE8),A
+                                
+  0070'   CD 01A2'              	CALL LBA
+  0073'   C3 0105'              	JP IDEWR
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; RD_LBA
+                                ;
+                                ; rd_lba(buffer, ioaddr, lba, mode8)
+                                ;	char *buffer
+                                ;	int ioaddr, mode8;
+                                ;	long lba;
+                                
+                                	GLOBAL RD_LBA
+                                
+  0076'   DD 21 0002            RD_LBA:	LD IX,2		; RET address
+  007A'   DD 39                 	ADD IX,SP
+                                
+  007C'   DD 7E 00              	LD A,(IX+0)	; buffer low
+  007F'   6F                    	LD L,A
+  0080'   DD 7E 01              	LD A,(IX+1)	; buffer high
+  0083'   67                    	LD H,A
+                                
+  0084'   DD 7E 02              	LD A,(IX+2)	; io address
+  0087'   32 0000'              	LD (IOADDR),A
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-2
+
+
+  008A'   DD 7E 04              	LD A,(IX+4)	; LBA7
+  008D'   32 0007'              	LD (LBA7),A
+                                
+  0090'   DD 7E 05              	LD A,(IX+5)	; LBA15
+  0093'   32 0008'              	LD (LBA15),A
+                                
+  0096'   DD 7E 06              	LD A,(IX+6)	; LBA15
+  0099'   32 0009'              	LD (LBA23),A
+                                
+  009C'   DD 7E 08              	LD A,(IX+8)	; mode8
+  009F'   32 0004'              	LD (MODE8),A
+                                	
+  00A2'   C3 00D4'              	JP IDERD
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; WR_LBA
+                                ;
+                                ; wr_lba(buffer, ioaddr, lba, mode8)
+                                ;	char *buffer
+                                ;	int ioaddr, mode8;
+                                ;	long lba;
+                                
+                                	GLOBAL WR_LBA
+                                
+  00A5'   DD 21 0002            WR_LBA:	LD IX,2		; RET address
+  00A9'   DD 39                 	ADD IX,SP
+                                
+  00AB'   DD 7E 00              	LD A,(IX+0)	; buffer low
+  00AE'   6F                    	LD L,A
+  00AF'   DD 7E 01              	LD A,(IX+1)	; buffer high
+  00B2'   67                    	LD H,A
+                                
+  00B3'   DD 7E 02              	LD A,(IX+2)	; io address
+  00B6'   32 0000'              	LD (IOADDR),A
+                                	
+  00B9'   DD 7E 04              	LD A,(IX+4)	; LBA7
+  00BC'   32 0007'              	LD (LBA7),A
+                                
+  00BF'   DD 7E 05              	LD A,(IX+5)	; LBA15
+  00C2'   32 0008'              	LD (LBA15),A
+                                
+  00C5'   DD 7E 06              	LD A,(IX+6)	; LBA15
+  00C8'   32 0009'              	LD (LBA23),A
+                                	
+  00CB'   DD 7E 08              	LD A,(IX+8)	; mode8
+  00CE'   32 0004'              	LD (MODE8),A
+                                	
+  00D1'   C3 0105'              	JP IDEWR
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Read one IDE/CF card sector
+                                ; Address of data in HL
+                                ; Address for data in HL
+                                ; LBA in LBA7,LBA15,LBA23
+                                
+  00D4'   06 20                 IDERD:	LD B,20h		; read command
+  00D6'   CD 012F'              	CALL IDEINI		; do all the settings and wait for DRQ
+                                
+  00D9'   CD 01BC'              	CALL IDEBSY
+                                
+  00DC'                         IDERD4:	; wait for busy clear
+  00DC'   ED 78                 	IN A,(C)		; (CSTAT)
+	MACRO-80 3.44	09-Dec-81	PAGE	1-3
+
+
+  00DE'   E6 80                 	AND 80H
+  00E0'   C2 00DC'              	JP NZ,IDERD4
+                                
+  00E3'   3A 0000'              	LD A,(IOADDR)
+  00E6'   C6 07                 	ADD A,CSTAT
+  00E8'   4F                    	LD C,A
+  00E9'   ED 78                 	IN A,(C)		; clear INTRQ (CSTAT)
+                                
+  00EB'   3A 0000'              	LD A,(IOADDR)
+  00EE'   C6 07                 	ADD A,CSTAT
+  00F0'   57                    	LD D,A			; D = CSTAT
+  00F1'   3A 0000'              	LD A,(IOADDR)
+  00F4'   C6 00                 	ADD A,CDATA
+  00F6'   5F                    	LD E,A			; E = CDATA
+                                
+  00F7'                         IDERD5: ; read loop
+  00F7'   4B                    	LD C,E
+  00F8'   ED 78                 	IN A,(C)		; get data (CDATA)
+  00FA'   77                    	LD (HL),A
+  00FB'   23                    	INC	HL
+  00FC'   4A                    	LD C,D
+  00FD'   ED 78                 	IN A,(C)		; check status (CSTAT)
+  00FF'   E6 08                 	AND 08H			; DRQ bit
+  0101'   C2 00F7'              	JP NZ,IDERD5		; loop until cleared
+                                	
+  0104'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Write one IDE/CF-card sector
+                                ;
+                                ; Address of data in HL
+                                ; Init sector read / write
+                                ; IO address in IOADDR
+                                ; read/write in B (20h = read, 30 = write)
+                                ; LBA in LBA7,LBA15,LBA23
+                                
+  0105'   06 30                 IDEWR:	LD B,30h		; write sector command
+  0107'   CD 012F'              	CALL IDEINI
+                                
+  010A'   3A 0000'              	LD A,(IOADDR)
+  010D'   C6 07                 	ADD A,CSTAT
+  010F'   57                    	LD D,A			; D = CSTAT
+  0110'   3A 0000'              	LD A,(IOADDR)
+  0113'   C6 00                 	ADD A,CDATA
+  0115'   5F                    	LD E,A			; E = CDATA
+                                
+  0116'                         IDEWR4:	; write loop
+  0116'   7E                    	LD A,(HL)
+  0117'   4B                    	LD C,E
+  0118'   ED 79                 	OUT (C),A		; write data (CDATA)
+  011A'   23                    	INC	HL
+  011B'   4A                    	LD C,D
+  011C'   ED 78                 	IN A,(C)		; read status (CSTAT)
+  011E'   E6 08                 	AND 08H			; check DRQ bit
+  0120'   C2 0116'              	JP NZ,IDEWR4		; write until bit cleared
+                                
+  0123'   CD 01BC'              	CALL IDEBSY
+                                
+  0126'   3A 0000'              	LD A,(IOADDR)
+  0129'   C6 07                 	ADD A,CSTAT
+  012B'   4F                    	LD C,A
+  012C'   ED 78                 	IN A,(C)		; clear INTRQ (CSTAT)
+	MACRO-80 3.44	09-Dec-81	PAGE	1-4
+
+
+                                
+  012E'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; Init sector read / write
+                                ; base address in IOADDR
+                                ; read/write in B (20h = read, 30 = write)
+                                ; LBA in LBA7/LBA15/LBA23
+                                
+  012F'   CD 01BC'              IDEINI:	CALL IDEBSY
+  0132'   CD 01CA'              	CALL IDERDY
+                                
+                                	; 8/16 bit mode
+  0135'   3A 0000'              	LD A,(IOADDR)
+  0138'   C6 01                 	ADD A,CFEAT
+  013A'   4F                    	LD C,A
+  013B'   3A 0004'              	LD A,(MODE8)
+  013E'   A7                    	AND A
+  013F'   28 04                 	JR Z,IDEIN3	; -> 16 bit
+                                	; 8 bit
+  0141'   3E 01                 	LD A,01h
+  0143'   18 02                 	JR IDEIN4
+  0145'                         IDEIN3:	; 16 bit
+  0145'   3E 81                 	LD A,81h
+  0147'   ED 79                 IDEIN4:	OUT (C),A
+                                
+                                	; set feature command
+  0149'   3A 0000'              	LD A,(IOADDR)
+  014C'   C6 07                 	ADD A,CSTAT
+  014E'   4F                    	LD C,A
+  014F'   3E EF                 	LD A,0EFH		; set feature command
+  0151'   ED 79                 	OUT (C),A
+  0153'   CD 01BC'              	CALL IDEBSY
+                                
+                                	; sector count
+  0156'   3A 0000'              	LD A,(IOADDR)
+  0159'   C6 02                 	ADD A,CCNT
+  015B'   4F                    	LD C,A
+  015C'   3E 01                 	LD A,01H		; number of sectors = 1
+  015E'   ED 79                 	OUT (C),A		; sector count register (CCNT)
+                                
+                                	; LBA7
+  0160'   3A 0000'              	LD A,(IOADDR)
+  0163'   C6 03                 	ADD A,CLBA7
+  0165'   4F                    	LD C,A
+  0166'   3A 0007'              	LD A,(LBA7)
+  0169'   ED 79                 	OUT (C),A		; lba bits 0 - 7 (CLBA7)
+                                
+                                	; LBA15
+  016B'   3A 0000'              	LD A,(IOADDR)
+  016E'   C6 04                 	ADD A,CLBA15
+  0170'   4F                    	LD C,A
+  0171'   3A 0008'              	LD A,(LBA15)
+  0174'   ED 79                 	OUT (C),A		; lba bits 8 - 15 (CLBA15)
+                                
+                                	; LBA23
+  0176'   3A 0000'              	LD A,(IOADDR)
+  0179'   C6 05                 	ADD A,CLBA23
+  017B'   4F                    	LD C,A
+  017C'   3A 0009'              	LD A,(LBA23)
+  017F'   D3 05                 	OUT (CLBA23),A		; lba bits 16 - 23 (CLBA23)
+                                
+	MACRO-80 3.44	09-Dec-81	PAGE	1-5
+
+
+                                	; LBA-mode, volume
+  0181'   3A 0000'              	LD A,(IOADDR)
+  0184'   C6 06                 	ADD A,CHEAD
+  0186'   4F                    	LD C,A
+  0187'   3E E0                 	LD A,11100000B		; LBA mode, select volume
+  0189'   ED 79                 	OUT (C),A		; drive/head register (CHEAD)
+                                	
+  018B'   3A 0000'              	LD A,(IOADDR)
+  018E'   C6 07                 	ADD A,CSTAT
+  0190'   4F                    	LD C,A
+  0191'   78                    	LD A,B			; Read/write sector command
+  0192'   ED 79                 	OUT (C),A		; (CSTAT)
+                                
+                                	; wait for DRQ = 1
+  0194'   3A 0000'              	LD A,(IOADDR)
+  0197'   C6 07                 	ADD A,CSTAT
+  0199'   4F                    	LD C,A
+  019A'                         IDEIN5:	; wait for drq set
+  019A'   ED 78                 	IN A,(C)		; read status (CSTAT)
+  019C'   E6 08                 	AND 08H			; DRQ bit
+  019E'   CA 019A'              	JP Z,IDEIN5		; loop until bit set
+                                
+  01A1'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; convert DRIVE, SECTOR, TRACK to LBA7, LBA15, LBA23
+                                ;
+                                ; volume 0..3
+                                ; sector 0..128
+                                ; track 0..255
+                                ;
+                                ; LBA assignment (8192K):
+                                ;
+                                ; LBA23    LBA15    LBA7
+                                ; 00000000 00000000 00000000
+                                ; 0000000d dsssssss tttttttt
+                                
+  01A2'                         LBA:	; LBA0..7
+  01A2'   3A 0003'              	LD A,(TRACK)
+  01A5'   32 0007'              	LD (LBA7),A
+                                
+  01A8'   3A 0001'              	LD A,(DRIVE)
+                                	;LD E,A
+                                	;SRL E		; drive bit 1 -> bit 0, bit 0 -> carry
+                                			; LBA16..23 -> E
+  01AB'   CB 3F                 	SRL A
+  01AD'   32 0009'              	LD (LBA23),A
+                                			
+  01B0'   06 00                 	LD B,0
+  01B2'   CB 18                 	RR B		; carry -> bit 7
+  01B4'   3A 0002'              	LD A,(SECTOR)
+  01B7'   B0                    	OR B
+                                	;LD B,A		; LBA8..15 -> B
+  01B8'   32 0008'              	LD (LBA15),A
+                                
+  01BB'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                ; IDE wait for Busy cleared
+                                
+  01BC'   3A 0000'              IDEBSY:	LD A,(IOADDR)
+  01BF'   C6 07                 	ADD A,CSTAT
+	MACRO-80 3.44	09-Dec-81	PAGE	1-6
+
+
+  01C1'   4F                    	LD C,A
+  01C2'   ED 78                 IDEBS1:	IN A,(C)		; check status (CSTAT)
+  01C4'   E6 80                 	AND 80H		; check BSY bit
+  01C6'   C2 01C2'              	JP NZ,IDEBS1	; loop until not busy
+                                
+  01C9'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                
+  01CA'   3A 0000'              IDERDY:	LD A,(IOADDR)
+  01CD'   C6 07                 	ADD A,CSTAT
+  01CF'   4F                    	LD C,A
+  01D0'   ED 78                 IDERD1:	IN A,(C)		; check status (CSTAT)
+  01D2'   E6 40                 	AND 40H		; check DRDY bit
+  01D4'   28 FA                 	JR Z,IDERD1	; loop until ready
+                                
+  01D6'   C9                    	RET
+                                
+                                ;-----------------------------------------------------------------------------
+                                
+                                	END
+	MACRO-80 3.44	09-Dec-81	PAGE	S
+
+
+Macros:
+
+Symbols:
+0005'	BUFFER          0002 	CCNT            0000 	CDATA           
+0001 	CFEAT           0006 	CHEAD           0004 	CLBA15          
+0005 	CLBA23          0003 	CLBA7           0007 	CSTAT           
+0001'	DRIVE           0000 	FALSE           01C2'	IDEBS1          
+01BC'	IDEBSY          0145'	IDEIN3          0147'	IDEIN4          
+019A'	IDEIN5          012F'	IDEINI          00D4'	IDERD           
+01D0'	IDERD1          00DC'	IDERD4          00F7'	IDERD5          
+01CA'	IDERDY          0105'	IDEWR           0116'	IDEWR4          
+0000'	IOADDR          01A2'	LBA             0008'	LBA15           
+0009'	LBA23           0007'	LBA7            0004'	MODE8           
+0076I'	RD_LBA          000AI'	READ            0002'	SECTOR          
+0003'	TRACK           FFFF 	TRUE            0040I'	WRITE           
+00A5I'	WR_LBA          
+
+
+
+No Fatal error(s)
+
+
+012F'	IDEINI          00

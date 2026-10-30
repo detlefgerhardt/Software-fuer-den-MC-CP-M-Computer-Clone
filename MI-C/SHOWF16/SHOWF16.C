@@ -26,8 +26,11 @@
 
 #define VOLCNT 4 /* number of volumes */
 
-#define SECSIZ 512
+/*#define SECSIZ 512*/
 char *secbuf;
+int secsiz; /* bytes per sector (512) */
+char *clubuf;
+int clusiz; /* bytes per cluster (1024) */
 
 typedef struct
 {
@@ -42,10 +45,13 @@ DirEnt *DirList;
 #define DIRLEN (DIRMAX/32)
 int dirstr;	/* start sector */
 int dircnt;
+int fatsiz; /* sectors per FAT */
+int clucnt;	/* sectors per cluster */
+int datstr; /* erster Datencluster */
 
-#define FATLEN 1
-int fatstr;
-char *fat;
+int fatstr; /* FAT start sector */
+char *fatbuf; /* FAT cache sector */
+int lstfat = 0; /* last read FAT sector */
 
 extern long getlng();
 
@@ -156,48 +162,50 @@ long memlong(p)
 
 /****************************************************************************/
 
-ShowF16()
+LdBoot16()
 {
 	BOOL ok;
-	char oem[8+1];
+	char oem[8+1]; /* oem name */
 	char label[11+1];
-	char systyp[8+1];
-	int secsiz, clucnt, clusiz, media, reserv, fatcnt, fatsiz;
-	int maxdir, seccnt, extbpb;
-	
-	
+	char systyp[8+1]; /* file system type ('FAT16   ') */
+	int reserv; /* reserved sectors before first FAT (8) */
+	int fatcnt; /* number pf FATs (2) */
+	int maxdir; /* max. number of root dir entries */
+	int media; /* media descriptor (F8) */
+	int seccnt;
+	int extbpb;
 
 	rd_lba(secbuf, IOADDR, 0L, TRUE);
-	hexdmp(secbuf, SECSIZ, 0x0000);
+	hexdmp(secbuf, 512, 0x0000);
 	
-	strncpy(oem, secbuf + 3, 8);
+	strncpy(oem, secbuf + 3, 8); /* oem name */
 	oem[8] = 0;
 	cprintf("oem = '%s'\r\n", oem);
 
-	secsiz = getint(secbuf + 0x0B);
+	secsiz = getint(secbuf + 0x0B); /* bytes per sector */
 	cprintf("secsiz = %d\r\n", secsiz);
 
-	clucnt = secbuf[0x0D];
-	clusiz = clucnt * secsiz;
+	clucnt = secbuf[0x0D]; /* sectors per cluster */
+	clusiz = clucnt * secsiz; /* bytes per cluster */
 	cprintf("clucnt = %d\r\n", clucnt);
 	cprintf("clusiz = %d\r\n", clusiz);
 
-	reserv = getint(secbuf + 0x0E);
+	reserv = getint(secbuf + 0x0E); /* reserved sectors before first FAT (8) */
 	cprintf("reserv = %d\r\n", reserv);
 	
-	fatcnt = secbuf[0x10];
+	fatcnt = secbuf[0x10]; /* number pf FATs (2) */
 	cprintf("fatcnt = %d\r\n", fatcnt);
 	
-	maxdir = getint(secbuf + 0x11);
+	maxdir = getint(secbuf + 0x11); /* max. number of root dir entries */
 	cprintf("maxdir = %d\r\n", maxdir);
 
-	seccnt = getint(secbuf + 0x13);
+	seccnt = getint(secbuf + 0x13); /* bytes per sector */
 	cprintf("seccnt = %d\r\n", seccnt);
 
-	media = secbuf[0x15];
+	media = secbuf[0x15]; /* media descriptor */
 	cprintf("media = %02X\r\n", media);
 
-	fatsiz = getint(secbuf + 0x16);
+	fatsiz = getint(secbuf + 0x16); /* sectors per FAT */
 	cprintf("fatsiz = %d\r\n", fatsiz);
 
 	extbpb = secbuf[0x26];
@@ -208,7 +216,7 @@ ShowF16()
 		strncpy(label, secbuf + 0x2B, 11);
 		label[11] = 0;
 
-		strncpy(systyp, secbuf + 0x36, 8);
+		strncpy(systyp, secbuf + 0x36, 8); /* file system type ('FAT16   ') */
 		systyp[8] = 0;
 	}
 	else
@@ -224,19 +232,9 @@ ShowF16()
 	
 	dirstr = reserv + fatcnt * fatsiz;
 	cprintf("dirstr = %d\r\n", dirstr);
-}
-
-/****************************************************************************/
-
-BOOL LdFat(drive)
-	int drive;
-{
-	int i;
 	
-	for (i = 0; i < FATLEN; i++)
-	{
-		rd_lba(fat + i * SECSIZ, IOADDR, (long)fatstr + i, TRUE);
-	}
+	datstr = reserv + fatcnt * fatsiz + maxdir * 32 / secsiz;
+	cprintf("datstr = %d\r\n", datstr);
 }
 
 /****************************************************************************/
@@ -259,14 +257,14 @@ LdDir16()
 		if (end) break;
 		
 		rd_lba(secbuf, IOADDR, (long)dirstr + as, TRUE);
-		hexdmp(secbuf, SECSIZ, 0x0000);
+		hexdmp(secbuf, secsiz, 0x0000);
 		/*
 		if (as == 0)
 			Dump(secbuf, 0, 256);
 		*/
 
 		buf = secbuf;
-		for (d = 0; d < SECSIZ / 32; d++)
+		for (d = 0; d < secsiz / 32; d++)
 		{
 			/*cprintf("d = %d\r\n");*/
 
@@ -301,32 +299,154 @@ LdDir16()
 }
 
 /****************************************************************************/
+/* read cluster */
+
+int RdClus(clus, buf)
+	unsigned clus;
+	char *buf;
+{
+	int i;
+	int	asec;
+
+	asec = datstr + (clus - 2) * clucnt;
+	
+	for (i = 0; i < clucnt; i++)
+	{
+		rd_lba(buf + i * secsiz, IOADDR, (long)asec + i, TRUE);
+	}
+	return TRUE;
+}
+
+/****************************************************************************/
+
+unsigned NxtClus(clus)
+	unsigned clus;
+{
+	int sec;
+	
+	sec = fatstr + clus * 2 / secsiz;
+	cprintf("sec=%d / %d\r\n", sec, clus * 2);
+	
+	if (sec != lstfat)
+	{
+		/* FAT sector not in cache */
+		rd_lba(fatbuf, IOADDR, (long)sec, TRUE);
+		lstfat = sec;
+	}
+
+	return getint(fatbuf + clus * 2);
+}
+
+/****************************************************************************/
+/*	load a file from Compact-Flash and write it to fname
+
+	fname: filename (with drive)
+	fsize: filesize (in bytes)
+	clus: start cluster from directory
+*/
+BOOL LdFile(fname, fsize, clus)
+	char *fname;
+	unsigned fsize, clus;
+{
+	int cnt, asec;
+	unsigned size;
+	int wrsize;
+	BOOL error;
+	FILE *fp;
+
+	fp = fopen(fname, "w");
+	if (fp == NULL) return FALSE;
+
+	cnt = 0; /* cluster count */
+	size = 0;
+	error = FALSE;
+	while(TRUE)
+	{
+		cprintf("cnt=%d clus=%d\r\n", cnt + 1, clus);
+
+		if (!RdClus(clus, clubuf))
+		{
+			cprintf("error reading cluster %d\r\n", clus);
+			error = TRUE;
+			break;
+		}
+
+		cnt++;
+		wrsize = secsiz * clucnt;
+		if (size + wrsize > fsize)
+		{
+			wrsize = fsize - size;
+		}
+		cprintf("write cnt=%d clus=%d %u\r\n", cnt, clus, wrsize);
+		
+		if (fwrite(clubuf, wrsize, 1, fp) != 1)
+		{
+			cprintf("error writing cluster %d\r\n", cnt);
+			error = TRUE;
+			break;
+		}
+		size += wrsize;
+		clus = NxtClus(clus);
+		cprintf("nxt clus=%d\r\n", clus);
+		
+		if (clus >= 0xFF8) break;
+	}
+	cprintf("size=%u\r\n", size);
+	fclose(fp);
+}
+
+/****************************************************************************/
+/* test read only the cluster chain, not the actual file */
+
+AllClus(clus)
+	unsigned clus;
+{
+	int cnt;
+	int size;
+
+	cnt = 0;
+	size = 0;
+	while(TRUE)
+	{
+		cnt++;
+		size += clusiz;
+		cprintf("allclus: #%d %d %d\r\n", cnt, clus, size);
+		clus = NxtClus(clus);
+		if (clus >= 0xFF8) break;
+		if (cnt > 60) break;
+	}
+}
+
+/****************************************************************************/
 
 main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	phyprm srcprm, dstprm;
-	int p, ch;
-	long lng;
-	int in;
-	unsigned uin;
-	char *buf;
+	cputs("\r\nSHOWF16 V1.0 for MC CP/M *dg* 261030-02\r\n\n");
 
-	cputs("\r\nSHOWF16 V1.0 for MC CP/M *dg* 261029-01\r\n\n");
-
-	secbuf = calloc(SECSIZ, 1);
+	secbuf = calloc(512, 1);
 	if (secbuf == NULL)
 	{
-		cprintf("Not enough memory for sector buffer (%u)\r\n", SECSIZ);
+		cprintf("Not enough memory for sector buffer (%u)\r\n", 512);
 		return FALSE;
 	}
 
-	/* allocate FAT memory */
-	fat = CALLOC(SECSIZ, FATLEN);
-	if (fat == NULL)
+	LdBoot16();
+
+	/* allocate cluster buffer */
+	clubuf = CALLOC(clusiz, 1);
+	if (clubuf == NULL)
 	{
-		cprintf("Error: not enough memory (%d)\r\n", SECSIZ * FATLEN);
+		cprintf("Error: not enough memory for cluster buffer (%u)\r\n", clusiz);
+		return;
+	}
+
+	/* allocate cluster buffer */
+	fatbuf = CALLOC(secsiz, 1);
+	if (fatbuf == NULL)
+	{
+		cprintf("Error: not enough memory for cluster buffer (%u)\r\n", secsiz);
 		return;
 	}
 
@@ -334,12 +454,16 @@ main(argc, argv)
 	DirList = CALLOC(DIRMAX, sizeof(DirEnt));
 	if (DirList == NULL)
 	{
-		cprintf("Error: not enough memory (%d)\r\n", DIRMAX * sizeof(DirEnt));
+		cprintf("Error: not enough memory for directory (%d)\r\n", DIRMAX * sizeof(DirEnt));
 		return;
 	}
-
-	ShowF16();
+	
 	LdDir16();
+
+	/*AllClus(17);*/
+	
+	/* load MABSIC from CF */
+	LdFile("mbasic.com", 24320, 17);
 
 	EXIT();
 }
