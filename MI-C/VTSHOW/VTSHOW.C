@@ -1,11 +1,17 @@
 /****************************************************************************/
 /*
-	VTSHOW.C  *dg*  08/2026 for MI-C compiler and CP/M
+	VTSHOW.C  *dg*  10/2026 for MI-C compiler and CP/M
 	
 	Output of VT100 animations in random order as an endless loop.
 	
 */
 /****************************************************************************/
+/* VTSHOW version history
+
+ ??         *dg* First version
+ 31.10.2026 *dg* Adapted to Z80ASM
+ 
+*/
 
 #include "stdio.h"
 
@@ -13,6 +19,11 @@
 #define TRUE 1
 #define WORD unsigned int
 #define BOOL int
+
+#define putchar putcha
+#define strncpy strncp
+#define tolower tolowe
+#define toupper touppe
 
 typedef struct {
 	char dr;		/* Drive code (0 = default, 1 = A:, etc.) */
@@ -277,7 +288,7 @@ main(argc, argv)
 	i = 0;
 	if (argc < 2)
 	{
-		PutStr("VTSHOW *dg* 260906-01\r\n");
+		PutStr("VTSHOW *dg* 261031-01\r\n");
 		PutStr(" usage: vtshow [<d> <d>...] <random seed>  (1..32748)\r\n");
 		PutStr("  e.g.: vtshow a b 100\r\n");
 		return;

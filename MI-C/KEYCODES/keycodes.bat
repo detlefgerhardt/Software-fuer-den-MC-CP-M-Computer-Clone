@@ -1,4 +1,8 @@
-CPM CCZ /SX KEYCODES
-CPM M80 =KEYCODES/Z/L
-CPM L80 KEYCODES/N,XXXMAIN,KEYCODES,LIBDG,LIB/S/E/Y
-COPY KEYCODES.COM e:\Retro\CPM\RunCPM\F\0\
+set name=KEYCODES
+
+@echo off > nul
+call mic %name%
+CPM L80 %name%/N,XXXMAIN,%name%,LIBDG/S,LIB/S/E/Y > %name%.lerr
+MICERR %name%.cerr %name%.zerr %name%.lerr
+
+COPY %name%.COM e:\Retro\CPM\RunCPM\F\0\

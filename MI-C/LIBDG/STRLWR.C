@@ -8,7 +8,7 @@ strlwr(ptr)
 	ret = ptr;
 	while(*ptr)
 	{
-		*ptr = tolower(*ptr);
+		*ptr = tolowe(*ptr);
 		ptr++;
 	}
 	return ret;

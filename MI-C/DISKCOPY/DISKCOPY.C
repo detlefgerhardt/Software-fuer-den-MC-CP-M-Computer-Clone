@@ -9,6 +9,7 @@
 
  23.07.2026 *dg* First version
  30.09.2026 *dg* Use NBIOS function GETPHY to get phys. drive parameters
+ 31.10.2026 *dg* Adapted to Z80ASM
  
  */
 
@@ -19,6 +20,8 @@
 #define TRUE 1
 #define WORD unsigned int
 #define BOOL int
+
+#define toupper touppe
 
 #define CTRLC 3
 #define CR 13

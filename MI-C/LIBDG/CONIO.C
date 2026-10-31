@@ -1,4 +1,4 @@
-/* CONIO.C *dg* 30.08.2026 */
+/* CONIO.C *dg* 31.10.2026 */
 /* conio.h combines all conio funtions by using
    nonblocking BDOS functions */
 
@@ -73,9 +73,7 @@ int kbhit()
 
 
 /* puts one character back into the input buffer */
-/* use CONIO.H to set ungetch = unget2 because of conflict with standard 
-   function ungetc */
-int unget2(c)
+int ungetch(c)
 	int c;
 {
 	if (c != -1) lastch = c;

@@ -19,6 +19,8 @@
 #define WORD unsigned int
 #define BOOL int
 
+#define toupper touppe
+
 #define CTRLC 3
 #define CR 13
 

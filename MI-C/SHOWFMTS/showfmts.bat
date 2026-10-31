@@ -1,9 +1,8 @@
-set name="SHOWFMTS"
+set name=SHOWFMTS
 
-CPM CCZ /SX %name% > %name%.cerr
-CPM M80 =%name%/Z/L > %name%.merr"
+@echo off > nul
+call mic %name%
 CPM L80 %name%/N,XXXMAIN,%name%,LIBDG/S,LIB/S/E/Y > %name%.lerr
+MICERR %name%.cerr %name%.zerr %name%.lerr
 
-MICERR %name%.cerr %name%.merr %name%.lerr
-
-copy %name%.COM ..\SYS
+copy %name%.COM ..\SYS > nul

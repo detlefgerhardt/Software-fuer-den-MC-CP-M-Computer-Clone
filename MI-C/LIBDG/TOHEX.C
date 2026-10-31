@@ -53,7 +53,7 @@ unsigned hextou(s)
 	for (i = 0; i < strlen(s); i++)
 	{
 		val <<= 4;
-		d = tolower(s[i]);
+		d = tolowe(s[i]);
 		if (d >= '0' && d <= '9')
 			d -= '0';
 		else if (d >= 'a' && d <= 'f')

@@ -1,4 +1,8 @@
-CPM CCZ /SX VTSHOW
-CPM M80 =VTSHOW/Z/L
-CPM L80 VTSHOW/N,XXXMAIN,VTSHOW,LIB/S/E/Y
-COPY VTSHOW.COM e:\Retro\CPM\RunCPM\F\0\
+set name=VTSHOW
+
+@echo off > nul
+call mic %name%
+CPM L80 %name%/N,XXXMAIN,%name%,LIBDG/S,LIB/S/E/Y > %name%.lerr
+MICERR %name%.cerr %name%.zerr %name%.lerr
+
+COPY %name%.COM e:\Retro\CPM\RunCPM\F\0\

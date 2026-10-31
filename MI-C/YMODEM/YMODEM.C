@@ -243,7 +243,7 @@ xprintf(fmt, args)
 
 /****************************************************************************/
 
-CRC16 prüfen. Umgestellt auf unsigned!!!
+CRC16 pruefen. Umgestellt auf unsigned!!!
 
 crcinit()
 {

@@ -18,6 +18,7 @@
  19.09.2026 *dg* Changed format tables
  26.09.2026 *dg* Changed format tables to match NDiskDef-Outputs
 				 Use NDiskDef generated tables as include
+ 31.10.2026 *dg* Adapted to Z80ASM
  
 */
 
@@ -27,6 +28,9 @@
 #define TRUE 1
 #define WORD unsigned int
 #define BOOL int
+
+#define sprintf sprint
+#define toupper touppe
 
 #define DDTZ FALSE
 

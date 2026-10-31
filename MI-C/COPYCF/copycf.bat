@@ -1,11 +1,10 @@
-set name="COPYCF"
-set name2="COPYCFLL"
+set name=COPYCF
+set name2=COPYCFLL
 
-CPM CCZ /SX %name% > %name%.cerr
-CPM M80 =%name%/Z/L > %name%.merr"
-CPM M80 =%name2%/Z/L > %name2%.merr
+@echo off > nul
+call mic %name%
+call asm %name2%
 CPM L80 %name%/N,XXXMAIN,%name%,%name2%,LIBDG/S,LIB/S/E/Y > %name%.lerr
+MICERR %name%.cerr %name%.zerr %name2%.zerr %name%.lerr
 
-MICERR %name%.cerr %name%.merr %name2%.merr %name%.lerr
-
-COPY %name%.COM ..\SYS
+copy %name%.COM ..\SYS > nul

@@ -12,6 +12,12 @@
 
 */
 /****************************************************************************/
+/* VT version history
+
+ ??         *dg* First version
+ 31.10.2026 *dg* Adapted to Z80ASM
+ 
+*/
 
 #include "stdio.h"
 
@@ -19,6 +25,10 @@
 #define TRUE 1
 #define WORD unsigned int
 #define BOOL int
+
+#define putchar putcha
+#define strncpy strncp
+#define tolower tolowe
 
 /****************************************************************************/
 /* a delay of very roughly 1 second, depends on CPU clock
@@ -74,7 +84,7 @@ main(argc, argv)
 	
 	if (argc < 2)
 	{
-		PutStr("\r\nVT VT100 animation viewer *dg* 260906-01\r\n");
+		PutStr("\r\nVT VT100 animation viewer *dg* 261031-01\r\n");
 		PutStr(" usage: vt filename[.vt] [-d]  (use -d for decompression)\r\n");
 		return;
 	}

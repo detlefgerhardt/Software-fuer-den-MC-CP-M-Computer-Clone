@@ -1,9 +1,8 @@
-set name="TESTCF"
+set name=TESTCF
 
-CPM CCZ /SX %name% > %name%.cerr
-CPM M80 =%name%/Z/L > %name%.merr"
+@echo off > nul
+call mic %name%
 CPM L80 %name%/N,XXXMAIN,%name%,LIBDG/S,LIB/S/E/Y > %name%.lerr
-
-MICERR %name%.cerr %name%.merr %name%.lerr
+MICERR %name%.cerr %name%.zerr %name%.lerr
 
 COPY %name%.COM ..\SYS

@@ -20,6 +20,8 @@
 #define WORD unsigned int
 #define BOOL int
 
+#define sprintf sprint
+
 #define CTRLC 3
 #define CR 13
 #define PATTERN 0xE5

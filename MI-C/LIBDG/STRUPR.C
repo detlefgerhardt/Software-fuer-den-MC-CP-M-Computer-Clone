@@ -1,4 +1,4 @@
-/* STRUPR.C *dg* 30.08.2026 */
+/* STRUPR.C *dg* 31.10.2026 */
 
 strupr(ptr)
 	char *ptr;
@@ -8,7 +8,7 @@ strupr(ptr)
 	ret = ptr;
 	while(*ptr)
 	{
-		*ptr = toupper(*ptr);
+		*ptr = touppe(*ptr);
 		ptr++;
 	}
 	return ret;

@@ -7,7 +7,8 @@
 /****************************************************************************/
 /* SHOWF16 version history
 
- 29.10.2026 *dg* - First version (from COPYCF and SHOWF12)
+ 29.10.2026 *dg* First version (from COPYCF and SHOWF12)
+ 31.10.2026 *dg* Adapted to Z80ASM
  
  */
 
@@ -18,6 +19,8 @@
 #define TRUE 1
 #define WORD unsigned int
 #define BOOL int
+
+#define strncpy strncp
 
 #define CTRLC 3
 #define CR 13
@@ -423,7 +426,7 @@ main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	cputs("\r\nSHOWF16 V1.0 for MC CP/M *dg* 261030-02\r\n\n");
+	cputs("\r\nSHOWF16 V1.0 for MC CP/M *dg* 261031-01\r\n\n");
 
 	secbuf = calloc(512, 1);
 	if (secbuf == NULL)

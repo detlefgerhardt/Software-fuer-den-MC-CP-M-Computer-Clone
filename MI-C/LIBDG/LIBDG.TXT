@@ -1,0 +1,124 @@
+LIBDG Library, Stand 06.10.2026
+
+Modul CONIO
+
+int putch(int ch)
+int getch()
+int getche()
+int kbhit()	/* reurn 1 if char available, 0 if not */
+unget2(int c) / ungetch(int c)
+cputs(char *s)
+
+Modul CGETS
+
+cgets(char s*)
+
+Modul CPRINTF
+
+cprintf(char *fmt, int *args)
+
+WAITCH
+
+int waitch(int t)	/* wait t seconds for character, return -1 if non */
+
+Modul RANDOM
+
+int rndsed(int seed)
+int rndrfh()
+int rndnxt(int from; int to)
+
+Modul TOHEX
+
+char *ctohex(int i, char *s)
+char *utohex(unsigned u, char *s)
+char *ltohex(long l, char *s)
+unsigned hextou(char *s) /* hex str to unsigned int */
+
+Modul STRUPR
+
+strupr(char *s)
+
+Modul STRUPR
+
+strlwr(char *s)
+
+Modul STRICMP
+
+int stricmp(char *s1, char *s2)
+int strincmp(char *s1, char *s2)
+
+Modul VT100
+
+int vt_attr()	/* get attributes */
+vt_eolera()	/* erase to end of line */
+vt_solera()	/* erade to start of line */
+vt_linera()	/* erase line */
+vt_dwnera()	/* erase down to end of screen */
+vt_upera()	/* erade up to top of screen */
+vt_screra()	/* erase screen and home cursor */
+vt_home()	/* home cursor */
+vt_pos(x,y)	/* cursor to x,y
+vt_norm()	/* reset all attributes */
+vt_emph()	/* emphasize on */
+vt_under()	/* underscore on */
+vt_blink()	/* blink on */
+vt_inv()	/* inverse on */
+vt_forecol(col)	/* foreground color */
+vt_backcol(col)	/* background color */
+vt_gon()	/* select graphics character set */
+vt_goff()	/* graphics character set of, US ASCII */
+vt_puts(s)	/* output string with VT100 ctrl characters */
+
+Modul PHYDRV
+
+int GetVer()
+char *SelDrv(int drive=
+int GetDrv()
+int GetByt()
+int GetSec()
+int GetTrk()
+int GetSid()
+int GetReg()
+int GetPrm(int drive, phyprm *prm)
+
+Modul MEMSET
+
+char *memset(char *mem, int c, int n)
+
+Modul MEMCPY
+
+char *memcpy(char *dst, char *src, int n) /* nutzt LDIR */
+
+Modul MEMCMP
+
+char *memcmp(char *p1, char *p2, int n) /* nutzt CPI */
+
+Modul HEXDMP
+
+hexdmp(char *p, int size, unsigned disp)
+
+Modul OUTP
+
+outp(int port, int c)
+
+Modul INP
+
+int inp(int port)
+
+Modul SIOA
+
+sa_init()
+int sa_st() /* return 1 if character available */
+int sa_in()
+int sa_out(int ch)
+char *sa_puts(char *s)
+
+Modul SIOB
+
+sb_init()
+int sb_st() /* return 1 if character available, 0 if not */
+int sb_in()
+int sb_out(int ch)
+char *sb_puts(char *s)
+
+Ende

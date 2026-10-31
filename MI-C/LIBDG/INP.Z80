@@ -5,17 +5,19 @@
 ; int inp(port)
 ;     int port;
 
-
 INP:	LD IX,2		; RET address
 	ADD IX,SP
 
 	; port -> C
 	LD C,(IX+0)
+	;LD C,A
 
 	IN A,(C)
 
 	; return A
 	LD L,A
 	LD H,0
+
+	RET
 
 	END

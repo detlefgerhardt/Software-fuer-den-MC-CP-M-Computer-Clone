@@ -12,6 +12,7 @@
  07.08.2026 *dg* tracks, sectors and sector count as parameters
                  renamed to DEBLOCK.C
  05.09.2026 *dg* Used to test new IDE/CF format (8192 KB)
+ 31.10.2026 *dg* Adapted to Z80ASM
  
  */
 
@@ -21,6 +22,9 @@
 #define TRUE 1
 #define WORD unsigned int
 #define BOOL int
+
+#define toupper touppe
+#define sprintf sprint
 
 #define CTRLC 3
 #define CR 13

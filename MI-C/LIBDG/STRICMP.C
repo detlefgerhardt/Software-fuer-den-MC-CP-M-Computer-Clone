@@ -1,4 +1,4 @@
-/* STRICMP.C *dg* 12.10.2026 */
+/* STRICMP.C *dg* 31.10.2026 */
 
 #define FALSE 0
 #define TRUE 1
@@ -12,8 +12,8 @@ int stricmp(s1, s2)
 
 	while(TRUE)
 	{
-		ch1 = toupper(*s1);
-		ch2 = toupper(*s2);
+		ch1 = touppe(*s1);
+		ch2 = touppe(*s2);
 		if (ch1 == 0 && ch2 == 0) return 0; /* equal */
 		if (ch1 == 0 && ch2 != 0) return -ch2; /* s2 is greater */
 		if (ch1 != 0 && ch2 == 0) return ch1; /* s1 is greater */
@@ -32,8 +32,8 @@ int strincmp(s1, s2, n)
 	
     for (i = 0; i < n; i++)
 	{
-		ch1 = toupper(*s1);
-		ch2 = toupper(*s2);
+		ch1 = touppe(*s1);
+		ch2 = touppe(*s2);
 		if (ch1 == 0 && ch2 == 0) return 0; /* equal */
 		if (ch1 == 0 && ch2 != 0) return -ch2; /* s2 is greater */
 		if (ch1 != 0 && ch2 == 0) return ch1; /* s1 is greater */

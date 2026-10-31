@@ -15,6 +15,7 @@
 				 Cleanup
  23.10.2026 *dg* Support IDE volumes
  25.10.2026 *dg* Adapted to new monitor IDE/CF routines
+ 31.10.2026 *dg* Adapted to Z80ASM
 
   TODO:
   - Send abort message when CTRL-C is pressed (with Send())
@@ -24,6 +25,8 @@
 #include "stdio.h"
 #include "conio.h"
 #include "phydrv.h"
+
+#define toupper touppe
 
 #define FALSE 0
 #define TRUE 1
@@ -699,7 +702,7 @@ main(argc, argv)
 	BOOL error;
 	phyprm prm;
 
-	cputs("NXDISK *dg* v1.3 281025-03\r\n\n");
+	cputs("NXDISK *dg* v1.3 281031-01\r\n\n");
 
 	error = FALSE;
 	if (argc < 2)

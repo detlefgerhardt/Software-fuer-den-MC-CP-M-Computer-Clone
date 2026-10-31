@@ -61,7 +61,10 @@ main(argc, argv)
 	char *argv[];
 {
 	int ver;
-	
+
+	/* prevent link error */
+	putch('\r');
+
 	cprintf("SHOWFMTS *dg* 261011-01, show physical drive formats for NBIOS\r\n");
 	
 	ver = GetVer();

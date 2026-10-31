@@ -1,4 +1,4 @@
-REM LIBDG.REL *dg* 29.10.2026
+REM LIBDG.REL *dg* 30.10.2026
 REM build LIBDG.REL
 REM
 REM revision history
@@ -11,53 +11,44 @@ REM 22.10.2026 *dg* - hexdmp() in HEXDMP added
 REM 29.10.2026 *dg* - getlng() in GETLNG added
 REM                 - getint() in GETINT added
 REM
+
 REM compile c modules
-CPM CCZ /SX CONIO > conio.cerr
-CPM M80 =CONIO/Z/L > conio.merr
-CPM CCZ /SX CGETS > fgets.cerr
-CPM M80 =CGETS/Z/L > fgets.merr
-CPM CCZ /SX CPRINTF > cprintf.cerr
-CPM M80 =CPRINTF/Z/L > cprintf.merr
-CPM CCZ /SX RANDOM > random.cerr
-CPM M80 =RANDOM/Z/L > random.merr
-CPM CCZ /SX TOHEX > tohex.cerr
-CPM M80 =TOHEX/Z/L > tohex.merr
-CPM CCZ /SX STRUPR > strupr.cerr
-CPM M80 =STRUPR/Z/L > strupr.merr
-CPM CCZ /SX STRLWR > strlwr.cerr
-CPM M80 =STRLWR/Z/L > strlwr.merr
-CPM CCZ /SX PHYDRV > phydrv.cerr
-CPM M80 =PHYDRV/Z/L > phydrv.merr
-CPM CCZ /SX VT100 > vt100.cerr
-CPM M80 =VT100/Z/L > vt100.merr
-CPM CCZ /SX STRICMP > stricmp.cerr
-CPM M80 =STRICMP/Z/L > stricmp.merr
-CPM CCZ /SX HEXDMP> hexdmp.cerr
-CPM M80 =HEXDMP/Z/L > hexdmp.merr
+call mic CONIO
+call mic CGETS
+call mic CPRINTF
+call mic RANDOM
+call mic HEXDMP
+call mic TOHEX
+call mic STRUPR
+call mic STRLWR 
+call mic PHYDRV
+call mic VT100
+call mic STRICMP
 
 REM assemble assembler modules
-CPM M80 =MEMSET/Z/L > memset.merr
-CPM M80 =MEMCPY/Z/L > memcpy.merr
-CPM M80 =MEMCMP/Z/L > memcmp.merr
-CPM M80 =GETLNG/Z/L > getlng.merr
-CPM M80 =GETINT/Z/L > getint.merr
-CPM M80 =OUTP/Z/L > outp.merr
-CPM M80 =INP/Z/L > inp.merr
-CPM M80 =SIOA/Z/L > sioa.merr
-CPM M80 =SIOB/Z/L > siob.merr
-CPM M80 =WAITCH/Z/L > waitch.merr
+CALL asm MEMSET
+CALL asm MEMCPY
+CALL asm MEMCMP
+CALL asm STRICMP
+CALL asm GETLNG
+CALL asm GETINT
+CALL asm OUTP
+CALL asm INP
+CALL asm SIOA
+CALL asm SIOB
+CALL asm WAITCH
 
 REM build library from modules
-CPM LIB80 LIBDG=PHYDRV,MEMSET,MEMCPY,MEMCMP,STRICMP,GETLNG,GETINT,VT100,CPRINTF,HEXDMP,SIOA,SIOB,TOHEX/E > libdg1.lerr
+CPM LIB80 LIB1=PHYDRV,VT100,WAITCH,HEXDMP/E > libdg1.lerr
+CPM LIB80 LIB2=MEMSET,MEMCPY,MEMCMP,STRICMP,GETLNG,GETINT,TOHEX/E > libdg2.lerr
+CPM LIB80 LIB3=STRUPR,STRLWR,RANDOM,CPRINTF,CGETS,CONIO/E > libdg3.lerr
+CPM LIB80 LIB4=SIOA,SIOB,OUTP,INP/E > libdg4.lerr
+CPM LIB80 LIBDG=LIB1,LIB2,LIB3,LIB4/E > libdg.lerr
+DEL LIB?.REL
 
-CPM LIB80 LIBDG=STRUPR,STRLWR,RANDOM,WAITCH,OUTP,INP,CONIO,CGETS,LIBDG/E > libdg2.lerr
+rem CPM LIB80 LIBDG=PHYDRV,MEMSET,MEMCPY,MEMCMP,STRICMP,GETLNG,GETINT,VT100,CPRINTF,HEXDMP,SIOA,SIOB,TOHEX/E > libdg1.lerr
+rem CPM LIB80 LIBDG=STRUPR,STRLWR,RANDOM,WAITCH,OUTP,INP,CONIO,CGETS,LIBDG/E > libdg2.lerr
 
-MICERR conio.cerr conio.merr fgets.cerr fgets.merr cprintf.cerr cprintf.merr random.cerr random.merr tohex.cerr tohex.merr getlng.merr getint.merr
-
-MICERR stricmp.cerr stricmp.merr strupr.cerr strupr.merr strlwr.cerr strlwr.merr phydrv.cerr phydrv.merr memset.merr memcpy.merr memcmp.merr outp.merr inp.merr sioa.merr siob.merr waitch.merr
-
-MICERR vt100.cerr vt100.merr hexdmp.cerr hexdmp.merr
-
-MICERR libdg1.lerr libdg2.lerr
+MICERR -flibdg.mic
 
 COPY LIBDG.REL ..

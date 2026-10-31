@@ -10,6 +10,7 @@
 
  11.10.2026 *dg* First version
  12.10.2026 *dg* Successfully copied a file from FAT12 to CP/M
+ 31.10.2026 *dg* Adapted to Z80ASM
 
   TODO:
 
@@ -23,6 +24,9 @@
 #define TRUE 1
 #define WORD unsigned int
 #define BOOL int
+
+#define strncpy strncp
+#define toupper touppe
 
 /* serial port constants */
 #ASM
