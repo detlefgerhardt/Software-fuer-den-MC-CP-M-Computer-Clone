@@ -5,8 +5,8 @@ Modul CONIO
 int putch(int ch)
 int getch()
 int getche()
-int kbhit()	/* reurn 1 if char available, 0 if not */
-unget2(int c) / ungetch(int c)
+int kbhit()	/* return 1 if char available, 0 if not */
+ungetch(int c)
 cputs(char *s)
 
 Modul CGETS
@@ -17,9 +17,10 @@ Modul CPRINTF
 
 cprintf(char *fmt, int *args)
 
-WAITCH
+WAIT
 
 int waitch(int t)	/* wait t seconds for character, return -1 if non */
+wait(int t)		/* wait t seconds */
 
 Modul RANDOM
 
@@ -92,6 +93,14 @@ char *memcpy(char *dst, char *src, int n) /* nutzt LDIR */
 Modul MEMCMP
 
 char *memcmp(char *p1, char *p2, int n) /* nutzt CPI */
+
+Modul GETINT
+
+int getint(char *mem)
+
+Modul GETLONG
+
+long getlong(char *mem)
 
 Modul HEXDMP
 

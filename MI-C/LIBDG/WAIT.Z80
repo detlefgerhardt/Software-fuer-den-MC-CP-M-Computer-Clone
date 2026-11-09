@@ -1,0 +1,121 @@
+; WAIT.Z80 *dg* 09.11.2026
+
+	PUBLIC WAITCH
+	PUBLIC WAIT
+
+FALSE	EQU 0
+TRUE	EQU NOT FALSE
+
+;-----------------------------------------------------------------------------
+; wait t seconds (6 Mhz) for character
+; 
+; int waitch(t)
+;     int t;
+
+WAITCH:	POP DE
+	POP BC
+	PUSH BC
+	PUSH DE
+	LD B,C			; timeout value
+
+WAITC1:	;LD DE,120 SHL 8	; 4 Mhz	(low byte must be 0)
+	;LD DE,180 SHL 8	; 6 Mhz	(low byte must be 0)
+	;LD DE,43 SHL 8		; 6 Mhz	(low byte must be 0)
+	LD D,43			; 6 Mhz
+	LD E,0
+
+WAITC2:	PUSH DE
+	PUSH BC
+	LD C,6			; BDOS get char
+	LD E,0FFh
+	CALL 0005h		; BDOS call
+	POP BC
+	POP DE
+	AND A
+	JR NZ,WAITC3
+
+	;CALL BCONST		; BIOS call
+	;OR A
+	;JR NZ,WAITC3		; -> got char
+	
+	; wait for char
+	DEC E			; counter low
+	JR NZ,WAITC2
+	DEC D			; counter high
+	JR NZ,WAITC2
+	DEC B			; timeout counter
+	JR NZ,WAITC1
+
+	; timeout, return -1
+	LD HL,0FFFFH
+	RET
+
+WAITC3:	;CALL BCONIN		; BIOS char -> A
+	LD L,A			; return char in HL
+	LD H,0
+	RET
+
+;-----------------------------------------------------------------------------
+
+	IF FALSE
+
+; wait t seconds (6 Mhz)
+; 
+; int wait(t)
+;     int t;
+
+WAIT:	POP DE
+	POP BC
+	PUSH BC
+	PUSH DE
+	LD B,C			; time value
+
+WAIT1:	LD C,23			; 6 Mhz
+	LD E,0
+
+WAIT2:	LD D,64
+
+WAIT3:	DEC E			; counter 0
+	JR NZ,WAIT3
+	DEC D			; counter 1
+	JR NZ,WAIT3
+	DEC C			; counter 2
+	JR NZ,WAIT2
+	DEC B
+	JR NZ,WAIT1
+
+	LD HL,0
+	RET
+
+	ENDIF
+
+;-----------------------------------------------------------------------------
+; wait t * 1/10 seconds (6 Mhz)
+; 
+; int waitms(t)
+;     int t;
+
+WAIT:	POP DE
+	POP BC
+	PUSH BC
+	PUSH DE
+	LD B,C			; time value
+
+WAIT1:	LD D,140		; time constant for 6 Mhz
+	LD E,0
+
+WAIT2:	DEC E			; counter 0
+	JR NZ,WAIT2
+	DEC D			; counter 1
+	JR NZ,WAIT2
+	DEC B			; counter 2
+	JR NZ,WAIT1
+
+	LD HL,0
+	RET
+
+;-----------------------------------------------------------------------------
+	
+	END
+
+; end of file

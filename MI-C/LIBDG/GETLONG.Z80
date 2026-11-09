@@ -1,14 +1,15 @@
-; GETLNG.MAC *dg* 29.10.2026
+; GETLONG.Z80 *dg* 31.10.2026
 ; get long from memory address
 
-	PUBLIC GETLNG
+	PUBLIC GETLONG
 	EXTERNAL CLPRIM
 
-; long getlng(mem)
+; long getlong(mem)
 ;     char *mem;
 ;   return value
 
-GETLNG:	LD IX,2		; RET address
+GETLONG:
+	LD IX,2		; RET address
 	ADD IX,SP
 
 	; mem -> HL

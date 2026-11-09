@@ -1,6 +1,6 @@
 /****************************************************************************/
 /*
-	LIBTEST.C  *dg*  08/2026 for MI-C compiler and CP/M
+	LIBTEST.C  *dg*  11/2026 for MI-C compiler and CP/M
 */
 /****************************************************************************/
 
@@ -18,6 +18,8 @@ char xprbuf[80];
 
 char buf1[20];
 char buf2[20];
+
+#if FALSE
 
 /****************************************************************************/
 
@@ -42,6 +44,8 @@ strintst(s1, s2, n)
 	cprintf("stricmp '%s' '%s' %d = %d\r\n", s1, s2, n, i);
 }
 
+#endif
+
 /****************************************************************************/
 
 main(argc, argv)
@@ -54,7 +58,21 @@ main(argc, argv)
 	char *s, *s1, *s2;
 	char *chrbuf = 0x0005;
 	char buf[9];
+
+	waitch(5);
+	cputs("\007start\r\n");
+	wait(100);
+	cputs("\007stop\r\n");
+	wait(50);
+	cputs("\007stop\r\n");
+	return;
+
+	vt_pos(1,1);
+	/*vt_puts("\010");*/
+	return;
 	
+#if FALSE
+
 	/*
 	memset(buf1, 1, 20);
 	memcpy(buf2, buf1, 20);
@@ -156,7 +174,7 @@ main(argc, argv)
 			cputs("\r\ninput: ");
 		}
 	}
-
+#endif
 	
 #if FALSE	
 	ctohex(193, buf);

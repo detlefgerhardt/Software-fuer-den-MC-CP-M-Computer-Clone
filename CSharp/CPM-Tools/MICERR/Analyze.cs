@@ -119,7 +119,76 @@ namespace MicErr
 		}
 
 		/// <summary>
-		/// M80 output
+		/// Z80ASM file
+		/// </summary>
+		/// <param name="filename"></param>
+		/// <returns></returns>
+		public int Zerr(string filename)
+		{
+			string[] lines;
+			try
+			{
+				lines = File.ReadAllLines(filename);
+			}
+			catch (Exception)
+			{
+				return -1;
+			}
+
+			int errCnt = 0;
+			int warnCnt = 0;
+			foreach (string line in lines)
+			{
+				if (string.IsNullOrWhiteSpace(line)) continue;
+
+				// Console.WriteLine(line);
+				if (line.Contains("Warning(s)"))
+				{
+					int pos = line.IndexOf(",");
+					if (pos > 0)
+					{
+						string s = line.Substring(pos + 1, line.Length - pos - 1);
+						pos = s.IndexOf(" ");
+						if (pos > 0)
+						{
+							s = s.Substring(0, pos);
+							if (int.TryParse(s, out int err))
+							{
+								warnCnt = err;
+							}
+						}
+					}
+				}
+
+				if (line.Contains("No Fatal error(s)"))
+				{
+					errCnt = 0;
+					break;
+				}
+
+				if (line.Contains("Error(s) Detected"))
+				{
+					Console.WriteLine(line);
+					string s = line.Trim();
+					int pos = s.IndexOf(" ");
+					if (pos > 0)
+					{
+						s = s.Substring(0, pos);
+						if (int.TryParse(s, out int err))
+						{
+							errCnt = err;
+						}
+					}
+					break;
+				}
+			}
+
+			if (warnCnt > 0 && errCnt <= 0) return warnCnt;
+			return errCnt + warnCnt;
+		}
+
+		/// <summary>
+		/// L80 output
 		/// </summary>
 		/// <param name="filename"></param>
 		/// <returns></returns>

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.ConstrainedExecution;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace MicErr
 {
@@ -15,21 +16,52 @@ namespace MicErr
 			Analyze analyze = new Analyze();
 			int err = 0;
 			//int errCnt = 0;
-			foreach (string fn in args)
+
+			List<string> lines = new List<string>();
+
+			foreach (string arg in args)
 			{
-				string ext = Path.GetExtension(fn);
-				Console.WriteLine(Delim(fn));
+				if (arg.Length > 2 && arg.ToLower().StartsWith("-f"))
+				{
+					string fname = arg.Substring(2);
+					List<string> flist = ReadList(fname);
+					if (flist == null) return;
+					lines.AddRange(flist);
+				}
+				else
+				{
+					lines.Add(arg);
+				}
+			}
+
+			List<string> errList = new List<string>();
+			foreach (string line in lines)
+			{
+				string ext = Path.GetExtension(line);
+				Console.WriteLine(Delim(line));
+				int errcnt = 0;
 				switch (ext.ToLower())
 				{
 					case ".cerr":
-						err += Ana(analyze.Cerr, fn);
+						errcnt = Ana(analyze.Cerr, line);
+						err += errcnt;
 						break;
 					case ".merr":
-						err += Ana(analyze.Merr, fn);
+						errcnt = Ana(analyze.Merr, line);
+						err += errcnt;
+						break;
+					case ".zerr":
+						errcnt = Ana(analyze.Zerr, line);
+						err += errcnt;
 						break;
 					case ".lerr":
-						err += Ana(analyze.Lerr, fn);
+						errcnt = Ana(analyze.Lerr, line);
+						err += errcnt;
 						break;
+				}
+				if (errcnt > 0)
+				{
+					errList.Add(line);
 				}
 			}
 			Console.WriteLine(Delim());
@@ -45,9 +77,38 @@ namespace MicErr
 				ConsoleColor col = Console.ForegroundColor;
 				Console.ForegroundColor = ConsoleColor.Red;
 				Console.WriteLine($"{err} errors and warnings");
+				foreach(string line in errList)
+				{
+					Console.WriteLine(line);
+				}
 				Console.ForegroundColor = col;
 			}
 			Console.WriteLine(Delim());
+		}
+
+		static List<string> ReadList(string filename)
+		{
+			string[] lines;
+			try
+			{
+				lines = File.ReadAllLines(filename);
+			}
+			catch(Exception)
+			{
+				Console.WriteLine($"Error reading {filename}");
+				return null;
+			}
+
+			List<string> list = new List<string>();
+			foreach (string line in lines)
+			{
+				string l = line.Trim();
+				if (l.Length > 0 && !l.StartsWith("#"))
+				{
+					list.Add(l);
+				}
+			}
+			return list;
 		}
 
 		static int Ana(Func<string, int> func, string fn)
