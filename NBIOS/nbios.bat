@@ -1,8 +1,9 @@
 echo off > nul
-set name="NBIOS11"
+set name="NBIOS"
 
-NDiskDef %name%
+rem NDiskDef %name%
 cpm z80asm %name%/f,%name%/h
-hexreset %name%.HEX
+rem hexreset %name%.HEX
+unload %name%.HEX 0000
 del %name%.COM > nul
 copy %name%.HEX ..\SYS > nul

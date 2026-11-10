@@ -1,4 +1,4 @@
-; ndiskdef NBIOS11.DPB created 15.10.26 20:13 by NDiskDef 1.2
+; ndiskdef NBIOS.DPB created 25.10.26 19:18 by NDiskDef 1.2
 ; drive 0 F800K (800K, 1024 bytes/sec, 5 sec/trk, 80 trks/side, 2 sides, MiniDD)
 ; NDISKDEF 0,1024,5,80,2,MiniDD , 2048,256,256,4
 ; DISKDEF 5,0,39,1,2048,390,256,256,4
@@ -167,5 +167,5 @@ CPMST	EQU	8	; logical CP/M start sector on boot drive
 BTSECN	EQU	40	; logical sectors per track on boot drive
 			; or any value: CPMST + CPMLEN/128 < value < 256
 ;
-; end of NBIOS11.DPB
+; end of NBIOS.DPB
 ;

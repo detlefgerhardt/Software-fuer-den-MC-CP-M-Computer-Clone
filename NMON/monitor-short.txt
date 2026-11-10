@@ -1,0 +1,50 @@
+MC CP/M Monitor
+
+A<loc.Device>=<phys.Device>
+
+B			block input, resume with CTRL-N
+
+C<start>,<end>		compare reader-input with memory
+
+D<start>,<end>		display memory
+
+E[<end>]		output EOF to punch
+
+F<start>,<end>,<val>	fill
+
+G<start>,{<break1>],[<break2>]	go with breakpoints
+
+H<val1>,<val2>		hex calc val1 + val2, val1 - val2
+
+J<start>,<ende>		memory test, non destructive
+
+L<start>		load binary from reader
+
+M<start>,<end>,<new>	move
+
+N			output NUL to punch
+
+P<start>		input ASCII to memory
+
+QI<addr>		port in from addr
+
+QO<addr>		port out to addr
+
+R[<bias>],[<reladr>]	Read IntelHex from punch
+
+S<start>		Modify memory (with blank-key)
+
+T<start>,<end>		Output memory as ASCII text
+
+U<start>,<end>		Output memory as binary
+
+V<start>,<end>,<other>	compare memory
+
+W<start>,<end>		output memory as IntelHex
+
+X[<register>,<value>]	show/modify register
+
+Y<val1>,<val2>,...	search for value (max. 255 bytes)
+
+Z			show highest memeory location below monitor (with memory test)
+

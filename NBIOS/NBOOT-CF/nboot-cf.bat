@@ -2,6 +2,7 @@ echo off > nul
 set name="NBOOT-CF"
 
 cpm z80asm %name%/f,%name%/h
-hexreset %name%.HEX
+rem hexreset %name%.HEX
+unload %name%.HEX 0000
 del %name%.COM > nul
 copy %name%.HEX ..\SYS > nul

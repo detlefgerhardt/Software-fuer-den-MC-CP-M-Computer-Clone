@@ -1,8 +1,9 @@
-/* ndiskdef NBIOS11.C created 26.09.26 12:23 by NDiskDef 1.0 */
-/* format F800KB 800KB  (1024/5/80/2) */
-drvprm F800KB =
+/* ndiskdef NBIOS.DH created 25.10.26 19:18 by NDiskDef 1.2 */
+/* format F800K 800KB  (1024/5/80/2) */
+drvprm F800K =
 {
-	"F800KB",
+	"F800K",
+	800,
 	{
 		40,	/* spt */
 		4,	/* bsh */
@@ -17,19 +18,20 @@ drvprm F800KB =
 		/* blocking/deblocking and FLO reg */
 		3,	/* psh */
 		7,	/* phm */
-		32,	/* FLO reg */
+		0x20,	/* FLO reg */
 		/* physical params */
 		1024,	/* phylen */
 		4,	/* physec */
 		79,	/* phytrk */
-		2,	/* sides */
+		2	/* sides */
 	}
 };
 
-/* format F144MB 1440KB  (1024/9/80/2) */
-drvprm F144MB =
+/* format F1440K 1440KB  (512/18/80/2) */
+drvprm F1440K =
 {
-	"F144MB",
+	"F1440K",
+	1440,
 	{
 		72,	/* spt */
 		5,	/* bsh */
@@ -42,48 +44,22 @@ drvprm F144MB =
 		64,	/* cks */
 		2,	/* ofs */
 		/* blocking/deblocking and FLO reg */
-		3,	/* psh */
-		7,	/* phm */
-		0,	/* FLO reg */
+		2,	/* psh */
+		3,	/* phm */
+		0x00,	/* FLO reg */
 		/* physical params */
-		1024,	/* phylen */
-		8,	/* physec */
+		512,	/* phylen */
+		17,	/* physec */
 		79,	/* phytrk */
-		2,	/* sides */
+		2	/* sides */
 	}
 };
 
-/* format F140MB 1280KB  (1024/8/80/2) */
-drvprm F140MB =
+/* format F1200K 1200KB  (512/15/80/2) */
+drvprm F1200K =
 {
-	"F140MB",
-	{
-		64,	/* spt */
-		5,	/* bsh */
-		31,	/* blm */
-		1,	/* exm */
-		315,	/* dsm */
-		255,	/* drm */
-		192,	/* al0 */
-		0,	/* al1 */
-		64,	/* cks */
-		2,	/* ofs */
-		/* blocking/deblocking and FLO reg */
-		3,	/* psh */
-		7,	/* phm */
-		0,	/* FLO reg */
-		/* physical params */
-		1024,	/* phylen */
-		7,	/* physec */
-		79,	/* phytrk */
-		2,	/* sides */
-	}
-};
-
-/* format F120MB 1200KB  (512/15/80/2) */
-drvprm F120MB =
-{
-	"F120MB",
+	"F1200K",
+	1200,
 	{
 		60,	/* spt */
 		5,	/* bsh */
@@ -98,12 +74,68 @@ drvprm F120MB =
 		/* blocking/deblocking and FLO reg */
 		2,	/* psh */
 		3,	/* phm */
-		0,	/* FLO reg */
+		0x00,	/* FLO reg */
 		/* physical params */
 		512,	/* phylen */
 		14,	/* physec */
 		79,	/* phytrk */
-		2,	/* sides */
+		2	/* sides */
+	}
+};
+
+/* format F720K 720KB  (512/9/80/2) */
+drvprm F720K =
+{
+	"F720K",
+	720,
+	{
+		36,	/* spt */
+		4,	/* bsh */
+		15,	/* blm */
+		0,	/* exm */
+		350,	/* dsm */
+		255,	/* drm */
+		240,	/* al0 */
+		0,	/* al1 */
+		64,	/* cks */
+		4,	/* ofs */
+		/* blocking/deblocking and FLO reg */
+		2,	/* psh */
+		3,	/* phm */
+		0x20,	/* FLO reg */
+		/* physical params */
+		512,	/* phylen */
+		8,	/* physec */
+		79,	/* phytrk */
+		2	/* sides */
+	}
+};
+
+/* format F400K 400KB  (1024/5/40/2) */
+drvprm F400K =
+{
+	"F400K",
+	400,
+	{
+		40,	/* spt */
+		4,	/* bsh */
+		15,	/* blm */
+		1,	/* exm */
+		189,	/* dsm */
+		127,	/* drm */
+		192,	/* al0 */
+		0,	/* al1 */
+		32,	/* cks */
+		4,	/* ofs */
+		/* blocking/deblocking and FLO reg */
+		3,	/* psh */
+		7,	/* phm */
+		0x20,	/* FLO reg */
+		/* physical params */
+		1024,	/* phylen */
+		4,	/* physec */
+		39,	/* phytrk */
+		2	/* sides */
 	}
 };
 
@@ -111,6 +143,7 @@ drvprm F120MB =
 drvprm IBMSD =
 {
 	"IBMSD",
+	250,
 	{
 		26,	/* spt */
 		3,	/* bsh */
@@ -125,68 +158,72 @@ drvprm IBMSD =
 		/* blocking/deblocking and FLO reg */
 		0,	/* psh */
 		0,	/* phm */
-		48,	/* FLO reg */
+		0x10,	/* FLO reg */
 		/* physical params */
 		128,	/* phylen */
 		25,	/* physec */
 		76,	/* phytrk */
-		1,	/* sides */
+		1	/* sides */
 	}
 };
 
-/* format CF2MB 2048KB  (64/128/256/1) */
-drvprm CF2MB =
+/* format CF2M 2048KB  (128/64/256/1) */
+drvprm CF2M =
 {
-	"CF2MB",
+	"CF2M",
+	2048,
 	{
-		0,	/* spt */
+		64,	/* spt */
 		5,	/* bsh */
 		31,	/* blm */
 		1,	/* exm */
-		511,	/* dsm */
+		509,	/* dsm */
 		255,	/* drm */
 		192,	/* al0 */
 		0,	/* al1 */
 		0,	/* cks */
-		0,	/* ofs */
+		1,	/* ofs */
 		/* blocking/deblocking and FLO reg */
-		-2147483648,	/* psh */
-		-1,	/* phm */
-		4080,	/* FLO reg */
+		0,	/* psh */
+		0,	/* phm */
+		0x40,	/* FLO reg */
 		/* physical params */
-		64,	/* phylen */
-		127,	/* physec */
+		128,	/* phylen */
+		63,	/* physec */
 		255,	/* phytrk */
-		1,	/* sides */
+		1	/* sides */
 	}
 };
 
-/* format CF8MB 8192KB  (256/128/256/1) */
-drvprm CF8MB =
+/* format CF8M 8192KB  (256/128/256/1) */
+drvprm CF8M =
 {
-	"CF8MB",
+	"CF8M",
+	8192,
 	{
 		256,	/* spt */
 		6,	/* bsh */
 		63,	/* blm */
 		3,	/* exm */
-		1023,	/* dsm */
+		1019,	/* dsm */
 		255,	/* drm */
 		128,	/* al0 */
 		0,	/* al1 */
 		0,	/* cks */
-		0,	/* ofs */
+		1,	/* ofs */
 		/* blocking/deblocking and FLO reg */
 		1,	/* psh */
 		1,	/* phm */
-		4080,	/* FLO reg */
+		0x40,	/* FLO reg */
 		/* physical params */
 		256,	/* phylen */
 		127,	/* physec */
 		255,	/* phytrk */
-		1,	/* sides */
+		1	/* sides */
 	}
 };
 
+#define PRMCNT 8
+drvprm *prmlist[] = {F800K,F1440K,F1200K,F720K,F400K,IBMSD,CF2M,CF8M};
 
-/* end of NBIOS11.C */ 
+/* end of NBIOS.DH */ 

@@ -1,5 +1,5 @@
 ;************************************************************************
-;* NBIOS11.Z80		RDK/UH/*DG*	10/2026				*
+;* NBIOS12.Z80		RDK/UH/*DG*	10/2026				*
 ;*									*
 ;* basiert direct auf der Version 3.1 841220 von Rolf-Dieter Klein	*
 ;* Urspruengliche Version fuer 2 Mini- und 2 Maxi-Laufwerke		*
@@ -42,6 +42,8 @@
 ; 25.09.2026 *dg* - Laufwerktabelle als Includes, Erzeugung mit neuem Tool
 ;                   NDiskDef.exe
 ;                 - NBIOS10 umgenannt in NBIOS11
+; 25.10.2026 *dg* - NBIOS12, Adapted to new Monitor IDE/CF routines (Drive/Sector/
+;		    Track) instead of LBA
 ;
 ; Verbesserung/Veraenderungen zu BIOS 3.1 seit Juni 2026
 ;
@@ -72,7 +74,7 @@
 
 	.LFCOND
 
-BIOSVER EQU 11		; BIOS version 1.1
+BIOSVER EQU 12		; BIOS version 1.2
 
 CPMVER	EQU 22		; CP/M version 2.2
 FALSE	EQU 0
@@ -84,26 +86,7 @@ LF	EQU 0AH		; line feed
 ;------------------------------------------------------------------------------
 ; Variant switches
 
-DG_NEW	EQU TRUE	; new drive tables (include files generated with
-			; NDiskDef)
-
 ; aktiviert alle bisherigen Aenderungen gegenueber der Originalversion 3.1
-DG_B800	EQU TRUE	; drive B is 800 KB (same as drive A)
-DG_B144	EQU FALSE	; drive B as HD drive (5 1/4 inch, 1.44 MB)
-DG_B14	EQU FALSE	; drive B as HD drive (5 1/4 inch, 1.4 MB)
-DG_B12	EQU FALSE	; drive B as HD drive (5 1/4 inch, 1.2 MB)
-
-DG_C800	EQU TRUE	; drive C is 800 KB (same as drive A)
-DG_C14	EQU FALSE	; drive C as HD drive (5 1/4 inch, 1.4 MB)
-DG_C12	EQU FALSE	; drive C as HD drive (5 1/4 inch, 1.2 MB)
-DG_CIBM	EQU FALSE	; drive C is IBM
-
-DG_D800	EQU FALSE	; drive D is 800 KB (same as drive A)
-DG_D144	EQU FALSE	; drive D as HD drive (5 1/4 inch, 1.44 MB)
-DG_D14	EQU FALSE	; drive D as HD drive (5 1/4 inch, 1.4 MB)
-DG_D12	EQU TRUE	; drive D as HD drive (5 1/4 inch, 1.2 MB)
-DG_DIBM	EQU FALSE	; drive D is IBM
-
 NEWIDE	EQU TRUE	; new IDE/CF format (8192 KB)
 
 DEBOUT	EQU FALSE	; debug outputs
@@ -123,6 +106,10 @@ MIDERD	EQU 0F02AH	; read sector from mini/maxi floppy
 MIDEWR	EQU 0F02DH	; write sector to mini/maxi floppy
 MWARM	EQU 0F033H	; Monitor warm start, will be overwritten by BIOS
 MWRSTR	EQU 0F036H	; Write string, will be overwritten by BIOS (do no call!)
+
+MDEBDEC	EQU 0F039H	; debug output 16 bit unsigned decimal in HL
+MDEBX16	EQU 0F03CH	; debug output 16 bit unsigned hex in HL
+MDEBX8	EQU 0F03FH	; debug output 8 bit unsigned hex in A
 
 ;------------------------------------------------------------------------------
 ; CPM and BIOS sizes and addresses
@@ -262,444 +249,9 @@ DPE7:	DW	0000h, 0000h
 	DW	DIRBUF, DPB7
 	DW	CSV7, ALV7
 
-	IF DG_NEW
+;-----------------------------------------------------------------------------
 
-	$INCLUDE NBIOS11.DPB
-
-	ELSE	; DG_NEW
-
-	; Disk 0 (A) ---------------------------------------------------------
-
-	; *** DISKDEF BEDEUTUNG DER PARAMETER***
-	; 0 = NUMMER DES LAUFWERKS
-	; 0 = NUMMER DES ERSTEN SEKTORS EINER SPUR
-	; 39 =  NUMMER DES LETZTEN SEKTORS EINER SPUR
-	; 0 = OPTIONALER VERSCHIEBUNGSFAKTOR ZUM
-	;     VERSETZEN ABSPEICHERN DER SEKTOREN
-	; 2048 = GROESSE EINES BLOCKS
-	; 389 = ZAHL DER MAX. MOEGLICHEN BLOECKE
-	; 256 = ZAHL DER DIRECTORY EINTRITTSPUNKTE
-	; 256 = ZAHL DER GEPRUEFTEN EINTRITTSPUNKTE
-	; OFFS = ADDITIVE KONSTANTE ZUM ANSPRECHEN DER SPUR 00
-
-	; physical format: 3,5 inch NKC, DD, DS, 1024 bytes/sector, 5 sectors/track, 80 tracks
-	; DISKDEF 0,0,39,0,2048,390,256,256,4
-DPB0	EQU	$	; DISK PARM BLOCK
-	DW	40	; SEC PER TRACK
-	DB	4	; BLOCK SHIFT
-	DB	15	; BLOCK MASK
-	DB	0	; EXTNT MASK
-	DW	389	; DISK SIZE-1
-	DW	255	; DIRECTORY MAX
-	DB	240	; ALLOC0
-	DB	0	; ALLOC1
-	DW	64	; CHECK SIZE
-	DW	4	; OFFSET
-	; blocking/deblocking parameters
-	DB 	3	  ; 40 / 5 sectors = 8 -> 2^3
-	DB	00000111B ; 1024 bytes/sector -> modulo 8 (0..7)
-	DB	00100000B ; Mini/DD
-	; phys. parameter
-	DW	1024	; bytes/sectors
-	DB	5-1	; max sectors/track
-	DB	80-1	; max. tracks per side
-	DB	2	; sides
-	
-XLT0	EQU	0	; NO XLATE TABLE
-
-	; Disk 1 (B)----------------------------------------------------------
-
-	IF DG_B800
-
-	; same as Disk A
-DPB1	EQU	DPB0	; EQUIVALENT PARAMETERS
-XLT1	EQU	XLT0	; SAME TRANSLATE TABLE
-
-	ENDIF		; DG_B800
-
-	IF DG_B144
-
-	; PHYSICAL FORMAT: 1.44 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 9 SECTORS/TRACK, 80 TRACKS
-DPB1	EQU	$	; DISK PARM BLOCK
- 	DW	72	; SEC PER TRACK
- 	DB	5	; BLOCK SHIFT
- 	DB	31	; BLOCK MASK
- 	DB	1	; EXTNT MASK
- 	DW	354	; DISK SIZE-1
-  	DW	255	; DIRECTORY MAX
- 	DB	192	; ALLOC0
- 	DB	0	; ALLOC1
- 	DW	64	; CHECK SIZE
- 	DW	2	; OFFSET
-	; additional parameters:
-	DB 	3	  ; 72 / 9 = 8 -> 2^3
-	DB	00000111B ; 1024 bytes/sector -> modulo 8 (0..7)
- 	DB	00000000B ; Maxi/HD
-	; phys. parameters
-	DW	1024	; bytes/sectors
-	DB	9-1	; highest sectors/track
-	DB	80-1	; highest tracks per side
-	DB	2	; sides
-	
-XLT1	EQU	0	; NO XLATE TABLE
-
-	ENDIF
-	
-	IF DG_B14
-
-	; PHYSICAL FORMAT: 1.4 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 8 SECTORS/TRACK, 80 TRACKS
-DPB1	EQU	$	; DISK PARM BLOCK
- 	DW	64	; SEC PER TRACK
- 	DB	5	; BLOCK SHIFT
- 	DB	31	; BLOCK MASK
- 	DB	1	; EXTNT MASK
- 	DW	315	; DISK SIZE-1
-  	DW	255	; DIRECTORY MAX
- 	DB	192	; ALLOC0
- 	DB	0	; ALLOC1
- 	DW	64	; CHECK SIZE
- 	DW	2	; OFFSET
-	; additional parameters:
-	DB 	2	  ; 60 / 15 = 4 -> 2^2
-	DB	00000011B ; 1024 bytes/sector -> modulo 4 (0..3)
-	DB	00000000B ; Maxi/HD
-	; phys. parameters
-	DW	1024	; bytes/sectors
-	DB	8-1	; highest sector/track
-	DB	80-1	; highest track per side
-	DB	2	; sides
-
-XLT1	EQU	0	; NO XLATE TABLE
- 
-	ENDIF	; DG_B14
-
-	IF DG_B12
-
-	; PHYSICAL FORMAT: 1.2 MB, HD, DS, 512 BYTES/SECTOR, 4096 Bytes/Block, 15 SECTORS/TRACK, 80 TRACKS
-DPB1	EQU	$	; DISK PARM BLOCK
- 	DW	60	; SEC PER TRACK
- 	DB	5	; BLOCK SHIFT
- 	DB	31	; BLOCK MASK
- 	DB	1	; EXTNT MASK
- 	DW	295	; DISK SIZE-1
-  	DW	255	; DIRECTORY MAX
- 	DB	192	; ALLOC0
- 	DB	0	; ALLOC1
- 	DW	64	; CHECK SIZE
- 	DW	2	; OFFSET
-	; additional parameters:
-	DB 	2	  ; 60 / 15 = 4 -> 2^2
-	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
-	DB	00000000B ; Maxi/HD
-	; phys. parameters
-	DW	512	; bytes/sectors
-	DB	15-1	; highest sector/track
-	DB	80-1	; highest track per side
-	DB	2	; sides
-
-XLT1	EQU	0	; NO XLATE TABLE
-
-	ENDIF	; DG_B12
-
-	; Disk 2 (C) ---------------------------------------------------------
-
-	IF DG_C800
-
-DPB2	EQU	DPB0	; EQUIVALENT PARAMETERS
-XLT2	EQU	XLT0	; SAME TRANSLATE TABLE
-
-	ENDIF		; DG_C800
-
-	IF DG_C14
-
-	; PHYSICAL FORMAT: 1.4 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 8 SECTORS/TRACK, 80 TRACKS
-DPB2	EQU	$	; DISK PARM BLOCK
- 	DW	64	; SEC PER TRACK
- 	DB	5	; BLOCK SHIFT
- 	DB	31	; BLOCK MASK
- 	DB	1	; EXTNT MASK
- 	DW	315	; DISK SIZE-1
-  	DW	255	; DIRECTORY MAX
- 	DB	192	; ALLOC0
- 	DB	0	; ALLOC1
- 	DW	64	; CHECK SIZE
- 	DW	2	; OFFSET
-	; additional parameters:
-	DB 	2	  ; 60 / 15 = 4 -> 2^2
-	DB	00000111B ; 1024 bytes/sector -> modulo 8 (0..7)
-	DB	00000000B ; Maxi/HD
-	; phys. parameters
-	DW	1024	; bytes/sectors
-	DB	9-1	; highest sector/track
-	DB	80-1	; highest track per side
-	DB	2	; sides
-	
-XLT2	EQU	0	; NO XLATE TABLE
- 
-	ENDIF	; DG_C14
-
-	IF DG_C12
-
-	; PHYSICAL FORMAT: 1.2 MB, HD, DS, 512 BYTES/SECTOR, 4096 Bytes/Block, 15 SECTORS/TRACK, 80 TRACKS
-DPB2	EQU	$	; DISK PARM BLOCK
- 	DW	60	; SEC PER TRACK
- 	DB	5	; BLOCK SHIFT
- 	DB	31	; BLOCK MASK
- 	DB	1	; EXTNT MASK
- 	DW	295	; DISK SIZE-1
-  	DW	255	; DIRECTORY MAX
- 	DB	192	; ALLOC0
- 	DB	0	; ALLOC1
- 	DW	64	; CHECK SIZE
- 	DW	2	; OFFSET
-	; additional parameters:
-	DB 	2	  ; 60 / 15 = 4 -> 2^2
-	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
-	DB	00000000B ; Maxi/HD
-	; phys. parameters
-	DW	512	; bytes/sectors
-	DB	15-1	; highest sector/track
-	DB	80-1	; highest track per side
-	DB	2	; sides
-	
-XLT2	EQU	0	; NO XLATE TABLE
-
-	ENDIF	; DG_C12
-
-	; Disk 3 (D) --------------------------------------------------------
-
-	IF DG_D800
-
-DPB3	EQU	DPB0	; EQUIVALENT PARAMETERS
-XLT3	EQU	XLT0	; SAME TRANSLATE TABLE
-
-	ENDIF		; DG_D800
-	
-	IF DG_DIBM
-	
-	; physical format: 8 inch, SD, SS, 128 bytes/sector, 26 sectors/track, 77 tracks
-	; DISKDEF 3,1,26,6,1024,243,64,64,2 ; 8 ZOLL DEFINITION
-
-DPB3	EQU	$	; DISK PARM BLOCK
- 	DW	26	; SEC PER TRACK
- 	DB	3	; BLOCK SHIFT
- 	DB	7	; BLOCK MASK
- 	DB	0	; EXTNT MASK
- 	DW	242	; DISK SIZE-1
- 	DW	63	; DIRECTORY MAX
- 	DB	192	; ALLOC0
- 	DB	0	; ALLOC1
- 	DW	16	; CHECK SIZE
- 	DW	2	; OFFSET
-	; blocking/deblocking parameters PRUEFEN!!!:
-	DB	0	  ; 26 / 26 = 1 -> 2^0 (no deblocking)
-	DB	00000000B ; 128 bytes/sector -> modulo 1 (0) (no deblocking)
-	DB	01000000B ; Maxi/SD
-	; phys. parameters
-	DW	128	; bytes/sectors
-	DB	26-1	; highest sector/track
-	DB	77-1	; highest track per side
-	DB	1	; side
-
-	; TRANSLATE TABLE
-XLT3	EQU	$
- 	DB	1		
- 	DB	7		
- 	DB	13		
- 	DB	19		
- 	DB	25		
- 	DB	5		
- 	DB	11		
- 	DB	17		
- 	DB	23		
- 	DB	3		
- 	DB	9		
- 	DB	15		
- 	DB	21		
- 	DB	2		
- 	DB	8		
- 	DB	14		
- 	DB	20		
-  	DB	26		
- 	DB	6		
- 	DB	12		
- 	DB	18		
- 	DB	24		
- 	DB	4		
- 	DB	10		
- 	DB	16		
- 	DB	22
-	
-	ENDIF		; DG_DIBM
-
-	IF DG_D144
-
-	; PHYSICAL FORMAT: 1.44 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 9 SECTORS/TRACK, 80 TRACKS
-DPB3	EQU	$	; DISK PARM BLOCK
- 	DW	72	; SEC PER TRACK
- 	DB	5	; BLOCK SHIFT
- 	DB	31	; BLOCK MASK
- 	DB	1	; EXTNT MASK
- 	DW	354	; DISK SIZE-1
-  	DW	255	; DIRECTORY MAX
- 	DB	192	; ALLOC0
- 	DB	0	; ALLOC1
- 	DW	64	; CHECK SIZE
- 	DW	2	; OFFSET
-	; blocking/deblocking parameters: PRUEFEN !!!
-	DB 	3	  ; 72 / 9 = 8 -> 2^3
-	DB	00000111B ; 512 bytes/sector -> modulo 8 (0..7)
- 	DB	00000000B ; Maxi/HD
-	; phys. parameters
-	DW	1024	; bytes/sectors
-	DB	9-1	; highest sector/track
-	DB	80-1	; highest track per side
-	DB	2	; sides
-	
-XLT3	EQU	0	; NO XLATE TABLE
-
-	ENDIF		; DG_D144
-	
-	IF DG_D14
-
-	; PHYSICAL FORMAT: 1.4 MB, HD, DS, 1024 BYTES/SECTOR, 4096 Bytes/Block, 8 SECTORS/TRACK, 80 TRACKS
-DPB3	EQU	$	; DISK PARM BLOCK
- 	DW	64	; SEC PER TRACK
- 	DB	5	; BLOCK SHIFT
- 	DB	31	; BLOCK MASK
- 	DB	1	; EXTNT MASK
- 	DW	315	; DISK SIZE-1
-  	DW	255	; DIRECTORY MAX
- 	DB	192	; ALLOC0
- 	DB	0	; ALLOC1
- 	DW	64	; CHECK SIZE
- 	DW	2	; OFFSET
-	; blocking/deblocking parameters:
-	DB 	2	  ; 60 / 15 = 4 -> 2^2
-	DB	00000011B ; 512 bytes/sector -> modulo 0..3
-	DB	00000000B ; Maxi/HD
-	; phys. parameters
-	DW	1024	; bytes/sectors
-	DB	8-1	; highest sector/track
-	DB	80-1	; highest track per side
-	DB	2	; sides
-	
-XLT3	EQU	0	; NO XLATE TABLE
- 
-	ENDIF		; DG_D14
-
-	IF DG_D12
-
-	; PHYSICAL FORMAT: 1.2 MB, HD, DS, 512 BYTES/SECTOR, 4096 Bytes/Block, 15 SECTORS/TRACK, 80 TRACKS
-DPB3	EQU	$	; DISK PARM BLOCK
- 	DW	60	; SEC PER TRACK
- 	DB	5	; BLOCK SHIFT
- 	DB	31	; BLOCK MASK
- 	DB	1	; EXTNT MASK
- 	DW	295	; DISK SIZE-1
-  	DW	255	; DIRECTORY MAX
- 	DB	192	; ALLOC0
- 	DB	0	; ALLOC1
- 	DW	64	; CHECK SIZE
- 	DW	2	; OFFSET
-	; blocking/deblocking parameters:
-	DB 	2	  ; 60 / 15 = 4 -> 2^2
-	DB	00000011B ; 512 bytes/sector -> modulo 4 (0..3)
-	DB	00000000B ; Maxi/HD
-	; phys. parameters
-	DW	512	; bytes/sectors
-	DB	15-1	; highest sector/track
-	DB	80-1	; highest track per side
-	DB	2	; sides
-	
-XLT3	EQU	0	; NO XLATE TABLE
-
-	ENDIF	; DG_D12
-
-
-	; Disk 4 (E), IDE partition 0 ----------------------------------------
-	
-DPB4:	;disk parameter block for all disks.
-	IF FALSE
-	; Disk size 2 mb, DSM 1023, yields 256 tracks (0 to 255)
-	DW	64	; sectors per track
-	DB	4	; block shift factor
-	DB	15	; block mask - with block shift, sets block size to 1024
-	DB	0	; null mask
-	DW	1023	; disk size-1 = number of blocks in a disk - 1
-	DW	256	; directory max = no. directory entries/disk, arbitrary
-	DB	240	; alloc 0 -- need 4 bits (blocks) for 256 directory entries -- 
-	DB	0	; alloc 1 -- no. bits = (directory max x 32)/block size	
-	DW	0	; check size -- no checking, so zero
-	DW	1	; track offset -- first track for system
-	; blocking/deblocking parameters (not used):
-	DB	0,0,0
-	; phys. parameters (not used)
-	DW	0	; bytes/sectors
-	DB	0	; highest sector/track
-	DB	0	; highest track per side
-	DB	0	; sides
-	ENDIF
-	
-	IF NEWIDE
-	
-	; pyhs: Disk size 8 MB, 256 Byte/Sector, 128 sectors/track, 256 tracks
-	; BDOS: 256 Bytes/Sector, 256 sectors/track, blocksize 8192
-	; DISKDEF d,1,256,0,8192,1020,256,0,1
-	DW	256
-	DB	6
-	DB	63
-	DB	3
-	DW	1019
-	DW	255
-	DB	128
-	DB	0
-	DW	0
-	DW	1
-	; blocking/deblocking parameters (not used):
-	DB	1	  ; 256 / 128 = 2 -> 2^1
-	DB	00000001B ; 128 bytes/sector -> modulo 2 (0..1)
-	DB	0	  ; no used
-	; phys. parameters
-	DW	256	; bytes/sectors
-	DB	128-1	; highest sector/track
-	DB	256-1	; highest track per side
-	DB	1	; sides
-
-	ELSE	; NEWIDE
-
-	; Disk size 2 MB, 128 Byte/Sector, 64 sectors, 256 tracks (0 to 255), Blocksize 4096
-	; DISKDEF 0,1,64,0,4096,510,256,0,1
-	DW	64	; sectors per track
-	DB	5	; block shift factor
-	DB	31	; block mask - with block shift, sets block size to 1024
-	DB	1	; null mask
-	DW	509	; disk size-1 = number of blocks in a disk - 1
-	DW	255	; directory max = no. directory entries/disk, arbitrary
-	DB	192	; alloc 0 -- need 4 bits (blocks) for 256 directory entries -- 
-	DB	0	; alloc 1 -- no. bits = (directory max x 32)/block size	
-	DW	0	; check size -- no checking, so zero
-	DW	1	; track offset -- first track for system
-	; blocking/deblocking parameters (not used):
-	DB	0,0,0
-	; phys. parameters
-	DW	128	; bytes/sectors
-	DB	64-1	; highest sector/track
-	DB	256-1	; highest track per side
-	DB	1	; sides
-	
-	ENDIF	; NEWIDE
-
-	; Disk 5 (F), IDE partition 1 ----------------------------------------
-DPB5	EQU	DPB4	; EQUIVALENT PARAMETERS
-
-	; Disk 6 (G), IDE partition 2 ----------------------------------------
-DPB6	EQU	DPB4	; EQUIVALENT PARAMETERS
-
-	; Disk 7 (H), IDE partition 3 ----------------------------------------
-DPB7	EQU	DPB4	; EQUIVALENT PARAMETERS
-
-	ENDIF	; DG_NEW
+	$INCLUDE NBIOS.DPB
 
 ;-----------------------------------------------------------------------------
 ; CP/M message after cold start
@@ -712,65 +264,10 @@ SIGNON:	DB 26
 	DB 'K',CR,LF
 	DB 'NBIOS '
 	DB BIOSVER/10+'0','.',BIOSVER MOD 10+'0'
-	DB ' 261015-04'
+	DB ' 261025-06'
 	DB " BOOT=",BTDRV+'A',CR,LF
 
-	IF DG_NEW
-
-	$INCLUDE NBIOS11.SIG
-
-	ELSE	; DG_NEW
-
-	DB "A:NKC800"
-
-	IF DG_B800
-	DB ",B:NKC800"
-	ENDIF
-	IF DG_B144
-	DB ",B:1,44MB"
-	ENDIF
-	IF DG_B14
-	DB ",B:1,4MB"
-	ENDIF
-	IF DG_B12
-	DB ",B:1,2MB"
-	ENDIF
-
-	IF DG_C800
-	DB ",C:NKC800"
-	ENDIF
-	IF DG_C14
-	DB ",C:1,4MB"
-	ENDIF
-	IF DG_C12
-	DB ",C:1,2MB"
-	ENDIF
-
-	IF DG_D800
-	DB ",D:NKC800"
-	ENDIF
-	IF DG_D144
-	DB ",D:1,44MB"
-	ENDIF
-	IF DG_D14
-	DB ",D:1,4MB"
-	ENDIF
-	IF DG_D12
-	DB ",D:1,2MB"
-	ENDIF
-	IF DG_DIBM
-	DB ",D:IBM"
-	ENDIF
-	
-	DB ",E..H:"
-	
-	IF NEWIDE
-	DB "8192K"
-	ELSE
-	DB "2048K"
-	ENDIF
-	
-	ENDIF	; DG_NEW
+	$INCLUDE NBIOS.SIG
 
 	DB CR,LF,0
 
@@ -812,7 +309,7 @@ BOOT:	LD SP,BUFF+80H	; set stack
 
 	; DEBUG E710
 	;LD A,(0E710h)
-	;CALL DEBX8
+	;CALL MDEBX8
 	
 	; clear / set last used drive
 	LD A,BTDRV
@@ -1144,12 +641,9 @@ PRMSG: 	LD A,(HL)
 ; Track in IOT (0..n-1 * side)
 ; Sector in IOS (0..n-1)
 
-READ:
-	IF NEWIDE
-	; reset CF/IDE flag
+READ:	; reset CF/IDE flag
 	XOR A
 	LD (ISIDE),A
-	ENDIF
 
 	LD A,(DBANK)
 	CP 8
@@ -1170,13 +664,6 @@ READ1:	LD A,(BLREG)
 	CP 00010000B	; flag for Maxi disk (bit5=0, bit4=4)
 	JP Z,MAXIRD	; -> Maxi disk
 	JP MINIRD	; -> Mini disk
-	
-	if NOT NEWIDE
-	
-	CP 8
-	JP C,IDERD	; A < 8 -> IDE disks 4,5,6,7
-	
-	ENDIF		; NOT NEWIDE
 
 	;---------------------------------------------------------------------
 
@@ -1281,12 +768,9 @@ MAXIR1:	; retry loop
 ; Sector in IOS (0..n-1)
 ; BDOS-Flag in C (0 = standard sector, 1 = directory sector, 2 =  first sector in block)
 
-WRITE:
-	IF NEWIDE
-	; reset CF/IDE flag
+WRITE:	; reset CF/IDE flag
 	XOR A
 	LD (ISIDE),A
-	ENDIF
 	
 	LD A,(DBANK)
 	CP 8
@@ -1307,13 +791,6 @@ WRITE1:	LD A,(BLREG)
 	CP 00010000B
 	JP Z,MAXIWR	; -> Maxi disk
 	JP MINIWR
-
-	if NOT NEWIDE
-	
-	CP 8
-	JP C,IDEWR	; A < 8 -> IDE disks 4,5,6,7
-	
-	ENDIF		; NOT NEWIDE
 	
 	;---------------------------------------------------------------------
 
@@ -1381,24 +858,8 @@ PHSBUF	EQU 0FC00H	; Memory area of interactive Monitor for logical sector (1K)
 
 ;-----------------------------------------------------------------------------
 ; Calculates physical drive from DBANK and IOT -> C
-; only for Mini disks
-
-; DBANK, IOT     C
-;  0     F    -> 0
-;  1     F    -> 2
-;  0     B    -> 1
-;  1     B    -> 3
-
-; muss fuer Minidisk C und D erweitert werden
-
-; drive number (0..n-1) -> C, Bit 0..3
-; side -> (0..n-1) -> C, Bit 7
-
 ; calculates physical sector from logical sector, IOS -> E
-; logical sector 0..39 -> physical sector 1..5
-
 ; calculates logical track from physical track, IOT -> D
-; 0..159 -> 0..79 (max 127)
 
 MINCAL:	; logical sector to physical sector
 	; get drive specific factor
@@ -1419,8 +880,6 @@ MINIC4:	; factor = 0
 MINIC5:	INC A		; sector number starts with 1
 	LD E,A		; save in E
 
-	IF NEWIDE
-	
 	LD A,(ISIDE)
 	AND A
 	JR Z,MINC5A	; -> no CF/IDE drive
@@ -1432,10 +891,7 @@ MINIC5:	INC A		; sector number starts with 1
 	LD D,A
 	RET
 
-MINC5A:
-	ENDIF
-
-	; drive A,B,C,D -> 0001,0010,0100,1000
+MINC5A:	; drive A,B,C,D -> 0001,0010,0100,1000
 	LD A,(DBANK)	; 0..3
 	INC A		; -> 1..4
 	LD B,A
@@ -1621,7 +1077,7 @@ CALCPHS:
 	IF DEBOUT
 	;LD C,'['
 	;CALL MCONOUT
-	;CALL DEBX16
+	;CALL MDEBX16
 	;LD C,']'
 	;CALL MCONOUT
 	ENDIF
@@ -1630,23 +1086,6 @@ CALCPHS:
 	LD HL,(IOD)
 	LD BC,128
 	RET
-
-	;LD HL,PHSBUF
-	;LD A,(IOS)	; PHSBUF + ((0..39) MOD 8) * 128
-	;AND 00000111b	; 0..7 (mod 8)
-	;LD D,A		; * 256 (low byte is written into the high byte)
-	;LD E,0
-	;SRA D		; div/2 by shift right
-	;RR E
-	;ADD HL,DE	; HL = source (PHSBUF+offset)
-	;EX DE,HL	; DE = source
-	;LD HL,(IOD)	; HL = dest (IOD)
-	;EX DE,HL	; DE = dest, HL = source
-	;LD BC,128	; logical sector length
-	;LDIR		; (DE++) <- (HL++), BC--
-			; (IOD) <- (PHSBUF+offset), 128 Byte
-	;XOR A
-	;RET		; -> finished without error
 
 ;-----------------------------------------------------------------------------
 ; Read physical sector to PHSBUF
@@ -1657,13 +1096,9 @@ GETPHS:	; reset buffer changed flag
 	XOR A		
 	LD (BUFCHG),A
 
-	IF NEWIDE
-	
 	LD A,(ISIDE)
 	AND A
 	JR NZ,GETIDE	; -> CF/IDE drive
-	
-	ENDIF
 
 	; floppy drive
 	LD HL,PHSBUF	; buffer address for data
@@ -1688,44 +1123,20 @@ GETPHS:	; reset buffer changed flag
 
 	;---------------------------------------------------------------------
 
-	IF NEWIDE
-
 GETIDE:	; handle CD/IDE drive
-
-	; NEWIDE LBA assignment (8192K):
-	; 00000000 00000000 00000000
-	; 0000000d dsssssss tttttttt
-	;        E        B        C
-
-	; LBA0..7 -> C
-	LD A,(CURTRK)
-	LD C,A		; LBA0..7 -> B
-
+	LD HL,PHSBUF	; buffer
 	LD A,(CURDRV)
-	SUB A,4		; drive 4..7 -> drive 0..3
-	LD E,A
-	SRL E		; drive bit 1 -> bit 0, bit 0 -> carry
-			; LBA16..23 -> E
-
-	LD B,0
-	RR B		; carry -> bit 7
+	SUB A,4
+	LD C,A		; volume (0..3)
 	LD A,(CURSEC)
-	DEC A		; phys sect. starts wird 1
-	OR B
-	LD B,A		; LBA8..15 -> B
-
-	LD HL,PHSBUF
-
-	;LD D,'R'
-	;CALL DEBIDE	; debug output
-
+	LD E,A		; sector (0..127)
+	LD A,(CURTRK)
+	LD D,A		; track (0..255)
 	CALL MIDERD	; read sector from IDE/CF
 	AND 01h
 	RET
 
-	ENDIF
-
-;-----------------------------------------------------------------------------
+	;---------------------------------------------------------------------
 
 PHSERR:	
 	;IF DEBOUT
@@ -1744,14 +1155,9 @@ PUTPHS:	; reset buffer changed flag
 	XOR A
 	LD (BUFCHG),A
 
-	IF NEWIDE
-	
 	LD A,(ISIDE)
 	AND A
-	
 	JR NZ,PUTIDE	; -> CF/IDE drive
-	
-	ENDIF
 	
 	; floppy drive
 	LD HL,PHSBUF	; buffer address
@@ -1776,182 +1182,19 @@ PUTPHS:	; reset buffer changed flag
 
 	;---------------------------------------------------------------------
 
-	IF NEWIDE
-
 PUTIDE:	; handle CD/IDE drive
-
-	; NEWIDE LBA assignment (8192K):
-	; 00000000 00000000 00000000
-	; 0000000d dsssssss tttttttt
-	;        E        B        C
-
-	; LBA0..7 -> C
-	LD A,(CURTRK)
-	LD C,A		; LBA0..7 -> B
-
+	LD HL,PHSBUF	; buffer
 	LD A,(CURDRV)
-	SUB A,4		; drive 4..7 -> drive 0..3
-	LD E,A
-	SRL E		; drive bit 1 -> bit 0, bit 0 -> carry
-			; LBA16..23 -> E
-
-	LD B,0
-	RR B		; carry -> bit 7
+	SUB A,4
+	LD C,A		; volume (0..3)
 	LD A,(CURSEC)
-	DEC A		; phys sect. starts wird 1
-	OR B
-	LD B,A		; LBA8..15 -> B
-
-	LD HL,PHSBUF
-
-	;LD D,'W'
-	;CALL DEBIDE	; debug output
-
-	CALL MIDEWR	; write sector to CD/IDE
+	LD E,A		; sector (0..127)
+	LD A,(CURTRK)
+	LD D,A		; track (0..255)
+	CALL MIDEWR	; write sector to IDE/CF
 	AND 01h
 	RET
 
-	ENDIF
-
-;-----------------------------------------------------------------------------
-
-; Addresses of IDE-80 CF-Adapter card
-
-IDEDATA	EQU 018h	; IDE Data Register
-SECCND	EQU 01Ah	; Sector Count Register
-LBA7	EQU 01Bh	; LBA Bits 0-7
-LBA15	EQU 01Ch	; LBA Bits 8-15
-LBA23	EQU 01Dh	; LBA Bits 16-23
-IDEHEAD	EQU 01Eh	; IDE Drive Head Register
-IDESTAT	EQU 01Fh	; IDE Command/Status Register
-
-; IDE/CF physical format: 
-; 4 partitions
-; 8192 KB bytes/partition 
-; 128 bytes/sector
-; 256 sectors/track
-; 256 tracks
-; 128 * 256 * 256 / 1024 = 8192
-
-; old (2048K):
-; LBA
-; 00000000 00000000 00000000
-; 00000000 tttttttt ssssssdd
-;        E        B        C
-
-; NEWIDE (8192K):
-; LBA
-; 00000000 00000000 00000000
-; 000000dd tttttttt ssssssss
-;        E        B        C
-
-;-----------------------------------------------------------------------------
-; Read one 256 byte sector from disk.
-; Return a 00h in A if the operation completes properly, and 01h if an error occurs during the read.
-; Disk number in DBANK  (4..7)
-; Track number in IOT
-; Sector number in IOS
-; DMA address in IOD
-
-	IF NOT NEWIDE
-
-IDERD:	LD HL,PHSBUF
-
-	; LBA0..7 -> C
-	LD A,(IOS)
-	SLA A		; make room for 4 disks (0 to 3, 2 bits)
-	SLA A
-	LD B,A
-	LD A,(DBANK)
-	SUB A,4
-	OR B
-	LD C,A		; C = sector * 4 + (diskno - 4)
-
-	; LBA8..15 -> B
-	LD A,(IOT)
-	LD B,A
-	
-	; LBA16..23) -> E
-	LD E,0
-
-	CALL MIDERD
-
-	PUSH AF
-	LD C,'*'
-	CALL MCONOUT
-	LD C,'R'
-	CALL MCONOUT
-	CALL DEBX16
-	LD C,'*'
-	CALL MCONOUT
-	POP AF
-
-	AND 01H
-	RET NZ		; -> exit with error
-			
-	LD HL,(IOD)	; memory location to place data read from disk
-	LD DE,PHSBUF	; host buffer
-
-	LD B,128	; size of CP/M sector
-IDERD6:	LD A,(DE)	; get byte from host buffer
-	LD (HL),A	; put in memory
-	INC HL
-	INC DE
-	DJNZ IDERD6	; put 128 bytes into memory
-
-	; no error
-	XOR A
-	RET
-
-	ENDIF		; NEWIDE
-	
-;-----------------------------------------------------------------------------
-; Write one 26 byte sector to IDE
-; Return a 00h in register A if the operation completes properly, and 0lh if an error occurs during the read or write
-; Disk number in DBANK (4..7)
-; Track number in IOT (0..n-1)
-; Sector number in IOS (0..n-1)
-; DMA address in IOD (0-65535)
-
-	IF NOT NEWIDE
-
-IDEWR:	LD HL,(IOD)	; memory location of data to write
-	LD DE,PHSBUF	; host buffer
-	LD B,128	; size of CP/M sector
-
-IDEWR1:	LD A,(HL)	; get byte from memory
-	LD (DE),A	; put in host buffer
-	INC HL
-	INC DE
-	DJNZ IDEWR1	; put 128 bytes in host buffer
-
-	LD HL,PHSBUF
-
-	; LBA0..7 -> C
-	LD A,(IOS)
-	SLA A		; make room for 4 disks (0 to 3, 2 bits)
-	SLA A
-	LD B,A
-	LD A,(DBANK)
-	SUB A,4
-	OR B
-	LD C,A		; C = sector * 4 + (diskno - 4)
-	
-	; LBA8..15 -> B
-	LD A,(IOT)
-	LD B,A
-	
-	; LBA16..23) -> E
-	LD E,0
-
-	CALL MIDEWR
-
-	; status in A
-	AND 01h		; error flag
-	RET
-
-	ENDIF		; NEWIDE
-	
 ;-----------------------------------------------------------------------------
 ; Delay loop 40ms..10ms (???)
 
@@ -2124,21 +1367,21 @@ DEBPH2:	CALL MCONOUT
 	LD A,L
 	AND 10001111B
 	;LD H,0
-	CALL DEBX8
+	CALL MDEBX8
 
 	LD C,','
 	CALL MCONOUT
 
 	; track
 	LD A,D
-	CALL DEBX8
+	CALL MDEBX8
 
 	LD C,','
 	CALL MCONOUT
 
 	; sector
 	LD A,E
-	CALL DEBX8
+	CALL MDEBX8
 
 	LD C,']'
 	CALL MCONOUT
@@ -2170,19 +1413,19 @@ DEBLK:	PUSH DE
 
 DEBLK1:	; loop B=8..1
 	LD A,(HL)
-	CALL DEBX8
+	CALL MDEBX8
 	LD C,'-'
 	CALL MCONOUT
 
 	INC HL
 	LD A,(HL)
-	CALL DEBX8
+	CALL MDEBX8
 	LD C,'-'
 	CALL MCONOUT
 	
 	INC HL
 	LD A,(HL)
-	CALL DEBX8
+	CALL MDEBX8
 	LD C,','
 	CALL MCONOUT
 
@@ -2216,13 +1459,13 @@ DEBDRV:	PUSH BC
 	CALL MCONOUT
 	LD A,(DBANK)
 	LD L,A
-	CALL DEBDEC
+	CALL MDEBDEC
 	LD H,0
 	
 	LD C,','
 	CALL MCONOUT
 	POP HL
-	CALL DEBDEC
+	CALL MDEBDEC
 	LD C,']'
 	CALL MCONOUT
 
@@ -2247,12 +1490,12 @@ DEBSEL:	PUSH BC
 	LD A,(DBANK)
 	LD L,A
 	LD H,0
-	CALL DEBDEC
+	CALL MDEBDEC
 	
 	LD C,','
 	CALL MCONOUT
 	POP HL
-	CALL DEBDEC
+	CALL MDEBDEC
 	LD C,']'
 	CALL MCONOUT
 
@@ -2287,21 +1530,21 @@ DEBIDE:	;LD A,(DEBACT)
 
 	; drive
 	LD A,E
-	CALL DEBX8
+	CALL MDEBX8
 
 	LD C,' '
 	CALL MCONOUT
 
 	; sectors
 	LD A,B
-	CALL DEBX8
+	CALL MDEBX8
 	
 	LD C,' '
 	CALL MCONOUT
 
 	; tracks
 	LD A,D		; saved sector in D
-	CALL DEBX8
+	CALL MDEBX8
 
 	LD C,']'
 	CALL MCONOUT
@@ -2353,19 +1596,19 @@ DEBBU2:	CALL MCONOUT
 	LD HL,(IOD)
 	
 	LD A,(HL)
-	CALL DEBX8	
+	CALL MDEBX8	
 	LD C,','
 	CALL MCONOUT
 
 	INC HL
 	LD A,(HL)
-	CALL DEBX8	
+	CALL MDEBX8	
 	LD C,','
 	CALL MCONOUT
 
 	INC HL
 	LD A,(HL)
-	CALL DEBX8	
+	CALL MDEBX8	
 
 	LD C,']'
 	CALL MCONOUT
@@ -2375,101 +1618,6 @@ DEBBU3:	POP BC
 	RET
 
 	ENDIF
-
-;=============================================================================
-; Debug outputs
-
-	IF DEBOUT
-
-;-----------------------------------------------------------------------------
-; Display value in HL as decimal
-
-DEBDEC:	PUSH AF
-	PUSH BC
-
-	LD BC,-10000	; 1. Zehnerpotenz: Zehntausender
-	CALL DEBDE1
-	LD BC,-1000	; 2. Zehnerpotenz: Tausender
-	CALL DEBDE1
-	LD BC,-100	; 3. Zehnerpotenz: Hunderter
-	CALL DEBDE1
-	LD BC,-10	; 4. Zehnerpotenz: Zehner
-	CALL DEBDE1
-	LD C,-1		; 5. Zehnerpotenz: Einer (immer ausgeben)
-	CALL DEBDE1
-	
-	POP BC
-	POP AF
-	RET
-
-
-DEBDE1:	LD A,'0' - 1	; Startwert fuer ASCII-Zeichen ('0' minus 1)
-
-DEBDE2:	INC A		; Zeichen um 1 erhoehen (ASCII-Code weiterzaehlen)
-	ADD HL,BC	; Zehnerpotenz abziehen
-	JR C,DEBDE2	; Wenn kein Uebertrag (Zahl war groesser), weiter abziehen
-
-	SBC HL,BC	; Uebertrag korrigieren (zu viel abgezogen, also wieder drauf)
-    
-	; Das Zeichen (ASCII-Code) befindet sich jetzt im Akkumulator (A).
-	;PUSH BC	; Register sichern
-	;PUSH HL
-	LD C,A		; character to print
-	CALL MCONOUT	; uses A
-	;POP HL
-	;POP BC
-	RET
-
-;-----------------------------------------------------------------------------
-; Output HL as 4-digit hex string
-
-DEBX16:	PUSH AF
-
-	LD A,H
-	CALL DEBX8
-	LD A,L
-	CALL DEBX8
-	
-	POP AF
-	RET
-
-;-----------------------------------------------------------------------------
-; Output A as 2-digit hex string
-
-DEBX8:	PUSH AF
-	PUSH BC
-
-	PUSH AF
-	SRL A
-	SRL A
-	SRL A
-	SRL A
-	CALL DEBXN
-	POP AF
-	CALL DEBXN
-
-	POP BC
-	POP AF
-	RET
-
-;-----------------------------------------------------------------------------
-; Output low-nibble in A 1-digit hex string
-
-DEBXN:	AND 0Fh
-	CP 0Ah
-	JR C,DEBXN1
-	
-	ADD A,'A'-10
-	JR DEBXN2
-
-DEBXN1:	ADD A,'0'
-
-DEBXN2:	LD C,A
-	JP MCONOUT
-
-;-----------------------------------------------------------------------------
-
-	ENDIF	; DEBOUT
 
 ;=============================================================================
 
@@ -2509,106 +1657,11 @@ DEBACT:	DB 0
 BEGDAT	EQU	$
 DIRBUF:	DS	128	;DIRECTORY ACCESS BUFFER
 
-	IF DG_NEW
+;-----------------------------------------------------------------------------
 
-	$INCLUDE NBIOS11.ALV
+	$INCLUDE NBIOS.ALV
 
-	ELSE	; DG_NEW
-
-	; drive 0
-
-ALV0:	DS	49
-CSV0:	DS	64
-
-	; drive 1
-
-	IF DG_B800
-ALV1:	DS	49
-CSV1:	DS	64
-	ENDIF
-
-	IF DG_B144
-ALV1:	DS	45	; PRUEFEN !!!
-CSV1:	DS	64
-	ENDIF
-
-	IF DG_B14
-ALV1:	DS	45	; PRUEFEN !!!
-CSV1:	DS	64
-	ENDIF
-	
-	IF DG_B12
-ALV1:	DS	45	; PRUEFEN !!!
-CSV1:	DS	64
-	ENDIF
-
-	; drive 2
-
-	IF DG_C800
-ALV2:	DS	49
-CSV2:	DS	64
-	ENDIF
-
-	IF DG_C14
-ALV2:	DS	45	; PRUEFEN !!!
-CSV2:	DS	64
-	ENDIF
-	
-	IF DG_C12
-ALV2:	DS	45	; PRUEFEN !!!
-CSV2:	DS	64
-	ENDIF
-	
-	; drive 3
-
-	IF DG_D800
-ALV3:	DS	49
-CSV3:	DS	64
-	ENDIF
-
-	IF DG_D144
-ALV3:	DS	45
-CSV3:	DS	64
-	ENDIF
-
-	IF DG_D14
-ALV3:	DS	45	; PRUEFEN !!!
-CSV3:	DS	64
-	ENDIF
-	
-	IF DG_D12
-ALV3:	DS	37	; PRUEFEN !!!
-CSV3:	DS	64
-	ENDIF
-
-	IF DG_DIBM
-ALV3:	DS	31
-CSV3:	DS	16
-	ENDIF
-
-	; drive 4,5,6,7
-
-	IF NOT NEWIDE
-ALV4:	DS	64	; size of each must be (DSM/8)+1
-CSV4:	DS	0
-ALV5:	DS	64
-CSV5:	DS	0
-ALV6:	DS	64
-CSV6:	DS	0
-ALV7:	DS	64
-CSV7:	DS	0
-	ELSE
-ALV4:	DS	128	; size of each must be (DSM/8)+1
-CSV4:	DS	0
-ALV5:	DS	128
-CSV5:	DS	0
-ALV6:	DS	128
-CSV6:	DS	0
-ALV7:	DS	128
-CSV7:	DS	0
-	ENDIF
-
-	ENDIF	; DG_NEW
+;-----------------------------------------------------------------------------
 	
 ENDDAT	EQU	$
 DATSIZ	EQU	$-BEGDAT

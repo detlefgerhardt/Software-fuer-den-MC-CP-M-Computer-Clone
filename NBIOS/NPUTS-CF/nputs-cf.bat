@@ -1,4 +1,5 @@
 echo off > nul
 cpm z80asm NPUTS-CF/f,NPUTS-CF/h
-hexreset NPUTS-CF.HEX
+rem hexreset NPUTS-CF.HEX
+unload NPUTS-CF.HEX 0000
 del nputs-cf.com
